@@ -83,12 +83,12 @@ function renderDashboardPage(user, liveMatches) {
             <a href="#" class="bg-[#1f2937] px-2.5 py-1 rounded border border-gray-700 hover:text-white">Bangladesh v West Indies</a>
         </div>
 
-        <!-- MAIN NAVIGATION BAR (As per Screenshot top bar) -->
+        <!-- MAIN CATEGORY NAVIGATION BAR -->
         <nav class="bg-custom-navy border-b border-[#2b394a] px-2 flex space-x-6 text-[11px] font-bold uppercase tracking-wider overflow-x-auto">
             <a href="#" class="py-2.5 active-tab">Sports</a>
         </nav>
 
-        <!-- SPORTS SUB-NAVIGATION BAR (Exact Screenshot Sports List) -->
+        <!-- SPORTS SUB-NAVIGATION BAR (Exact matching screenshot top sports menu) -->
         <div class="bg-[#111827] px-3 py-2 flex space-x-6 text-[10px] font-bold overflow-x-auto border-b border-[#2b394a] whitespace-nowrap">
             <a href="#" class="flex flex-col items-center text-[#00c0FF]">
                 <i class="fa-solid fa-baseball-bat-ball text-sm mb-0.5"></i> <span>CRICKET</span>
