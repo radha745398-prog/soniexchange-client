@@ -14,8 +14,8 @@
         }
 
         body {
-            /* Exact reference site teal/blue-green theme match */
-            background: linear-gradient(180deg, #1f4e5b 0%, #173b45 100%);
+            /* Rich Blue Theme for both Mobile & Desktop */
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -24,82 +24,91 @@
             color: #ffffff;
         }
 
-        /* Top Brand Header */
+        .main-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            padding: 20px;
+        }
+
+        /* Top Brand Header - Brought slightly lower and perfectly centered */
         .brand-header {
-            margin-top: 50px;
+            margin-bottom: 25px;
             text-align: center;
         }
 
         .brand-logo {
-            font-size: 42px;
+            font-size: 38px;
             font-style: italic;
             letter-spacing: 2px;
             color: #ffffff;
-            font-weight: 700;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            font-weight: 800;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.4);
         }
 
-        /* Login Card */
+        /* Login Card - Responsive for Desktop & Mobile */
         .login-card {
             background: #ffffff;
-            width: 88%;
-            max-width: 360px;
-            border-radius: 8px;
-            padding: 24px 20px 20px 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-            margin: 20px 0;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 10px;
+            padding: 30px 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
         }
 
         .card-title {
-            color: #173b45;
-            font-size: 22px;
+            color: #1e3a8a;
+            font-size: 24px;
             text-align: center;
-            margin-bottom: 18px;
-            font-weight: 600;
+            margin-bottom: 20px;
+            font-weight: 700;
         }
 
         .card-title i {
-            font-size: 18px;
-            margin-left: 4px;
+            font-size: 20px;
+            margin-left: 6px;
         }
 
         /* Form Inputs */
         .input-group {
             display: flex;
-            margin-bottom: 14px;
+            margin-bottom: 16px;
             border: 1px solid #cbd5e1;
-            border-radius: 4px;
+            border-radius: 6px;
             overflow: hidden;
             background: #ffffff;
         }
 
         .input-group input {
             flex: 1;
-            padding: 12px 14px;
+            padding: 14px;
             border: none;
             outline: none;
-            font-size: 15px;
+            font-size: 16px;
             color: #334155;
         }
 
         .input-group .icon-box {
-            width: 45px;
+            width: 50px;
             background: #f8fafc;
             display: flex;
             align-items: center;
             justify-content: center;
             color: #475569;
-            font-size: 15px;
+            font-size: 16px;
             border-left: 1px solid #e2e8f0;
         }
 
         /* Buttons */
         .btn {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             border: none;
-            border-radius: 4px;
-            font-size: 15px;
+            border-radius: 6px;
+            font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             display: flex;
@@ -110,42 +119,41 @@
         }
 
         .btn-primary {
-            background: #173b45; 
+            background: #1e3a8a; 
             color: #ffffff;
-            margin-top: 14px;
-            margin-bottom: 10px;
+            margin-top: 16px;
+            margin-bottom: 12px;
         }
 
-        .btn-primary:active {
-            background: #1f4e5b;
+        .btn-primary:hover {
+            background: #1e40af;
         }
 
         .btn-secondary {
-            background: #1f4e5b;
+            background: #0f172a;
             color: #ffffff;
         }
 
-        .btn-secondary:active {
-            background: #173b45;
+        .btn-secondary:hover {
+            background: #1e293b;
         }
 
         /* Footer Layout */
         .footer {
             width: 100%;
-            background: #112830;
-            padding: 14px 10px;
+            background: #090d16;
+            padding: 16px 10px;
             text-align: center;
+            border-top: 1px solid rgba(255,255,255,0.1);
         }
 
         .footer-links {
             display: flex;
-            justify-content: space-around;
-            font-size: 13px;
-            color: #cbd5e1;
+            justify-content: center;
+            gap: 30px;
+            font-size: 14px;
+            color: #94a3b8;
             margin-bottom: 8px;
-            max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
         }
 
         .footer-links a {
@@ -154,43 +162,55 @@
         }
 
         .support-text {
-            font-size: 17px;
+            font-size: 18px;
             color: #ffffff;
             font-weight: bold;
             letter-spacing: 0.5px;
+        }
+
+        /* Desktop specific spacing enhancements */
+        @media (min-width: 768px) {
+            .login-card {
+                padding: 40px 35px;
+            }
+            .brand-logo {
+                font-size: 46px;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- Header Logo -->
-    <div class="brand-header">
-        <div class="brand-logo">SONIEXCHANGE</div>
-    </div>
+    <div class="main-container">
+        <!-- Header Logo -->
+        <div class="brand-header">
+            <div class="brand-logo">SONIEXCHANGE</div>
+        </div>
 
-    <!-- Main Card -->
-    <div class="login-card">
-        <div class="card-title">Login <i class="fa-solid fa-hand-pointer"></i></div>
+        <!-- Main Card -->
+        <div class="login-card">
+            <div class="card-title">Login <i class="fa-solid fa-hand-pointer"></i></div>
 
-        <form id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
-            <div class="input-group">
-                <input type="text" id="username" placeholder="Username" required>
-                <div class="icon-box"><i class="fa-solid fa-user"></i></div>
-            </div>
+            <form id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
+                <div class="input-group">
+                    <input type="text" id="username" placeholder="Username" required>
+                    <div class="icon-box"><i class="fa-solid fa-user"></i></div>
+                </div>
 
-            <div class="input-group">
-                <input type="password" id="password" placeholder="Password" required>
-                <div class="icon-box"><i class="fa-solid fa-key"></i></div>
-            </div>
+                <div class="input-group">
+                    <input type="password" id="password" placeholder="Password" required>
+                    <div class="icon-box"><i class="fa-solid fa-key"></i></div>
+                </div>
 
-            <button type="submit" class="btn btn-primary">
-                Login <i class="fa-solid fa-right-to-bracket"></i>
-            </button>
-            
-            <button type="button" class="btn btn-secondary" onclick="demoLogin()">
-                Login with demo ID <i class="fa-solid fa-right-to-bracket"></i>
-            </button>
-        </main>
+                <button type="submit" class="btn btn-primary">
+                    Login <i class="fa-solid fa-right-to-bracket"></i>
+                </button>
+                
+                <button type="button" class="btn btn-secondary" onclick="demoLogin()">
+                    Login with demo ID <i class="fa-solid fa-right-to-bracket"></i>
+                </button>
+            </form>
+        </div>
     </div>
 
     <!-- Footer -->
