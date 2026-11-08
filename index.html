@@ -16,11 +16,11 @@
         html, body {
             height: 100vh;
             width: 100vw;
-            overflow: hidden; /* Scroll complete disabled */
+            overflow: hidden;
         }
 
         body {
-            /* Exact Admin Panel Matching Blue */
+            /* Admin Panel Matching Solid Blue */
             background: #0284c7;
             display: flex;
             flex-direction: column;
@@ -29,6 +29,7 @@
             color: #ffffff;
         }
 
+        /* Center content layout */
         .main-container {
             width: 100%;
             display: flex;
@@ -39,48 +40,48 @@
             padding: 10px 15px;
         }
 
-        /* Top Brand Header - Compact for Single Frame */
+        /* Top Brand Header */
         .brand-header {
             margin-bottom: 15px;
             text-align: center;
         }
 
         .brand-logo {
-            font-size: 32px;
+            font-size: 30px;
             font-style: italic;
             letter-spacing: 2px;
             color: #ffffff;
             font-weight: 800;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            text-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
 
-        /* Login Card - Scaled to fit screen without scrolling */
+        /* Login Card Fit for All Screens */
         .login-card {
             background: #ffffff;
             width: 100%;
-            max-width: 360px;
+            max-width: 350px;
             border-radius: 8px;
-            padding: 20px 18px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            padding: 18px 16px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
         }
 
         .card-title {
             color: #0284c7;
-            font-size: 20px;
+            font-size: 18px;
             text-align: center;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
             font-weight: 700;
         }
 
         .card-title i {
-            font-size: 18px;
+            font-size: 16px;
             margin-left: 4px;
         }
 
         /* Form Inputs */
         .input-group {
             display: flex;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             overflow: hidden;
@@ -89,7 +90,7 @@
 
         .input-group input {
             flex: 1;
-            padding: 10px 12px;
+            padding: 9px 12px;
             border: none;
             outline: none;
             font-size: 14px;
@@ -97,7 +98,7 @@
         }
 
         .input-group .icon-box {
-            width: 44px;
+            width: 42px;
             background: #f8fafc;
             display: flex;
             align-items: center;
@@ -107,10 +108,10 @@
             border-left: 1px solid #e2e8f0;
         }
 
-        /* Buttons matching Admin style */
+        /* Action Buttons */
         .btn {
             width: 100%;
-            padding: 11px;
+            padding: 10px;
             border: none;
             border-radius: 6px;
             font-size: 14px;
@@ -126,11 +127,11 @@
         .btn-primary {
             background: #0284c7; 
             color: #ffffff;
-            margin-top: 10px;
+            margin-top: 8px;
             margin-bottom: 8px;
         }
 
-        .btn-primary:hover {
+        .btn-primary:active {
             background: #0369a1;
         }
 
@@ -139,26 +140,27 @@
             color: #ffffff;
         }
 
-        .btn-secondary:hover {
+        .btn-secondary:active {
             background: #1e293b;
         }
 
-        /* Footer Layout - Always Visible at Bottom */
+        /* Footer Layout - Always Fixed & Fully Visible */
         .footer {
             width: 100%;
             background: #0369a1;
-            padding: 10px 10px;
+            padding: 8px 10px;
             text-align: center;
             border-top: 1px solid rgba(255,255,255,0.2);
+            flex-shrink: 0;
         }
 
         .footer-links {
             display: flex;
             justify-content: center;
             gap: 20px;
-            font-size: 13px;
+            font-size: 12px;
             color: #e0f2fe;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
 
         .footer-links a {
@@ -167,20 +169,19 @@
         }
 
         .support-text {
-            font-size: 15px;
+            font-size: 14px;
             color: #ffffff;
             font-weight: bold;
             letter-spacing: 0.5px;
         }
 
-        /* Desktop specific enhancements */
         @media (min-width: 768px) {
             .brand-logo {
-                font-size: 40px;
+                font-size: 38px;
             }
             .login-card {
                 max-width: 380px;
-                padding: 26px 22px;
+                padding: 24px 20px;
             }
         }
     </style>
@@ -219,7 +220,7 @@
         </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Footer - Always Visible -->
     <div class="footer">
         <div class="footer-links">
             <a href="#">Terms and Conditions</a>
