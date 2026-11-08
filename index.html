@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SoniExchange - Client Portal</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -13,10 +13,15 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
+        html, body {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden; /* Scroll complete disabled */
+        }
+
         body {
             /* Exact Admin Panel Matching Blue */
             background: #0284c7;
-            min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -31,17 +36,17 @@
             align-items: center;
             justify-content: center;
             flex: 1;
-            padding: 20px;
+            padding: 10px 15px;
         }
 
-        /* Top Brand Header */
+        /* Top Brand Header - Compact for Single Frame */
         .brand-header {
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             text-align: center;
         }
 
         .brand-logo {
-            font-size: 38px;
+            font-size: 32px;
             font-style: italic;
             letter-spacing: 2px;
             color: #ffffff;
@@ -49,33 +54,33 @@
             text-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
-        /* Login Card */
+        /* Login Card - Scaled to fit screen without scrolling */
         .login-card {
             background: #ffffff;
             width: 100%;
-            max-width: 400px;
+            max-width: 360px;
             border-radius: 8px;
-            padding: 30px 24px;
+            padding: 20px 18px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
         }
 
         .card-title {
             color: #0284c7;
-            font-size: 24px;
+            font-size: 20px;
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 14px;
             font-weight: 700;
         }
 
         .card-title i {
-            font-size: 20px;
-            margin-left: 6px;
+            font-size: 18px;
+            margin-left: 4px;
         }
 
         /* Form Inputs */
         .input-group {
             display: flex;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             overflow: hidden;
@@ -84,45 +89,45 @@
 
         .input-group input {
             flex: 1;
-            padding: 14px;
+            padding: 10px 12px;
             border: none;
             outline: none;
-            font-size: 16px;
+            font-size: 14px;
             color: #334155;
         }
 
         .input-group .icon-box {
-            width: 50px;
+            width: 44px;
             background: #f8fafc;
             display: flex;
             align-items: center;
             justify-content: center;
             color: #475569;
-            font-size: 16px;
+            font-size: 14px;
             border-left: 1px solid #e2e8f0;
         }
 
         /* Buttons matching Admin style */
         .btn {
             width: 100%;
-            padding: 14px;
+            padding: 11px;
             border: none;
             border-radius: 6px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             transition: 0.2s ease;
         }
 
         .btn-primary {
             background: #0284c7; 
             color: #ffffff;
-            margin-top: 16px;
-            margin-bottom: 12px;
+            margin-top: 10px;
+            margin-bottom: 8px;
         }
 
         .btn-primary:hover {
@@ -138,11 +143,11 @@
             background: #1e293b;
         }
 
-        /* Footer Layout */
+        /* Footer Layout - Always Visible at Bottom */
         .footer {
             width: 100%;
             background: #0369a1;
-            padding: 16px 10px;
+            padding: 10px 10px;
             text-align: center;
             border-top: 1px solid rgba(255,255,255,0.2);
         }
@@ -150,10 +155,10 @@
         .footer-links {
             display: flex;
             justify-content: center;
-            gap: 30px;
-            font-size: 14px;
+            gap: 20px;
+            font-size: 13px;
             color: #e0f2fe;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
 
         .footer-links a {
@@ -162,18 +167,20 @@
         }
 
         .support-text {
-            font-size: 18px;
+            font-size: 15px;
             color: #ffffff;
             font-weight: bold;
             letter-spacing: 0.5px;
         }
 
+        /* Desktop specific enhancements */
         @media (min-width: 768px) {
-            .login-card {
-                padding: 40px 35px;
-            }
             .brand-logo {
-                font-size: 46px;
+                font-size: 40px;
+            }
+            .login-card {
+                max-width: 380px;
+                padding: 26px 22px;
             }
         }
     </style>
