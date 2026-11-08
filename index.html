@@ -21,7 +21,7 @@
             align-items: center;
             justify-content: center;
             color: #ffffff;
-            padding-bottom: 90px;
+            padding-bottom: 110px;
         }
 
         .main-container {
@@ -125,26 +125,26 @@
             color: #ffffff;
         }
 
-        /* Fixed Anchored Footer */
+        /* Fixed Footer Matching Reference Layout */
         .footer {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
             background: #0b2533;
-            padding: 12px 10px;
+            padding: 10px 10px 8px 10px;
             text-align: center;
             border-top: 1px solid rgba(255,255,255,0.15);
             z-index: 1000;
+            color: #ffffff;
         }
 
         .footer-links {
             display: flex;
             justify-content: space-around;
-            max-width: 400px;
-            margin: 0 auto 6px auto;
+            max-width: 450px;
+            margin: 0 auto 4px auto;
             font-size: 13px;
-            color: #cbd5e1;
         }
 
         .footer-links a {
@@ -155,12 +155,56 @@
 
         .support-text {
             font-size: 16px;
-            color: #ffffff;
             font-weight: bold;
             letter-spacing: 0.5px;
+            margin-bottom: 6px;
         }
 
-        /* Terms & Responsible Gaming Modal Popups */
+        .footer-badges {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            font-size: 11px;
+            color: #cbd5e1;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .secure-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #166534;
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .badge-icons {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .badge-icons span {
+            background: #1e293b;
+            border: 1px solid #475569;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #f8fafc;
+        }
+
+        .copyright {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        /* Modal Popups for Terms & Responsible Gaming */
         .modal {
             display: none;
             position: fixed;
@@ -179,7 +223,7 @@
             background: #ffffff;
             color: #1e293b;
             width: 100%;
-            max-width: 650px;
+            max-width: 750px;
             max-height: 85vh;
             border-radius: 8px;
             padding: 20px;
@@ -201,6 +245,7 @@
             position: sticky;
             top: 0;
             background: #ffffff;
+            z-index: 10;
         }
 
         .close-btn {
@@ -223,6 +268,15 @@
             margin-bottom: 4px;
             color: #0f172a;
             font-size: 14px;
+        }
+
+        .modal-body p, .modal-body li {
+            margin-bottom: 8px;
+            text-align: justify;
+        }
+
+        .modal-body ul {
+            padding-left: 20px;
         }
 
         .notice-box {
@@ -275,9 +329,21 @@
             <a onclick="openModal('responsibleModal')">Responsible Gaming</a>
         </div>
         <div class="support-text">24X7 Support</div>
+        <div class="footer-badges">
+            <div class="secure-badge"><i class="fa-solid fa-shield-halved"></i> SECURE SSL ENCRYPTION</div>
+            <span>100% SAFE Protected connection</span>
+            <div class="badge-icons">
+                <span>18+</span>
+                <span>G</span>
+                <span>gt</span>
+            </div>
+        </div>
+        <div class="copyright">
+            © Copyright 2026. All Rights Reserved. Powered by SONIEXCHANGE.
+        </div>
     </div>
 
-    <!-- Terms and Conditions Modal -->
+    <!-- Terms and Conditions Full Modal -->
     <div id="termsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -286,7 +352,7 @@
             </div>
             <div class="modal-body">
                 <div class="notice-box">
-                    Notice: SoniExchange is a entertainment portal operating strictly on virtual points. No real money deposits or withdrawals are processed on this platform.
+                    Notice: SoniExchange operates strictly on a virtual points-based system for entertainment purposes. No real money gambling, cash deposits, or real currency transactions take place on this platform.
                 </div>
 
                 <h4>1. About</h4>
@@ -296,29 +362,39 @@
                 <p>The Rules are a binding agreement between Us and You and by clicking that You accept the Rules when creating Your Account You agree that You have read and accepted the Rules. If You do not agree with the Rules, You should not register or continue to use the Website. Everything changes and We may change these Rules at any time. Where We do so We will contact You and inform You in advance of the new Rules being implemented.</p>
 
                 <h4>3. Definitions</h4>
-                <p>Being transparent is key. Here are some explanations of some terms used throughout the Rules. "Bonus" shall cover all promotional offers that gift a tangible reward, including but not limited to: welcome offers, reload bonuses, deposit bonuses, free spins, free bets, and safe bets. "Games" are Casino, Live Casino, Sportsbook and any other games on Our Site (including mobile or any other platform) and ’Game’ can mean any one of them. We can remove or add Games to the Site at any time. "Rules" are these terms, conditions and regulations which You agree to when using the Site. "Site" and "Website" and including, if applicable, any mobile and mobile application version thereof or any other subdomains of website'. "We", "Us", "Our" The Site is run by -, a company registered in -, "You" is you using the Site. "Your" has its usual meaning in relation to you. "Your Account" is your player account on the Site. "Totalisator" (also "Tote") refers to the betting pool usually operated by the race organiser, which forms the basis of the odds calculation (also known as pari-mutuel betting).</p>
+                <p>Being transparent is key. Here are some explanations of some terms used throughout the Rules. "Bonus" shall cover all promotional offers that gift a tangible reward, including but not limited to: welcome offers, reload bonuses, deposit bonuses, free spins, free bets, and safe bets. "Games" are Casino, Live Casino, Sportsbook and any other games on Our Site (including mobile or any other platform) and ’Game’ can mean any one of them. We can remove or add Games to the Site at any time. "Rules" are these terms, conditions and regulations which You agree to when using the Site. "Site" and "Website" and including, if applicable, any mobile and mobile application version thereof or any other subdomains of website'. "We", "Us", "Our" The Site is run by SoniExchange, a company registered, "You" is you using the Site. "Your" has its usual meaning in relation to you. "Your Account" is your player account on the Site. "Totalisator" (also "Tote") refers to the betting pool usually operated by the race organiser, which forms the basis of the odds calculation (also known as pari-mutuel betting).</p>
 
                 <h4>4. Who Can Play</h4>
-                <p>To play the games on the site You must be:<br>
-                -> over 18 years of age or above the legal age for gambling in the country You are playing from;<br>
-                -> an actual person. You cannot be a company or other legal entity;<br>
-                -> playing the Games for yourself and in a non-professional capacity;<br>
-                -> legally allowed to play Games on the Site;<br>
-                -> not resident in: Afghanistan, Algeria, Angola, Australia, Bahrain, Belgium, China, Cuba, Curacao, Czech Republic, Denmark, Eritrea, Estonia, Ethiopia, France, Georgia, Greece, Guadeloupe, Guyane (French Guiana), Hong Kong, Hungary, Indonesia, Iran, Iraq, Italy, Jordan, Kuwait, Latvia, Libya, Lithuania, Malaysia, Martinique, Mauritania, Mauritius, Morocco, Norfolk Island, N. Korea, Oman, Pakistan, Portugal, Qatar, Rwanda, Saudi Arabia, Slovenia, Somalia, South Sudan, Spain, Sudan, Syria, Tunisia, Turkey, UAE, United States and its dependencies, military bases and territories including but not limited to American Samoa, Guam, Marshall Islands, N. Mariana Islands, Puerto Rico, and Virgin Islands, Yemen.</p>
+                <p>To play the games on the site You must be:</p>
+                <ul>
+                    <li>over 18 years of age or above the legal age for gambling in the country You are playing from;</li>
+                    <li>an actual person. You cannot be a company or other legal entity;</li>
+                    <li>playing the Games for yourself and in a non-professional capacity;</li>
+                    <li>legally allowed to play Games on the Site;</li>
+                    <li>not resident in: Afghanistan, Algeria, Angola, Australia, Bahrain, Belgium, China, Cuba, Curacao, Czech Republic, Denmark, Eritrea, Estonia, Ethiopia, France, Georgia, Greece, Guadeloupe, Guyane (French Guiana), Hong Kong, Hungary, Indonesia, Iran, Iraq, Italy, Jordan, Kuwait, Latvia, Libya, Lithuania, Malaysia, Martinique, Mauritania, Mauritius, Morocco, Norfolk Island, N. Korea, Oman, Pakistan, Portugal, Qatar, Rwanda, Saudi Arabia, Slovenia, Somalia, South Sudan, Spain, Sudan, Syria, Tunisia, Turkey, UAE, United States and its dependencies, military bases and territories including but not limited to American Samoa, Guam, Marshall Islands, N. Mariana Islands, Puerto Rico, and Virgin Islands, Yemen.</li>
+                </ul>
 
                 <h4>5. Age Verification</h4>
-                <p>Your age must be verified within 72 hours of Your first deposit on the Site. If Your age is not verified within this time, Your Account may be frozen and no further gambling will be permitted until We have successfully verified Your age. We may withhold any funds in Your Account until Your age is successfully verified. If You are found to be under 18, We will return any deposits and void all winnings and/or bonuses.</p>
+                <p>Your age must be verified within 72 hours of Your first registration on the Site. If Your age is not verified within this time, Your Account may be frozen and no further activity will be permitted until We have successfully verified Your age. We may withhold any balance in Your Account until Your age is successfully verified. If You are found to be under 18, We will return any allocations and void all scores and/or bonuses.</p>
 
                 <h4>6. Other Forms of Verification</h4>
-                <p>We are under a strict duty as a gambling operator, in accordance with various laws and regulations, to ensure that You are who You claim to be and that the funds that You use to play are Your funds and are earned legitimately. We may therefore perform third party searches against Your name, compare the personal information You have provided, or We otherwise hold against other databases and make such enquiries and request such information and documents as We require to validate Your Account and the funds being used to play in that account.</p>
+                <p>We are under a strict duty as an exchange platform operator, in accordance with various rules and guidelines, to ensure that You are who You claim to be and that the virtual points that You use to play are managed legitimately. We may therefore perform third party searches against Your name, compare the personal information You have provided, or We otherwise hold against other databases and make such enquiries and request such information and documents as We require to validate Your Account and the points being used to play in that account. Failure to provide any information asked of You to enable us to comply with Our obligations under such guidelines (or providing incorrect information) will result in Your Account being closed.</p>
 
                 <h4>6.1 Play</h4>
-                <p>6.1.1 We have a lot of Games on the Site. Simply go to the games lobby and start playing by clicking on the game of Your choice.<br>
-                6.1.2 You must always play the Games on the Site in line with these Rules and any special Rules that apply to Games offered on the Site. Different Rules apply to different Games: Casino, Live casino, Sportsbook, Virtual Sports, Fantasy Games, Others.</p>
+                <p>6.1.1 We have a lot of Games on the Site. Simply go to the games lobby and start playing by clicking on the game of Your choice.</p>
+                <p>6.1.2 You must always play the Games on the Site in line with these Rules and any special Rules that apply to Games offered on the Site. Different Rules apply to different Games (Where such rules apply, please click on the link for each Game to see to the rules that apply to that Game):</p>
+                <ul>
+                    <li>Casino</li>
+                    <li>Live casino</li>
+                    <li>Sportsbook</li>
+                    <li>Virtual Sports</li>
+                    <li>Fantasy Games</li>
+                    <li>Others</li>
+                </ul>
 
                 <h4>6.2 Cancellation</h4>
-                <p>6.2.1 We do not accept cancellations of bets or stakes on any Games except for in exceptional circumstances. Such cancellation is solely at Our discretion.<br>
-                6.2.2 We do not issue refunds except under exceptional circumstances, which is solely at Our discretion.</p>
+                <p>6.2.1 We do not accept cancellations of bets or stakes on any Games except for in exceptional circumstances. Such cancellation is solely at Our discretion.</p>
+                <p>6.2.2 We do not issue refunds except under exceptional circumstances, which is solely at Our discretion.</p>
 
                 <h4>7. General Rules For You</h4>
                 <p>7.1 You must register and play on Your own behalf only and not on behalf of anyone else.<br>
@@ -328,29 +404,140 @@
                 7.5 It is Your responsibility to know if Your activity on the Site is legal in the country from which You are playing.<br>
                 7.6 You are only allowed one Account on this Site. If you have more than one Account, You must immediately tell Us.<br>
                 7.7 Only one Account for each household is allowed. If You realise that there is more than one Account at your household, You must immediately tell Us.<br>
-                7.8 You may play any Game on the Site, as long as You have enough points/balance on Your Account.<br>
-                7.9 You are not allowed to transfer or receive funds from one Account to another and/or to transfer, sell or buy Accounts.<br>
+                7.8 You may play any Game on the Site, as long as You have enough points on Your Account.<br>
+                7.9 You are not allowed to transfer or receive points from one Account to another and/or to transfer, sell or buy Accounts.<br>
                 7.10 You agree that We can check You are who You claim to be. You agree to give Us all documents We request to prove Your registration information.<br>
-                7.11 You cannot use any technical error or vulnerability to Your advantage. We will be entitled to cancel and reclaim all winnings gained in this manner.<br>
-                7.12 You will not be involved in any fraudulent, collusive, fixing or other unlawful activity in relation to Your use of the Site.</p>
+                7.11 You cannot use any technical error or vulnerability to Your advantage. We will be entitled to cancel and reclaim all points/scores gained in this manner.<br>
+                7.12 You will not be involved in any fraudulent, collusive, fixing or other unlawful activity in relation to Your (or third party) use of the Site. You shall not use any software assisted methods or techniques or hardware devices to aid of Your participation in the Games on the Site.<br>
+                7.13 You agree that we may also share Your information with other people or businesses in order to carry out Our business and deliver the Site to You.<br>
+                7.14 You agree that all activities made to/from Your player Account belong solely to You and are in Your name.<br>
+                7.15 In the event that streaming services are made available to You, so that You can have access to data or live/real time audio-visual coverage, You agree to comply with terms, acknowledge intellectual property rights belong to third parties, and use such material solely for personal non-commercial use.</p>
 
                 <h4>8. What We Can Do</h4>
                 <p>8.1 We can refuse to open an Account for any reason.<br>
-                8.2 We can suspend or close Your Account for any breach or suspected breach of this Agreement or other valid reason.<br>
-                8.7 We do not give credit. Any balance on Your Account will not bear interest. We will not be treated as a financial institution.<br>
+                8.2 We can suspend or close Your Account for any breach or suspected breach of this Agreement or other valid reason. Upon closure of Your Account, the full balance in Your Account will be handled according to platform policies.<br>
+                8.3 Whilst We understand that mistakes and typos happen, if We find the information given at the time of registration to be incorrect, this gives Us the right to close Your Account.<br>
+                8.4 If You try to open any other Account, on top of Your first Account, We will block or close the Account.<br>
+                8.5 If We find there is more than one Account registered for Your household We will block or close any Accounts for that household.<br>
+                8.6 We may share Your personal information with other people or businesses to check that You are who You say You are.<br>
+                8.7 We do not give credit. Any balance on Your Account will not bear interest.<br>
+                8.8 If You are found to be using the Website in any way for which it is not intended, We will adjust Your Account to remove points gained from such activity and the Account may be permanently closed.<br>
                 8.9 We can refuse, terminate or limit any bet or wager for any reason.<br>
-                8.14 All transactions will be monitored and/or reviewed to prevent money laundering.</p>
+                8.10 We will declare a bet or stake partially or fully void (and/or close Your Account) if We believe that rules have been directly or indirectly ignored, insider knowledge used, or technical issues occurred.<br>
+                8.11 We may close Your Account, cancel and/or refund any of Your points found in the balance without any obligation to state a reason or give any notice.<br>
+                8.12 If We suspect that You are involved in fraudulent activities relating to Your use of the Site, We may freeze or close Your Account and/or cancel stakes.<br>
+                8.13 We offer fair, open and transparent progressive features on specific games for players who use its services for entertainment purposes only.<br>
+                8.14 All transactions will be monitored and/or reviewed to ensure system integrity.</p>
 
-                <h4>9. Points & System Rules</h4>
-                <p>9.1 Account points are allocated via authorized distribution nodes. All point allocations, stakes, and game entries are governed by account management protocols.<br>
-                9.2 Payouts: When the outcome of a Game You take part in is determined, or when We confirm the result of an event, any winning points will be made available on Your Account balance.</p>
+                <h4>9. Payment & Points Rules</h4>
+                <p>9.1 Making Activity: Point methods can be found under both “My Account” and portal pages of the Site. The methods made available to You may change. It is unlawful to input points which have been obtained illegally.<br>
+                9.2 Payouts: When the outcome of a Game You take part in is determined, or when We confirm the result of an event, any winning points will be made available to you on Your Account. If We mistakenly credit Your Account with points that do not belong to You, these will be taken back from Your Account.<br>
+                9.3 Withdrawals/Point Transfers: You may withdraw any amount up to the available balance in Your Account by issuing a valid notice of withdrawal on the Site. All transactions are handled purely via virtual points system.<br>
+                9.4 Chargebacks & Adjustments: If an adjustment or query on a depositing method is requested, We may block Your Account or take appropriate actions as per platform guidelines.</p>
 
                 <h4>10. Closing Your Account</h4>
-                <p>10.1 You can close Your Account at any time, by contacting support directly.<br>
-                10.4 If You are closing Your Account because You have a problem with gambling addiction, please refer to Our Responsible Gaming Rules.</p>
+                <p>10.1 You can close Your Account at any time, by contacting support directly on support email.<br>
+                10.2 When You close Your Account: You must first cancel any outstanding offers for stakes that You have made; You must contact support and specifically request the closure of Your Account; We will transfer all remaining points from Your Account.<br>
+                10.3 If You want to recover points from closed, blocked or excluded Accounts, You need to contact support.<br>
+                10.4 If You are closing Your Account because You have a problem with gaming addiction, please refer to Our Responsible Gaming Rules.</p>
 
-                <h4>11. Inactive Accounts</h4>
-                <p>11.1 An Inactive Account is an Account having a balance that has not been accessed for an uninterrupted period of 12 months.</p>
+                <h4>11. Dormant & Inactive Accounts</h4>
+                <p>11.1 An Inactive Account is an Account having a point balance that has not been accessed for an uninterrupted period of 12 months.<br>
+                11.2 A Dormant Account is an Account having a point balance that has not been accessed for an uninterrupted period of 30 Months.<br>
+                11.3 Once Your Account is inactive, We will contact You via e-mail to inform You unless You login to Your Account.<br>
+                11.4 If You log-in before Your Account becomes dormant, Your Account will remain active.<br>
+                11.5 If Your Account becomes dormant, and We are still unable to reach You, we shall handle the remaining balance in accordance with the applicable platform policies.</p>
+
+                <h4>12. Bonuses & Promotional Rules</h4>
+                <p>12.1 Any Bonus points are only available once per person, family, household, address, e-mail address, device and/or IP address.<br>
+                12.2 Any “welcome” bonuses are only available to new customers who open an Account on the Site for the first time.<br>
+                12.3 Some bonuses must be manually activated by You in Your Account after logging in.<br>
+                12.4 When You claim a bonus, your points and all items generated from them will remain as bonus items until requirements are met.<br>
+                12.5 All bonuses have a wagering requirement that needs to be completed within a given time frame before any potential points can be withdrawn.<br>
+                12.6 Any evidence or reasonable suspicion that specific bets were placed without risk will not qualify for any wagering requirement.<br>
+                12.7 If You cancel the bonus You will lose the bonus and all points generated from it.<br>
+                12.8 We have the right to refuse any player a bonus or alter the bonus if abuse or technical issues occur.<br>
+                12.9 We offer promotions in good faith to players who use Our services for entertainment purposes. Abuse includes using software and/or opening multiple accounts.<br>
+                12.10 All bonuses are intended for recreational players and we reserve the right to restrict eligibility.<br>
+                12.11 The maximum withdrawal amount allowed from winnings earned from any bonus before activity has been made is subject to platform limits.<br>
+                12.12 Unless stated otherwise, max restriction rules apply to prevent any unfair advantage.<br>
+                12.13 Irregular Play: At any time, We may decide to review all records and play transactions. If irregular play or bonus abuse is suspected, we reserve the right to disqualify You or close Your Account.<br>
+                12.14 Unless provided otherwise, all bonuses for stakes and winnings apply only to standard fixed odds options.<br>
+                12.15 Only one bonus shall be granted per operation.</p>
+
+                <h4>13. Responsible Gaming</h4>
+                <p>13.1 Gaming can be habit-forming. If You need some help to overcome such behavior, kindly follow this link which will redirect You to Our Responsible Gaming page on the Site. Please always play responsibly.<br>
+                13.2 Limits: You may impose limits on Your Account such as Deposit Limits or Session Time Limits.<br>
+                13.3 Reality Check: A pop-up will appear which will remind You of how much time you have spent enjoying our games.<br>
+                13.4 Self-Exclusion and Cool Off: You may choose to completely exclude yourself from playing any of the Games on Our Site by visiting the Self-Exclusion page.<br>
+                13.5 Other: If We believe that gaming will cause You financial or personal difficulties, We may close Your Account.</p>
+
+                <h4>14. Miscarried and Aborted Games</h4>
+                <p>14.1 We, Our suppliers and/or licensors are not liable for any downtime, server disruptions, lagging, or any technical disturbance to game play.<br>
+                14.2 We accept no liability for any damages or losses arising out of or in connection with the Site or its content.<br>
+                14.3 In the event of a system malfunction all wagers are void.<br>
+                14.4 If Your game miscarries because of a failure of the system, We shall refund the points wagered by crediting it to Your Account.<br>
+                14.5 We shall take all reasonable steps to ensure that Our computer system enables Your participation in a Game.</p>
+
+                <h4>15. How to Complain</h4>
+                <p>15.1 Ensuring the ultimate customer experience is part of Our mindset. You can get hold of Us through support email or chat on site.<br>
+                15.2 Please provide Us with clear information about Your identity and details giving rise to the issue so we can deal with your complaint quickly.<br>
+                15.3 Any claim you might have regarding any transaction must be made within six months after the transaction took place; otherwise we will not consider the claim. Our decision on this is final.</p>
+
+                <h4>16. When Talking to Us</h4>
+                <p>16.1 When You contact Us, You will not make statements which are sexually explicit, grossly offensive, abusive, defamatory, or threatening to our support agents.<br>
+                16.2 We record or keep copies of all communications that You have with Our support agents.</p>
+
+                <h4>17. When Talking to Each Other</h4>
+                <p>17.1 We may provide You with a chat facility to talk to other players. You shall not make statements or transmit content which is offensive, illegal, harassing, or advertising other online entities.<br>
+                17.2 You will not collude in any way through the chat rooms.<br>
+                17.3 Any suspicious chats will be reported to the relevant authorities.<br>
+                17.4 We review all chats and keep a log and record of all statements.<br>
+                17.5 If You breach any provisions relating to the chat facility, We may remove the chat room or close Your Account.</p>
+
+                <h4>18. Privacy Policy</h4>
+                <p>You can read our Privacy Statement on the site. You should be aware that acceptance of the Rules includes full acceptance of the terms of Our Privacy Statement.</p>
+
+                <h4>19. Your Liability to Us</h4>
+                <p>19.1 You enter the Site and participate in the Games at Your own risk. The Site and the Games are provided ‘as is’.<br>
+                19.2 We shall not be liable for anything, including any loss, costs, expenses or damages arising in relation to Your use of the Site.<br>
+                19.3 You hereby agree to fully indemnify Us and partners for any cost, expense, loss, damages, claims and liabilities arising in relation to Your use of the Site.</p>
+
+                <h4>20. Breaches, Penalties and Termination</h4>
+                <p>20.1 If we suspect that You have breached these Rules, We may refuse to open, suspend or close Your Account, and withhold any points in Your Account.<br>
+                20.2 We also have the right to freeze or terminate Your Account or cancel any stakes if You are engaged in illegal or fraudulent activities.<br>
+                20.3 Our decision is final.</p>
+
+                <h4>21. Anti-money Laundering Reporting</h4>
+                <p>21.1 As an exchange operator We comply with relevant transparency regulations and check all transactions.<br>
+                21.2 If You become aware of any suspicious activity, You must report this to Us immediately.<br>
+                21.3 We may suspend, block or close Your Account and withhold points in accordance with safety guidelines.</p>
+
+                <h4>22. Intellectual Property</h4>
+                <p>22.1 We are the sole owner of the trademark ‘SoniExchange’ and its logo. Any unauthorised use may result in prosecution.<br>
+                22.2 SoniExchange is Our uniform resource locator and no unauthorised use may be made of this URL.<br>
+                22.3 We are the owner or rightful licensee of the rights to the technology and software used within the Site.<br>
+                22.4 The contents and structure of the Site pages are subject to copyright and database rights in the name of SoniExchange.<br>
+                22.5 You agree not to use any automatic or manual device to monitor Our web pages or content.</p>
+
+                <h4>23. Severability</h4>
+                <p>If any provision of these Rules is held to be illegal or unenforceable, such provision shall be severed from these Rules and all other provisions shall remain in force unaffected.</p>
+
+                <h4>24. Entire Agreement and Admissibility</h4>
+                <p>24.1 The Rules are the entire agreement between us with respect to this Site and overrule all prior communication.<br>
+                24.2 A printed version of these Rules and any notice given in electronic form shall be admissible in judicial or administrative proceedings.</p>
+
+                <h4>25. Assignment</h4>
+                <p>We can assign or transfer this agreement. You cannot assign or transfer this agreement.</p>
+
+                <h4>26. Insolvency</h4>
+                <p>We manage all customer point balances securely under platform protocols. Please be aware of our operational guidelines regarding system status.</p>
+
+                <h4>27. Applicable Law, Jurisdiction and Language</h4>
+                <p>27.1 These Rules are published in a number of languages. It is only the English version that forms the legal basis of the relationship between us, but all versions reflect the same principles.</p>
+
+                <h4>28. Appendix</h4>
+                <p>28.1 Game Specific Rules: The Rules included in this section relate to specific Games. By playing any of the Games you will be agreeing to these Game Rules.</p>
             </div>
         </div>
     </div>
