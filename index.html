@@ -19,9 +19,10 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
             align-items: center;
+            justify-content: center;
             color: #ffffff;
+            padding-bottom: 90px; /* Space to prevent card from going behind fixed footer */
         }
 
         /* Center content layout */
@@ -31,7 +32,6 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            flex: 1;
             padding: 20px 15px;
         }
 
@@ -139,20 +139,24 @@
             background: #1e293b;
         }
 
-        /* Footer Layout - Exact Reference Match */
+        /* Fixed Footer - Exactly like reference site, locked at bottom */
         .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
             width: 100%;
             background: #0b2533;
-            padding: 14px 10px;
+            padding: 12px 10px;
             text-align: center;
             border-top: 1px solid rgba(255,255,255,0.15);
+            z-index: 1000;
         }
 
         .footer-links {
             display: flex;
             justify-content: space-around;
             max-width: 400px;
-            margin: 0 auto 8px auto;
+            margin: 0 auto 6px auto;
             font-size: 13px;
             color: #cbd5e1;
         }
@@ -163,7 +167,7 @@
         }
 
         .support-text {
-            font-size: 17px;
+            font-size: 16px;
             color: #ffffff;
             font-weight: bold;
             letter-spacing: 0.5px;
@@ -214,7 +218,7 @@
         </div>
     </div>
 
-    <!-- Footer - Fully Visible -->
+    <!-- Fixed Footer -->
     <div class="footer">
         <div class="footer-links">
             <a href="#">Terms and Conditions</a>
