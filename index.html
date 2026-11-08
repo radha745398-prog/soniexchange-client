@@ -21,8 +21,7 @@
             align-items: center;
             justify-content: center;
             color: #ffffff;
-            padding-bottom: 90px; /* Space for fixed footer */
-            overflow-y: auto;
+            padding-bottom: 90px;
         }
 
         .main-container {
@@ -126,7 +125,7 @@
             color: #ffffff;
         }
 
-        /* Fixed Footer matching reference layout */
+        /* Fixed Anchored Footer */
         .footer {
             position: fixed;
             bottom: 0;
@@ -161,7 +160,7 @@
             letter-spacing: 0.5px;
         }
 
-        /* Modal Popup for Terms and Conditions */
+        /* Terms & Responsible Gaming Modal Popups */
         .modal {
             display: none;
             position: fixed;
@@ -169,66 +168,81 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.65);
             z-index: 2000;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 15px;
         }
 
         .modal-content {
             background: #ffffff;
-            color: #334155;
+            color: #1e293b;
             width: 100%;
-            max-width: 600px;
-            max-height: 80vh;
+            max-width: 650px;
+            max-height: 85vh;
             border-radius: 8px;
             padding: 20px;
             overflow-y: auto;
             position: relative;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
 
         .modal-header {
-            font-size: 20px;
-            font-weight: bold;
+            font-size: 18px;
+            font-weight: 700;
             color: #0284c7;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #e2e8f0;
             padding-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
+            background: #ffffff;
         }
 
         .close-btn {
             background: none;
             border: none;
-            font-size: 20px;
+            font-size: 22px;
             cursor: pointer;
             color: #64748b;
         }
 
         .modal-body {
-            font-size: 14px;
+            font-size: 13px;
             line-height: 1.6;
             text-align: left;
+            color: #334155;
         }
 
-        .modal-body h3 {
-            margin-top: 10px;
+        .modal-body h4 {
+            margin-top: 14px;
+            margin-bottom: 4px;
             color: #0f172a;
+            font-size: 14px;
+        }
+
+        .notice-box {
+            background: #e0f2fe;
+            border-left: 4px solid #0284c7;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: #0369a1;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
 
     <div class="main-container">
-        <!-- Header Logo -->
         <div class="brand-header">
             <div class="brand-logo">SONIEXCHANGE</div>
         </div>
 
-        <!-- Main Card -->
         <div class="login-card">
             <div class="card-title">Login <i class="fa-solid fa-hand-pointer"></i></div>
 
@@ -257,41 +271,113 @@
     <!-- Fixed Footer -->
     <div class="footer">
         <div class="footer-links">
-            <a onclick="openTerms()">Terms and Conditions</a>
-            <a onclick="openResponsible()">Responsible Gaming</a>
+            <a onclick="openModal('termsModal')">Terms and Conditions</a>
+            <a onclick="openModal('responsibleModal')">Responsible Gaming</a>
         </div>
         <div class="support-text">24X7 Support</div>
     </div>
 
-    <!-- Terms Modal -->
+    <!-- Terms and Conditions Modal -->
     <div id="termsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <span>Terms and Conditions</span>
-                <button class="close-btn" onclick="closeTerms()">&times;</button>
+                <button class="close-btn" onclick="closeModal('termsModal')">&times;</button>
             </div>
             <div class="modal-body">
-                <h3>1. About</h3>
+                <div class="notice-box">
+                    Notice: SoniExchange is a entertainment portal operating strictly on virtual points. No real money deposits or withdrawals are processed on this platform.
+                </div>
+
+                <h4>1. About</h4>
                 <p>The site is operated by it's own group of companies.</p>
-                
-                <h3>2. The Basics</h3>
-                <p>The Rules are a binding agreement between Us and You and by clicking that You accept the Rules when creating Your Account You agree that You have read and accepted the Rules. If You do not agree with the Rules, You should not register or continue to use the Website.</p>
 
-                <h3>3. Definitions</h3>
-                <p>"Bonus" shall cover all promotional offers that gift a tangible reward... Note: This platform operates entirely on virtual points, not real money.</p>
+                <h4>2. The Basics</h4>
+                <p>The Rules are a binding agreement between Us and You and by clicking that You accept the Rules when creating Your Account You agree that You have read and accepted the Rules. If You do not agree with the Rules, You should not register or continue to use the Website. Everything changes and We may change these Rules at any time. Where We do so We will contact You and inform You in advance of the new Rules being implemented.</p>
 
-                <h3>4. Who Can Play</h3>
-                <p>To play the games on the site You must be over 18 years of age, an actual person, and playing for yourself in a non-professional capacity.</p>
+                <h4>3. Definitions</h4>
+                <p>Being transparent is key. Here are some explanations of some terms used throughout the Rules. "Bonus" shall cover all promotional offers that gift a tangible reward, including but not limited to: welcome offers, reload bonuses, deposit bonuses, free spins, free bets, and safe bets. "Games" are Casino, Live Casino, Sportsbook and any other games on Our Site (including mobile or any other platform) and ’Game’ can mean any one of them. We can remove or add Games to the Site at any time. "Rules" are these terms, conditions and regulations which You agree to when using the Site. "Site" and "Website" and including, if applicable, any mobile and mobile application version thereof or any other subdomains of website'. "We", "Us", "Our" The Site is run by -, a company registered in -, "You" is you using the Site. "Your" has its usual meaning in relation to you. "Your Account" is your player account on the Site. "Totalisator" (also "Tote") refers to the betting pool usually operated by the race organiser, which forms the basis of the odds calculation (also known as pari-mutuel betting).</p>
 
-                <h3>7. General Rules For You</h3>
-                <p>You must register and play on Your own behalf only. Keep your login details secure. Only one account per user/household is allowed.</p>
+                <h4>4. Who Can Play</h4>
+                <p>To play the games on the site You must be:<br>
+                -> over 18 years of age or above the legal age for gambling in the country You are playing from;<br>
+                -> an actual person. You cannot be a company or other legal entity;<br>
+                -> playing the Games for yourself and in a non-professional capacity;<br>
+                -> legally allowed to play Games on the Site;<br>
+                -> not resident in: Afghanistan, Algeria, Angola, Australia, Bahrain, Belgium, China, Cuba, Curacao, Czech Republic, Denmark, Eritrea, Estonia, Ethiopia, France, Georgia, Greece, Guadeloupe, Guyane (French Guiana), Hong Kong, Hungary, Indonesia, Iran, Iraq, Italy, Jordan, Kuwait, Latvia, Libya, Lithuania, Malaysia, Martinique, Mauritania, Mauritius, Morocco, Norfolk Island, N. Korea, Oman, Pakistan, Portugal, Qatar, Rwanda, Saudi Arabia, Slovenia, Somalia, South Sudan, Spain, Sudan, Syria, Tunisia, Turkey, UAE, United States and its dependencies, military bases and territories including but not limited to American Samoa, Guam, Marshall Islands, N. Mariana Islands, Puerto Rico, and Virgin Islands, Yemen.</p>
+
+                <h4>5. Age Verification</h4>
+                <p>Your age must be verified within 72 hours of Your first deposit on the Site. If Your age is not verified within this time, Your Account may be frozen and no further gambling will be permitted until We have successfully verified Your age. We may withhold any funds in Your Account until Your age is successfully verified. If You are found to be under 18, We will return any deposits and void all winnings and/or bonuses.</p>
+
+                <h4>6. Other Forms of Verification</h4>
+                <p>We are under a strict duty as a gambling operator, in accordance with various laws and regulations, to ensure that You are who You claim to be and that the funds that You use to play are Your funds and are earned legitimately. We may therefore perform third party searches against Your name, compare the personal information You have provided, or We otherwise hold against other databases and make such enquiries and request such information and documents as We require to validate Your Account and the funds being used to play in that account.</p>
+
+                <h4>6.1 Play</h4>
+                <p>6.1.1 We have a lot of Games on the Site. Simply go to the games lobby and start playing by clicking on the game of Your choice.<br>
+                6.1.2 You must always play the Games on the Site in line with these Rules and any special Rules that apply to Games offered on the Site. Different Rules apply to different Games: Casino, Live casino, Sportsbook, Virtual Sports, Fantasy Games, Others.</p>
+
+                <h4>6.2 Cancellation</h4>
+                <p>6.2.1 We do not accept cancellations of bets or stakes on any Games except for in exceptional circumstances. Such cancellation is solely at Our discretion.<br>
+                6.2.2 We do not issue refunds except under exceptional circumstances, which is solely at Our discretion.</p>
+
+                <h4>7. General Rules For You</h4>
+                <p>7.1 You must register and play on Your own behalf only and not on behalf of anyone else.<br>
+                7.2 You must keep Your login details secure and not share them with anyone. If you share them, even unintentionally, You are responsible for any abuse or misuse of Your Account.<br>
+                7.3 You must keep Your registration information up to date at all times.<br>
+                7.4 If You realise that the information provided at registration is incorrect, You must tell Us immediately or immediately amend Your information.<br>
+                7.5 It is Your responsibility to know if Your activity on the Site is legal in the country from which You are playing.<br>
+                7.6 You are only allowed one Account on this Site. If you have more than one Account, You must immediately tell Us.<br>
+                7.7 Only one Account for each household is allowed. If You realise that there is more than one Account at your household, You must immediately tell Us.<br>
+                7.8 You may play any Game on the Site, as long as You have enough points/balance on Your Account.<br>
+                7.9 You are not allowed to transfer or receive funds from one Account to another and/or to transfer, sell or buy Accounts.<br>
+                7.10 You agree that We can check You are who You claim to be. You agree to give Us all documents We request to prove Your registration information.<br>
+                7.11 You cannot use any technical error or vulnerability to Your advantage. We will be entitled to cancel and reclaim all winnings gained in this manner.<br>
+                7.12 You will not be involved in any fraudulent, collusive, fixing or other unlawful activity in relation to Your use of the Site.</p>
+
+                <h4>8. What We Can Do</h4>
+                <p>8.1 We can refuse to open an Account for any reason.<br>
+                8.2 We can suspend or close Your Account for any breach or suspected breach of this Agreement or other valid reason.<br>
+                8.7 We do not give credit. Any balance on Your Account will not bear interest. We will not be treated as a financial institution.<br>
+                8.9 We can refuse, terminate or limit any bet or wager for any reason.<br>
+                8.14 All transactions will be monitored and/or reviewed to prevent money laundering.</p>
+
+                <h4>9. Points & System Rules</h4>
+                <p>9.1 Account points are allocated via authorized distribution nodes. All point allocations, stakes, and game entries are governed by account management protocols.<br>
+                9.2 Payouts: When the outcome of a Game You take part in is determined, or when We confirm the result of an event, any winning points will be made available on Your Account balance.</p>
+
+                <h4>10. Closing Your Account</h4>
+                <p>10.1 You can close Your Account at any time, by contacting support directly.<br>
+                10.4 If You are closing Your Account because You have a problem with gambling addiction, please refer to Our Responsible Gaming Rules.</p>
+
+                <h4>11. Inactive Accounts</h4>
+                <p>11.1 An Inactive Account is an Account having a balance that has not been accessed for an uninterrupted period of 12 months.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Responsible Gaming Modal -->
+    <div id="responsibleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Responsible Gaming</span>
+                <button class="close-btn" onclick="closeModal('responsibleModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="notice-box">
+                    Play Responsibly - For Entertainment Only
+                </div>
+                <p>We are dedicated to supporting responsible participation. This portal uses virtual points for entertainment purposes only.</p>
+                <br>
+                <p>• Keep control of your time and account activity.</p>
+                <p>• Never share your credentials with minors (under 18).</p>
+                <p>• If you feel you need a break or account suspension, contact support immediately.</p>
             </div>
         </div>
     </div>
 
     <script>
         function handleLogin() {
-            alert("Logging into SoniExchange Client Portal (Points Based)...");
+            alert("Logging into SoniExchange Client Portal...");
         }
 
         function demoLogin() {
@@ -300,16 +386,12 @@
             handleLogin();
         }
 
-        function openTerms() {
-            document.getElementById('termsModal').style.display = 'flex';
+        function openModal(id) {
+            document.getElementById(id).style.display = 'flex';
         }
 
-        function closeTerms() {
-            document.getElementById('termsModal').style.display = 'none';
-        }
-
-        function openResponsible() {
-            alert("Responsible Gaming: Please play responsibly using virtual points for entertainment only.");
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
         }
     </script>
 </body>
