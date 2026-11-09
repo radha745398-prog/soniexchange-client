@@ -5,6 +5,14 @@ function renderDashboardPage(user, liveMatches) {
     const balance = Number(user.points || 0).toLocaleString();
     const exposure = Number(user.exposure || 0).toLocaleString();
 
+    // 1. Dynamic Ticker Matches (Jahan match ka naam blink karega)
+    const tickerHTML = liveMatches.map(m => `
+        <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="flex items-center space-x-2 bg-[#1f2937] px-3 py-1 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-semibold hover:border-white transition whitespace-nowrap match-blink">
+            <span>${m.teamA} v ${m.teamB}</span>
+        </a>
+    `).join('');
+
+    // 2. Main Live Matches Table Rows
     const matchesHTML = liveMatches.map(m => `
         <tr class="border-b border-[#2b394a] text-xs hover:bg-[#1f2937] transition cursor-pointer" onclick="window.location.href='/match/${m.id}?user=${encodeURIComponent(username)}'">
             <td class="p-2.5 text-white font-semibold flex items-center justify-between">
@@ -54,6 +62,16 @@ function renderDashboardPage(user, liveMatches) {
             .bg-custom-navy { background-color: #16202c; }
             .bg-custom-header { background-color: #0b1118; }
             .active-tab { border-bottom: 2px solid #00c0FF; color: #00c0FF; }
+            
+            /* Smooth Blinking Animation for Live Matches Ticker */
+            @keyframes textBlink {
+                0% { opacity: 1; }
+                50% { opacity: 0.3; }
+                100% { opacity: 1; }
+            }
+            .match-blink {
+                animation: textBlink 1.5s infinite ease-in-out;
+            }
         </style>
     </head>
     <body class="min-h-screen flex flex-col text-xs">
@@ -77,18 +95,23 @@ function renderDashboardPage(user, liveMatches) {
             </div>
         </header>
 
-        <!-- TOP MATCH TICKER BAR -->
+        <!-- TOP MATCH TICKER BAR (Blinking Live Matches) -->
         <div class="bg-[#111827] border-b border-[#2b394a] py-1.5 px-3 flex space-x-4 overflow-x-auto text-[11px] text-gray-300 whitespace-nowrap">
-            <a href="#" class="bg-[#1f2937] px-2.5 py-1 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-semibold">New Zealand v India</a>
-            <a href="#" class="bg-[#1f2937] px-2.5 py-1 rounded border border-gray-700 hover:text-white">Bangladesh v West Indies</a>
+            ${tickerHTML}
         </div>
 
         <!-- MAIN CATEGORY NAVIGATION BAR -->
-        <nav class="bg-custom-navy border-b border-[#2b394a] px-2 flex space-x-6 text-[11px] font-bold uppercase tracking-wider overflow-x-auto">
+        <nav class="bg-custom-navy border-b border-[#2b394a] px-2 flex space-x-6 text-[11px] font-bold uppercase tracking-wider overflow-x-auto whitespace-nowrap">
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Crash</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Lottery</a>
             <a href="#" class="py-2.5 active-tab">Sports</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Our Casino</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Live Casino</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Slots</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Fantasy</a>
         </nav>
 
-        <!-- SPORTS SUB-NAVIGATION BAR (Exact matching screenshot top sports menu) -->
+        <!-- SPORTS SUB-NAVIGATION BAR -->
         <div class="bg-[#111827] px-3 py-2 flex space-x-6 text-[10px] font-bold overflow-x-auto border-b border-[#2b394a] whitespace-nowrap">
             <a href="#" class="flex flex-col items-center text-[#00c0FF]">
                 <i class="fa-solid fa-baseball-bat-ball text-sm mb-0.5"></i> <span>CRICKET</span>
@@ -127,7 +150,7 @@ function renderDashboardPage(user, liveMatches) {
             <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
                 <div class="bg-[#1f2937] px-3 py-2 font-bold text-white flex justify-between items-center text-xs">
                     <span>LIVE CRICKET MATCHES</span>
-                    <span class="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded uppercase font-bold">In-Play</span>
+                    <span class="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded uppercase font-bold animate-pulse">In-Play</span>
                 </div>
                 
                 <div class="overflow-x-auto">
@@ -145,6 +168,16 @@ function renderDashboardPage(user, liveMatches) {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- CASINO SECTION PLACEHOLDER -->
+            <div class="grid grid-cols-3 md:grid-cols-6 gap-2 pt-2">
+                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Goal 2</div>
+                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Matka Market</div>
+                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Roulette</div>
+                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Teenpatti</div>
+                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Sic Bo</div>
+                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Dragon Tiger</div>
             </div>
         </main>
 
