@@ -5,47 +5,16 @@ function renderDashboardPage(user, liveMatches) {
     const balance = Number(user.points || 0).toLocaleString();
     const exposure = Number(user.exposure || 0).toLocaleString();
 
-    // 1. Dynamic Ticker Matches (Jahan match ka naam blink karega)
-    const tickerHTML = liveMatches.map(m => `
+    // Aapke kehne par ticker ke liye specific matches set kar diye hain jo blink karenge
+    const customTickerMatches = [
+        { id: 'match-1', teamA: 'Bangladesh', teamB: 'West Indies' },
+        { id: 'match-2', teamA: 'Afghanistan', teamB: 'Zimbabwe' }
+    ];
+
+    const tickerHTML = customTickerMatches.map(m => `
         <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="flex items-center space-x-2 bg-[#1f2937] px-3 py-1 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-semibold hover:border-white transition whitespace-nowrap match-blink">
             <span>${m.teamA} v ${m.teamB}</span>
         </a>
-    `).join('');
-
-    // 2. Main Live Matches Table Rows
-    const matchesHTML = liveMatches.map(m => `
-        <tr class="border-b border-[#2b394a] text-xs hover:bg-[#1f2937] transition cursor-pointer" onclick="window.location.href='/match/${m.id}?user=${encodeURIComponent(username)}'">
-            <td class="p-2.5 text-white font-semibold flex items-center justify-between">
-                <div>
-                    <span class="text-[#00c0FF] text-[11px] font-bold block">${m.tournament}</span>
-                    <span class="text-sm">${m.teamA} <span class="text-gray-400 font-normal">v</span> ${m.teamB}</span>
-                    <span class="text-[10px] text-gray-400 block">${m.dateTime}</span>
-                </div>
-                <div class="flex items-center space-x-1">
-                    <span class="w-2 h-2 rounded-full bg-green-500 inline-block animate-pulse"></span>
-                    <span class="text-[10px] text-green-400 uppercase font-bold">In Play</span>
-                </div>
-            </td>
-            <!-- Back & Lay Odds Columns for 1, X, 2 -->
-            <td class="p-1 text-center border-l border-[#2b394a] bg-[#72bbef]/10">
-                <span class="block bg-[#72bbef] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.teamA_back}</span>
-            </td>
-            <td class="p-1 text-center bg-[#faa9ba]/10 border-r border-[#2b394a]">
-                <span class="block bg-[#faa9ba] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.teamA_lay}</span>
-            </td>
-            <td class="p-1 text-center bg-[#72bbef]/10">
-                <span class="block bg-[#72bbef] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.draw_back || '-'}</span>
-            </td>
-            <td class="p-1 text-center bg-[#faa9ba]/10 border-r border-[#2b394a]">
-                <span class="block bg-[#faa9ba] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.draw_lay || '-'}</span>
-            </td>
-            <td class="p-1 text-center bg-[#72bbef]/10">
-                <span class="block bg-[#72bbef] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.teamB_back}</span>
-            </td>
-            <td class="p-1 text-center bg-[#faa9ba]/10">
-                <span class="block bg-[#faa9ba] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.teamB_lay}</span>
-            </td>
-        </tr>
     `).join('');
 
     return `
@@ -63,7 +32,7 @@ function renderDashboardPage(user, liveMatches) {
             .bg-custom-header { background-color: #0b1118; }
             .active-tab { border-bottom: 2px solid #00c0FF; color: #00c0FF; }
             
-            /* Smooth Blinking Animation for Live Matches Ticker */
+            /* Smooth Blinking Animation for Ticker Matches */
             @keyframes textBlink {
                 0% { opacity: 1; }
                 50% { opacity: 0.3; }
@@ -95,7 +64,7 @@ function renderDashboardPage(user, liveMatches) {
             </div>
         </header>
 
-        <!-- TOP MATCH TICKER BAR (Blinking Live Matches) -->
+        <!-- TOP MATCH TICKER BAR (Bangladesh v West Indies & Afghanistan v Zimbabwe Blinking) -->
         <div class="bg-[#111827] border-b border-[#2b394a] py-1.5 px-3 flex space-x-4 overflow-x-auto text-[11px] text-gray-300 whitespace-nowrap">
             ${tickerHTML}
         </div>
@@ -145,39 +114,10 @@ function renderDashboardPage(user, liveMatches) {
             </a>
         </div>
 
-        <!-- MAIN MATCH LIST TABLE -->
         <main class="flex-1 p-2 space-y-4 max-w-7xl mx-auto w-full">
-            <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
-                <div class="bg-[#1f2937] px-3 py-2 font-bold text-white flex justify-between items-center text-xs">
-                    <span>LIVE CRICKET MATCHES</span>
-                    <span class="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded uppercase font-bold animate-pulse">In-Play</span>
-                </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-[#0b1118] text-gray-400 text-[10px] uppercase border-b border-[#2b394a]">
-                                <th class="p-2 border-r border-[#2b394a]">Match</th>
-                                <th colspan="2" class="p-2 text-center border-r border-[#2b394a]">1</th>
-                                <th colspan="2" class="p-2 text-center border-r border-[#2b394a]">X</th>
-                                <th colspan="2" class="p-2 text-center">2</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${matchesHTML}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- CASINO SECTION PLACEHOLDER -->
-            <div class="grid grid-cols-3 md:grid-cols-6 gap-2 pt-2">
-                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Goal 2</div>
-                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Matka Market</div>
-                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Roulette</div>
-                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Teenpatti</div>
-                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Sic Bo</div>
-                <div class="bg-[#16202c] border border-[#2b394a] rounded p-3 text-center font-bold text-[11px] text-gray-300">Dragon Tiger</div>
+            <!-- Jaisa aapne bola, abhi baaki neeche ka area clean rakha hai -->
+            <div class="text-center py-10 text-gray-500 text-xs">
+                Select a match from ticker above or explore categories.
             </div>
         </main>
 
