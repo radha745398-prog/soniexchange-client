@@ -5,18 +5,21 @@ function renderDashboardPage(user, liveMatches) {
     const balance = Number(user.points || 0).toLocaleString();
     const exposure = Number(user.exposure || 0).toLocaleString();
 
-    // Ticker matches jo usi ek patli line mein fit rahenge
+    // Upar ticker ke liye dono matches jo poori line mein fit hokar blink karenge
     const tickerMatches = [
         { id: 'match-1', teamA: 'Bangladesh', teamB: 'West Indies' },
+        { id: 'match-2', teamA: 'Afghanistan', teamB: 'Zimbabwe' },
+        { id: 'match-1', teamA: 'Bangladesh', teamB: 'West Indies' }, // Khali jagah bharne ke liye repeat
         { id: 'match-2', teamA: 'Afghanistan', teamB: 'Zimbabwe' }
     ];
 
     const tickerHTML = tickerMatches.map(m => `
-        <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="flex items-center space-x-1.5 bg-[#1f2937]/80 px-3 py-1 rounded border border-[#00c0FF]/30 text-[#00c0FF] font-semibold hover:border-white transition whitespace-nowrap match-blink text-[11px]">
+        <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="bg-[#1f2937] px-4 py-1.5 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-bold hover:border-white transition whitespace-nowrap match-blink inline-block mr-3 text-xs">
             <span>${m.teamA} v ${m.teamB}</span>
         </a>
     `).join('');
 
+    // Neeche wala table jaisa aapne bola bilkul waisa hi rahega
     const activeMatches = [
         { id: 'match-1', tournament: 'Test Match', teamA: 'Bangladesh', teamB: 'West Indies', date: '09/11/2026 10:00:00', odds: { aBack: '2.10', aLay: '2.15', drawBack: '3.20', drawLay: '3.30', bBack: '2.40', bLay: '2.48' } },
         { id: 'match-2', tournament: 'Test Match', teamA: 'Afghanistan', teamB: 'Zimbabwe', date: '09/11/2026 11:30:00', odds: { aBack: '1.85', aLay: '1.90', drawBack: '3.50', drawLay: '3.60', bBack: '2.05', bLay: '2.12' } }
@@ -26,7 +29,7 @@ function renderDashboardPage(user, liveMatches) {
         <tr class="border-b border-[#2b394a] text-xs hover:bg-[#1f2937] transition cursor-pointer" onclick="window.location.href='/match/${m.id}?user=${encodeURIComponent(username)}'">
             <td class="p-2.5 text-white font-semibold">
                 <span class="text-[#00c0FF] text-[10px] font-bold block">${m.tournament}</span>
-                <span class="text-xs sm:text-sm text-white font-bold">${m.teamA} <span class="text-gray-400 font-normal">v</span> ${m.teamB}</span>
+                <span class="text-xs text-white font-bold">${m.teamA} <span class="text-gray-400 font-normal">v</span> ${m.teamB}</span>
                 <span class="text-[10px] text-gray-400 block">${m.date}</span>
             </td>
             <td class="p-1.5 text-center border-l border-[#2b394a] bg-[#72bbef]/20">
@@ -60,7 +63,6 @@ function renderDashboardPage(user, liveMatches) {
         <script src="https://cdn.tailwindcss.com"></script>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
-            /* Panel ka halka blue background */
             body { background-color: #121e2b; color: #f8fafc; font-family: sans-serif; }
             .bg-custom-navy { background-color: #16202c; }
             .bg-custom-header { background-color: #0b1118; }
@@ -98,8 +100,8 @@ function renderDashboardPage(user, liveMatches) {
             </div>
         </header>
 
-        <!-- TOP MATCH TICKER BAR (Ek hi line mein dono match fit aur blink karte hue) -->
-        <div class="bg-[#111827] border-b border-[#2b394a] py-1.5 px-3 flex items-center space-x-3 overflow-x-auto whitespace-nowrap">
+        <!-- TOP MATCH TICKER BAR (Dono match poori line mein fit hokar blink karenge) -->
+        <div class="bg-[#111827] border-b border-[#2b394a] py-1.5 px-3 overflow-x-auto whitespace-nowrap">
             ${tickerHTML}
         </div>
 
@@ -149,7 +151,9 @@ function renderDashboardPage(user, liveMatches) {
         </div>
 
         <!-- MAIN CONTENT AREA -->
-        <main class="flex-1 p-3 max-w-7xl mx-auto w-full">
+        <main class="flex-1 p-3 max-w-7xl mx-auto w-full space-y-4">
+            
+            <!-- LIVE MATCHES TABLE (Jaise aapne kaha bilkul waisa hi hai) -->
             <div class="bg-custom-navy border border-[#2b394a] rounded shadow-lg overflow-hidden">
                 <div class="bg-[#1f2937] px-3 py-2.5 font-bold text-white flex justify-between items-center text-xs">
                     <span>LIVE CRICKET MATCHES</span>
@@ -172,6 +176,7 @@ function renderDashboardPage(user, liveMatches) {
                     </table>
                 </div>
             </div>
+
         </main>
 
         <footer class="bg-[#0b1118] border-t border-[#2b394a] p-3 text-center text-gray-500 text-[10px]">
