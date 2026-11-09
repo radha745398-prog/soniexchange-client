@@ -5,16 +5,80 @@ function renderDashboardPage(user, liveMatches) {
     const balance = Number(user.points || 0).toLocaleString();
     const exposure = Number(user.exposure || 0).toLocaleString();
 
-    // Aapke kehne par ticker ke liye specific matches set kar diye hain jo blink karenge
-    const customTickerMatches = [
+    // Ticker matches with blinking effect as requested
+    const tickerMatches = [
         { id: 'match-1', teamA: 'Bangladesh', teamB: 'West Indies' },
         { id: 'match-2', teamA: 'Afghanistan', teamB: 'Zimbabwe' }
     ];
 
-    const tickerHTML = customTickerMatches.map(m => `
-        <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="flex items-center space-x-2 bg-[#1f2937] px-3 py-1 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-semibold hover:border-white transition whitespace-nowrap match-blink">
-            <span>${m.teamA} v ${m.teamB}</span>
+    const tickerHTML = tickerMatches.map(m => `
+        <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="bg-[#1f2937] px-3 py-1 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-semibold hover:border-white transition whitespace-nowrap match-blink inline-block mr-3">
+            ${m.teamA} v ${m.teamB}
         </a>
+    `).join('');
+
+    // Matches table matching exact screenshot layout
+    const sampleMatches = [
+        { tournament: 'Super Over2', teamA: 'Delhi Capitals (e)', teamB: 'Chennai Super Kings (e)', date: '08/11/2026 14:30:00', odds: { aBack: '1.05', aLay: '1.08', drawBack: '-', drawLay: '-', bBack: '14.0', bLay: '15.5' } },
+        { tournament: 'ODI International', teamA: 'Mumbai Indians (e)', teamB: 'Delhi Capitals (e)', date: '08/11/2026 15:30:00', odds: { aBack: '1.42', aLay: '1.45', drawBack: '-', drawLay: '-', bBack: '3.10', bLay: '3.20' } },
+        { tournament: 'Test Match', teamA: 'Bangladesh', teamB: 'West Indies', date: '09/11/2026 10:00:00', odds: { aBack: '2.10', aLay: '2.15', drawBack: '3.20', drawLay: '3.30', bBack: '2.40', bLay: '2.48' } }
+    ];
+
+    const matchesHTML = sampleMatches.map((m, idx) => `
+        <tr class="border-b border-[#2b394a] text-xs hover:bg-[#1f2937] transition cursor-pointer">
+            <td class="p-2.5 text-white font-semibold">
+                <span class="text-[#00c0FF] text-[10px] font-bold block">${m.tournament}</span>
+                <span class="text-xs sm:text-sm text-white">${m.teamA} <span class="text-gray-400 font-normal">v</span> ${m.teamB}</span>
+                <span class="text-[10px] text-gray-400 block">${m.date}</span>
+            </td>
+            <td class="p-1 text-center border-l border-[#2b394a] bg-[#72bbef]/20">
+                <span class="block bg-[#72bbef] text-black font-bold py-1 px-1.5 rounded text-[11px]">${m.odds.aBack}</span>
+            </td>
+            <td class="p-1 text-center bg-[#faa9ba]/20 border-r border-[#2b394a]">
+                <span class="block bg-[#faa9ba] text-black font-bold py-1 px-1.5 rounded text-[11px]">${m.odds.aLay}</span>
+            </td>
+            <td class="p-1 text-center bg-[#72bbef]/20">
+                <span class="block bg-[#72bbef] text-black font-bold py-1 px-1.5 rounded text-[11px]">${m.odds.drawBack}</span>
+            </td>
+            <td class="p-1 text-center bg-[#faa9ba]/20 border-r border-[#2b394a]">
+                <span class="block bg-[#faa9ba] text-black font-bold py-1 px-1.5 rounded text-[11px]">${m.odds.drawLay}</span>
+            </td>
+            <td class="p-1 text-center bg-[#72bbef]/20">
+                <span class="block bg-[#72bbef] text-black font-bold py-1 px-1.5 rounded text-[11px]">${m.odds.bBack}</span>
+            </td>
+            <td class="p-1 text-center bg-[#faa9ba]/20">
+                <span class="block bg-[#faa9ba] text-black font-bold py-1 px-1.5 rounded text-[11px]">${m.odds.bLay}</span>
+            </td>
+        </tr>
+    `).join('');
+
+    // Casino items matching the exact screenshot grid items
+    const casinoItems = [
+        { name: 'GOAL 2', bg: 'bg-gradient-to-t from-black to-blue-900' },
+        { name: 'MATKA MARKET', bg: 'bg-gradient-to-t from-black to-amber-900' },
+        { name: 'DOLI DANA', bg: 'bg-gradient-to-t from-black to-emerald-900' },
+        { name: 'MOGAMBO', bg: 'bg-gradient-to-t from-black to-yellow-900' },
+        { name: 'LUCKY 6', bg: 'bg-gradient-to-t from-black to-green-900' },
+        { name: 'BEACH ROULETTE', bg: 'bg-gradient-to-t from-black to-cyan-900' },
+        { name: 'ROULETTE', bg: 'bg-gradient-to-t from-black to-purple-900' },
+        { name: 'VIP ROULETTE', bg: 'bg-gradient-to-t from-black to-red-900' },
+        { name: 'POISON TEENPATTI', bg: 'bg-gradient-to-t from-black to-gray-900' },
+        { name: 'UNIQUE TEENPATTI', bg: 'bg-gradient-to-t from-black to-indigo-900' },
+        { name: 'TEENPATTI 20-20', bg: 'bg-gradient-to-t from-black to-emerald-950' },
+        { name: 'UNLIMITED JOKER', bg: 'bg-gradient-to-t from-black to-teal-900' },
+        { name: 'SIC BO', bg: 'bg-gradient-to-t from-black to-slate-900' },
+        { name: 'ANDAR BAHAR', bg: 'bg-gradient-to-t from-black to-blue-950' },
+        { name: 'LUCKY 15', bg: 'bg-gradient-to-t from-black to-orange-950' },
+        { name: 'SUPER OVER', bg: 'bg-gradient-to-t from-black to-cyan-950' },
+        { name: 'QUEEN TOP OPEN', bg: 'bg-gradient-to-t from-black to-amber-950' },
+        { name: 'JACK TOP OPEN', bg: 'bg-gradient-to-t from-black to-yellow-950' }
+    ];
+
+    const casinoHTML = casinoItems.map(c => `
+        <div class="${c.bg} border border-[#2b394a] rounded overflow-hidden shadow-md flex flex-col justify-end h-28 p-2 relative hover:border-[#00c0FF] transition cursor-pointer">
+            <div class="absolute inset-0 flex items-center justify-center opacity-30 text-white font-black text-xs tracking-widest">${c.name}</div>
+            <span class="relative z-10 bg-black/60 text-white font-bold text-[10px] text-center py-1 rounded border border-white/10 uppercase">${c.name}</span>
+        </div>
     `).join('');
 
     return `
@@ -65,7 +129,7 @@ function renderDashboardPage(user, liveMatches) {
         </header>
 
         <!-- TOP MATCH TICKER BAR (Bangladesh v West Indies & Afghanistan v Zimbabwe Blinking) -->
-        <div class="bg-[#111827] border-b border-[#2b394a] py-1.5 px-3 flex space-x-4 overflow-x-auto text-[11px] text-gray-300 whitespace-nowrap">
+        <div class="bg-[#111827] border-b border-[#2b394a] py-1.5 px-3 overflow-x-auto whitespace-nowrap text-[11px]">
             ${tickerHTML}
         </div>
 
@@ -114,11 +178,38 @@ function renderDashboardPage(user, liveMatches) {
             </a>
         </div>
 
+        <!-- MAIN CONTENT AREA -->
         <main class="flex-1 p-2 space-y-4 max-w-7xl mx-auto w-full">
-            <!-- Jaisa aapne bola, abhi baaki neeche ka area clean rakha hai -->
-            <div class="text-center py-10 text-gray-500 text-xs">
-                Select a match from ticker above or explore categories.
+            
+            <!-- LIVE MATCHES TABLE -->
+            <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
+                <div class="bg-[#1f2937] px-3 py-2 font-bold text-white flex justify-between items-center text-xs">
+                    <span>LIVE CRICKET MATCHES</span>
+                    <span class="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded uppercase font-bold animate-pulse">In-Play</span>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-[#0b1118] text-gray-400 text-[10px] uppercase border-b border-[#2b394a]">
+                                <th class="p-2 border-r border-[#2b394a]">Match</th>
+                                <th colspan="2" class="p-2 text-center border-r border-[#2b394a]">1</th>
+                                <th colspan="2" class="p-2 text-center border-r border-[#2b394a]">X</th>
+                                <th colspan="2" class="p-2 text-center">2</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${matchesHTML}
+                        </tbody>
+                    </table>
+                </div>
             </div>
+
+            <!-- CASINO GRIDS SECTION -->
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 pt-2">
+                ${casinoHTML}
+            </div>
+
         </main>
 
         <footer class="bg-[#0b1118] border-t border-[#2b394a] p-3 text-center text-gray-500 text-[10px]">
