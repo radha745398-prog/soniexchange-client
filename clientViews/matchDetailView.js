@@ -26,6 +26,9 @@ function renderMatchDetailPage(user, matchData) {
             .odds-lay { background-color: #faa9ba; color: #000; }
             .fancy-no { background-color: #faa9ba; color: #000; }
             .fancy-yes { background-color: #72bbef; color: #000; }
+            /* Suspended Market Styling */
+            .market-suspended { background-color: #2a2e33 !important; color: #71767a !important; position: relative; cursor: not-allowed; }
+            .market-suspended::after { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background-color: #ef4444; }
         </style>
     </head>
     <body class="min-h-screen flex flex-col text-xs">
@@ -49,7 +52,7 @@ function renderMatchDetailPage(user, matchData) {
             </div>
         </header>
 
-        <!-- MATCH SCORE & INFO BANNER -->
+        <!-- MATCH SCORE & INFO BANNER (Enhanced with Ball Tracker) -->
         <div class="bg-teal-bar px-3 py-2 text-white">
             <div class="flex justify-between items-center text-[11px] border-b border-white/10 pb-1 mb-1.5 font-semibold">
                 <span><i class="fa-solid fa-circle text-[7px] text-green-400 animate-pulse mr-1"></i> ${teamA} V ${teamB}</span>
@@ -74,16 +77,20 @@ function renderMatchDetailPage(user, matchData) {
                 </div>
             </div>
 
-            <!-- Over Ball Trackers -->
-            <div class="flex space-x-1.5 overflow-x-auto text-[10px] pb-1 whitespace-nowrap">
+            <!-- Detailed Over Ball Trackers (As seen in screenshot) -->
+            <div class="flex items-center space-x-1.5 overflow-x-auto text-[10px] pb-1 whitespace-nowrap scrollbar-none">
                 <span class="bg-black/40 px-2 py-0.5 rounded text-gray-300">Ov 13 (4)</span>
-                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
-                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
-                <span class="bg-blue-600 w-5 h-5 rounded-full flex items-center justify-center font-bold text-white">4</span>
-                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
+                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold text-white border border-gray-600">0</span>
+                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold text-white border border-gray-600">0</span>
+                <span class="bg-blue-600 w-5 h-5 rounded-full flex items-center justify-center font-bold text-white">1</span>
+                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold text-white border border-gray-600">0</span>
+                <span class="bg-blue-500 w-5 h-5 rounded-full flex items-center justify-center font-bold text-white">4</span>
                 <span class="bg-black/40 px-2 py-0.5 rounded text-gray-300 ml-2">Ov 14 (0)</span>
-                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
-                <span class="bg-yellow-600 w-5 h-5 rounded-full flex items-center justify-center font-bold">4D</span>
+                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold text-white border border-gray-600">0</span>
+                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold text-white border border-gray-600">0</span>
+                <span class="bg-black/40 px-2 py-0.5 rounded text-gray-300 ml-2">Ov 15 (12)</span>
+                <span class="bg-blue-600 w-5 h-5 rounded-full flex items-center justify-center font-bold text-white">4</span>
+                <span class="bg-blue-600 w-5 h-5 rounded-full flex items-center justify-center font-bold text-white">4</span>
             </div>
         </div>
 
@@ -168,22 +175,21 @@ function renderMatchDetailPage(user, matchData) {
                         <div class="odds-back rounded py-1 font-bold text-xs">--</div>
                     </div>
                     <div class="col-span-3 grid grid-cols-2 gap-1 text-center pl-1">
-                        <div class="odds-lay rounded py-1 font-bold text-xs">--</div>
-                        <div class="odds-lay rounded py-1 font-bold text-xs">--</div>
+                        <div class="market-suspended rounded py-1 font-bold text-xs">--</div>
+                        <div class="market-suspended rounded py-1 font-bold text-xs">--</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 3. NORMAL SECTION (2-Column Grid exactly like screenshot 16 & 17) -->
+            <!-- 3. NORMAL SECTION (With Suspended State Support) -->
             <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs rounded">Normal</div>
             <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden p-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                 
-                <!-- Row 1 -->
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">20 over run SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 100K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>80</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>80</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>80</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>80</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
@@ -194,12 +200,11 @@ function renderMatchDetailPage(user, matchData) {
                     </div>
                 </div>
 
-                <!-- Row 2 -->
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">1st innings run SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 1L</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>333</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>337</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>333</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>337</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
@@ -210,12 +215,11 @@ function renderMatchDetailPage(user, matchData) {
                     </div>
                 </div>
 
-                <!-- Row 3 -->
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">1st innings run 1st wkt SL 2</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>285</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>285</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>285</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>285</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
@@ -223,54 +227,6 @@ function renderMatchDetailPage(user, matchData) {
                     <div class="flex space-x-1">
                         <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>98</div><div class="text-[9px] font-normal">100</div></button>
                         <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>98</div><div class="text-[9px] font-normal">100</div></button>
-                    </div>
-                </div>
-
-                <!-- Row 4 -->
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">3rd wkt inwr SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 1L</div></div>
-                    <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>101</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>101</div><div class="text-[9px] font-normal">100</div></button>
-                    </div>
-                </div>
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">L Udara 1st innings</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
-                    <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>72</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>72</div><div class="text-[9px] font-normal">100</div></button>
-                    </div>
-                </div>
-
-                <!-- Row 5 -->
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">Kusal Mendis runs</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
-                    <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>45</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>45</div><div class="text-[9px] font-normal">100</div></button>
-                    </div>
-                </div>
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">Kusal Mendis run boundaries</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
-                    <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>--</div><div class="text-[9px] font-normal">--</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>--</div><div class="text-[9px] font-normal">--</div></button>
-                    </div>
-                </div>
-
-                <!-- Row 6 -->
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">L Udara run boundaries</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
-                    <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>--</div><div class="text-[9px] font-normal">--</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>--</div><div class="text-[9px] font-normal">--</div></button>
-                    </div>
-                </div>
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">Kaminen Mendis boundaries</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
-                    <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>4</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>5</div><div class="text-[9px] font-normal">250K</div></button>
                     </div>
                 </div>
 
@@ -282,15 +238,8 @@ function renderMatchDetailPage(user, matchData) {
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">Only 17 over run SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>4</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>4</div><div class="text-[9px] font-normal">100</div></button>
-                    </div>
-                </div>
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">Only 18 over run SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
-                    <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>--</div><div class="text-[9px] font-normal">--</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>--</div><div class="text-[9px] font-normal">--</div></button>
+                        <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>4</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>4</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
             </div>
@@ -302,10 +251,6 @@ function renderMatchDetailPage(user, matchData) {
                     <div><div class="font-bold text-white">3rd Wkt Caught out SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 10K</div></div>
                     <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold">--</button><button class="odds-lay px-3 py-1 rounded font-bold">--</button></div>
                 </div>
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">3rd wkt out L. Udara</div><div class="text-[10px] text-gray-400">Min: 100 Max: 10K</div></div>
-                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold">--</button><button class="odds-lay px-3 py-1 rounded font-bold">--</button></div>
-                </div>
             </div>
 
             <!-- 6. ODD-EVEN -->
@@ -313,11 +258,7 @@ function renderMatchDetailPage(user, matchData) {
             <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden p-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">1st Inn 20 over run odd even SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 1L</div></div>
-                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold">1.96</button><button class="odds-back px-3 py-1 rounded font-bold">1.96</button></div>
-                </div>
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">1st Inn 30 over run odd even SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 1L</div></div>
-                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold">1.96</button><button class="odds-back px-3 py-1 rounded font-bold">1.96</button></div>
+                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold">1.96</button><button class="market-suspended px-3 py-1 rounded font-bold">1.96</button></div>
                 </div>
             </div>
 
@@ -327,58 +268,8 @@ function renderMatchDetailPage(user, matchData) {
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">3rd wkt meter SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 10K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold">112</button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold">115</button>
-                    </div>
-                </div>
-                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
-                    <div><div class="font-bold text-white">L Udara meter</div><div class="text-[10px] text-gray-400">Min: 100 Max: 10K</div></div>
-                    <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold">83</button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold">86</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 8. 2ND INN OVERS (20, 30, 40, 50) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
-                    <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 20 OVER PAK VS SL</div>
-                    <div class="bg-[#0b1118] px-2 py-1 text-[10px] text-gray-400 flex justify-between border-b border-[#2b394a]"><span>Min: 100 Max: 1L</span><span class="text-[#72bbef] font-bold">Back</span></div>
-                    <div class="p-2 space-y-1">
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                    </div>
-                </div>
-
-                <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
-                    <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 30 OVER PAK VS SL</div>
-                    <div class="bg-[#0b1118] px-2 py-1 text-[10px] text-gray-400 flex justify-between border-b border-[#2b394a]"><span>Min: 100 Max: 1L</span><span class="text-[#72bbef] font-bold">Back</span></div>
-                    <div class="p-2 space-y-1">
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                    </div>
-                </div>
-
-                <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
-                    <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 40 OVER PAK VS SL</div>
-                    <div class="bg-[#0b1118] px-2 py-1 text-[10px] text-gray-400 flex justify-between border-b border-[#2b394a]"><span>Min: 100 Max: 1L</span><span class="text-[#72bbef] font-bold">Back</span></div>
-                    <div class="p-2 space-y-1">
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                    </div>
-                </div>
-
-                <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
-                    <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 50 OVER PAK VS SL</div>
-                    <div class="bg-[#0b1118] px-2 py-1 text-[10px] text-gray-400 flex justify-between border-b border-[#2b394a]"><span>Min: 100 Max: 1L</span><span class="text-[#72bbef] font-bold">Back</span></div>
-                    <div class="p-2 space-y-1">
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
+                        <button class="market-suspended px-3 py-1 rounded font-bold">112</button>
+                        <button class="market-suspended px-3 py-1 rounded font-bold">115</button>
                     </div>
                 </div>
             </div>
