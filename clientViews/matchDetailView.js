@@ -2,8 +2,8 @@
 
 function renderMatchDetailPage(user, matchData) {
     const username = user.username || 'Client';
-    const balance = Number(user.points || 0).toLocaleString();
-    const exposure = Number(user.exposure || 0).toLocaleString();
+    const balance = Number(user.points || 0);
+    const exposure = Number(user.exposure || 0);
 
     const teamA = matchData ? matchData.teamA : 'Pakistan';
     const teamB = matchData ? matchData.teamB : 'Sri Lanka';
@@ -23,26 +23,28 @@ function renderMatchDetailPage(user, matchData) {
             .bg-custom-navy { background-color: #f8fafc; }
             .bg-custom-header { background-color: #0b1118; color: #ffffff; }
             .bg-teal-bar { background-color: #0e5c75; color: #ffffff; }
-            .odds-back { background-color: #72bbef; color: #000; }
-            .odds-lay { background-color: #faa9ba; color: #000; }
-            .fancy-no { background-color: #faa9ba; color: #000; }
-            .fancy-yes { background-color: #72bbef; color: #000; }
+            .odds-back { background-color: #72bbef; color: #000; cursor: pointer; }
+            .odds-lay { background-color: #faa9ba; color: #000; cursor: pointer; }
+            .fancy-no { background-color: #faa9ba; color: #000; cursor: pointer; }
+            .fancy-yes { background-color: #72bbef; color: #000; cursor: pointer; }
+            .bet-clickable { cursor: pointer; }
             
-            /* Suspended Market State */
+            /* Market Suspended State */
             .market-suspended { background-color: #2a2e33 !important; color: #71767a !important; position: relative; cursor: not-allowed; }
             .market-suspended::after { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background-color: #ef4444; }
             
-            /* Yellow Price Flash Animation for Real-Time API Updates */
+            /* Yellow Price Flash */
             @keyframes priceFlash {
                 0% { background-color: #fde047 !important; color: #000 !important; }
                 100% { background-color: inherit; }
             }
-            .price-update {
-                animation: priceFlash 0.8s ease-in-out;
-            }
+            .price-update { animation: priceFlash 0.8s ease-in-out; }
+
+            /* Modal Overlay */
+            .modal-overlay { background: rgba(0, 0, 0, 0.6); }
         </style>
     </head>
-    <body class="min-h-screen flex flex-col text-xs">
+    <body class="min-h-screen flex flex-col text-xs relative">
         
         <!-- TOP HEADER BAR -->
         <header class="bg-custom-header border-b border-[#2b394a] px-3 py-2 flex items-center justify-between sticky top-0 z-50">
@@ -53,8 +55,8 @@ function renderMatchDetailPage(user, matchData) {
             
             <div class="flex items-center space-x-3 text-[11px]">
                 <div class="text-right">
-                    <div class="text-gray-300">Balance: <span class="font-bold text-green-400" id="user-balance">${balance}</span></div>
-                    <div class="text-gray-400">Exp: <span class="font-bold text-red-400" id="user-exposure">${exposure}</span></div>
+                    <div class="text-gray-300">Balance: <span class="font-bold text-green-400" id="user-balance">${balance.toLocaleString()}</span></div>
+                    <div class="text-gray-400">Exp: <span class="font-bold text-red-400" id="user-exposure">${exposure.toLocaleString()}</span></div>
                 </div>
                 <div class="bg-[#1f2937] px-2.5 py-1 rounded border border-gray-700 font-bold text-white flex items-center space-x-1">
                     <i class="fa-solid fa-user text-[#00c0FF]"></i>
@@ -107,7 +109,7 @@ function renderMatchDetailPage(user, matchData) {
         <!-- TABS BAR -->
         <div class="bg-[#f1f5f9] border-b border-gray-200 flex text-center font-bold text-xs">
             <div class="flex-1 py-2 border-b-2 border-[#00c0FF] text-[#00c0FF]">ODDS</div>
-            <div class="flex-1 py-2 text-gray-500 hover:text-black cursor-pointer">MATCHED BET (0)</div>
+            <div class="flex-1 py-2 text-gray-500 hover:text-black cursor-pointer">MATCHED BET (<span id="matched-bet-count">0</span>)</div>
         </div>
 
         <!-- MAIN CONTENT MARKETS -->
@@ -128,42 +130,42 @@ function renderMatchDetailPage(user, matchData) {
                 <div class="grid grid-cols-12 items-center p-2 border-b border-gray-200 hover:bg-gray-100 transition">
                     <div class="col-span-6 font-bold text-gray-900 text-xs">${teamA}</div>
                     <div class="col-span-3 grid grid-cols-3 gap-1 text-center">
-                        <div class="bg-[#72bbef]/30 rounded py-1"><span class="font-bold text-xs text-black">5</span></div>
-                        <div class="bg-[#72bbef]/30 rounded py-1"><span class="font-bold text-xs text-black">5.2</span></div>
-                        <div class="odds-back rounded py-1 font-bold text-xs" id="odds-ta-back">5.3</div>
+                        <div class="bg-[#72bbef]/30 rounded py-1 bet-clickable" onclick="openBetSlip('${teamA} (Back)', 5)"><span class="font-bold text-xs text-black">5</span></div>
+                        <div class="bg-[#72bbef]/30 rounded py-1 bet-clickable" onclick="openBetSlip('${teamA} (Back)', 5.2)"><span class="font-bold text-xs text-black">5.2</span></div>
+                        <div class="odds-back rounded py-1 font-bold text-xs" id="odds-ta-back" onclick="openBetSlip('${teamA} (Back)', 5.3)">5.3</div>
                     </div>
                     <div class="col-span-3 grid grid-cols-3 gap-1 text-center pl-1">
-                        <div class="odds-lay rounded py-1 font-bold text-xs" id="odds-ta-lay">5.4</div>
-                        <div class="bg-[#faa9ba]/30 rounded py-1"><span class="font-bold text-xs text-black">5.5</span></div>
-                        <div class="bg-[#faa9ba]/30 rounded py-1"><span class="font-bold text-xs text-black">5.6</span></div>
+                        <div class="odds-lay rounded py-1 font-bold text-xs" id="odds-ta-lay" onclick="openBetSlip('${teamA} (Lay)', 5.4)">5.4</div>
+                        <div class="bg-[#faa9ba]/30 rounded py-1 bet-clickable" onclick="openBetSlip('${teamA} (Lay)', 5.5)"><span class="font-bold text-xs text-black">5.5</span></div>
+                        <div class="bg-[#faa9ba]/30 rounded py-1 bet-clickable" onclick="openBetSlip('${teamA} (Lay)', 5.6)"><span class="font-bold text-xs text-black">5.6</span></div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-12 items-center p-2 border-b border-gray-200 hover:bg-gray-100 transition">
                     <div class="col-span-6 font-bold text-gray-900 text-xs">${teamB}</div>
                     <div class="col-span-3 grid grid-cols-3 gap-1 text-center">
-                        <div class="bg-[#72bbef]/30 rounded py-1"><span class="font-bold text-xs text-black">9.2</span></div>
-                        <div class="bg-[#72bbef]/30 rounded py-1"><span class="font-bold text-xs text-black">9.4</span></div>
-                        <div class="odds-back rounded py-1 font-bold text-xs">9.8</div>
+                        <div class="bg-[#72bbef]/30 rounded py-1 bet-clickable" onclick="openBetSlip('${teamB} (Back)', 9.2)"><span class="font-bold text-xs text-black">9.2</span></div>
+                        <div class="bg-[#72bbef]/30 rounded py-1 bet-clickable" onclick="openBetSlip('${teamB} (Back)', 9.4)"><span class="font-bold text-xs text-black">9.4</span></div>
+                        <div class="odds-back rounded py-1 font-bold text-xs" onclick="openBetSlip('${teamB} (Back)', 9.8)">9.8</div>
                     </div>
                     <div class="col-span-3 grid grid-cols-3 gap-1 text-center pl-1">
-                        <div class="odds-lay rounded py-1 font-bold text-xs">11</div>
-                        <div class="bg-[#faa9ba]/30 rounded py-1"><span class="font-bold text-xs text-black">11.5</span></div>
-                        <div class="bg-[#faa9ba]/30 rounded py-1"><span class="font-bold text-xs text-black">12</span></div>
+                        <div class="odds-lay rounded py-1 font-bold text-xs" onclick="openBetSlip('${teamB} (Lay)', 11)">11</div>
+                        <div class="bg-[#faa9ba]/30 rounded py-1 bet-clickable" onclick="openBetSlip('${teamB} (Lay)', 11.5)"><span class="font-bold text-xs text-black">11.5</span></div>
+                        <div class="bg-[#faa9ba]/30 rounded py-1 bet-clickable" onclick="openBetSlip('${teamB} (Lay)', 12)"><span class="font-bold text-xs text-black">12</span></div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-12 items-center p-2 hover:bg-gray-100 transition">
                     <div class="col-span-6 font-bold text-gray-900 text-xs">The Draw</div>
                     <div class="col-span-3 grid grid-cols-3 gap-1 text-center">
-                        <div class="bg-[#72bbef]/30 rounded py-1"><span class="font-bold text-xs text-black">1.37</span></div>
-                        <div class="bg-[#72bbef]/30 rounded py-1"><span class="font-bold text-xs text-black">1.38</span></div>
-                        <div class="odds-back rounded py-1 font-bold text-xs">1.39</div>
+                        <div class="bg-[#72bbef]/30 rounded py-1 bet-clickable" onclick="openBetSlip('The Draw (Back)', 1.37)"><span class="font-bold text-xs text-black">1.37</span></div>
+                        <div class="bg-[#72bbef]/30 rounded py-1 bet-clickable" onclick="openBetSlip('The Draw (Back)', 1.38)"><span class="font-bold text-xs text-black">1.38</span></div>
+                        <div class="odds-back rounded py-1 font-bold text-xs" onclick="openBetSlip('The Draw (Back)', 1.39)">1.39</div>
                     </div>
                     <div class="col-span-3 grid grid-cols-3 gap-1 text-center pl-1">
-                        <div class="odds-lay rounded py-1 font-bold text-xs">1.4</div>
-                        <div class="bg-[#faa9ba]/30 rounded py-1"><span class="font-bold text-xs text-black">1.41</span></div>
-                        <div class="bg-[#faa9ba]/30 rounded py-1"><span class="font-bold text-xs text-black">1.42</span></div>
+                        <div class="odds-lay rounded py-1 font-bold text-xs" onclick="openBetSlip('The Draw (Lay)', 1.4)">1.4</div>
+                        <div class="bg-[#faa9ba]/30 rounded py-1 bet-clickable" onclick="openBetSlip('The Draw (Lay)', 1.41)"><span class="font-bold text-xs text-black">1.41</span></div>
+                        <div class="bg-[#faa9ba]/30 rounded py-1 bet-clickable" onclick="openBetSlip('The Draw (Lay)', 1.42)"><span class="font-bold text-xs text-black">1.42</span></div>
                     </div>
                 </div>
             </div>
@@ -181,8 +183,8 @@ function renderMatchDetailPage(user, matchData) {
                 <div class="grid grid-cols-12 items-center p-2 hover:bg-gray-100 transition">
                     <div class="col-span-6 font-bold text-gray-900 text-xs">${teamA}</div>
                     <div class="col-span-3 grid grid-cols-2 gap-1 text-center">
-                        <div class="odds-back rounded py-1 font-bold text-xs">--</div>
-                        <div class="odds-back rounded py-1 font-bold text-xs">--</div>
+                        <div class="odds-back rounded py-1 font-bold text-xs" onclick="openBetSlip('${teamA} BM (Back)', 100)">--</div>
+                        <div class="odds-back rounded py-1 font-bold text-xs" onclick="openBetSlip('${teamA} BM (Back)', 100)">--</div>
                     </div>
                     <div class="col-span-3 grid grid-cols-2 gap-1 text-center pl-1">
                         <div class="market-suspended rounded py-1 font-bold text-xs">--</div>
@@ -202,11 +204,12 @@ function renderMatchDetailPage(user, matchData) {
                         <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>80</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
+
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">16 over run SL</div><div class="text-[10px] text-gray-500">Min: 100 Max: 1L</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>64</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>64</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('16 over run SL (No)', 64)"><div>64</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('16 over run SL (Yes)', 64)"><div>64</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
 
@@ -217,11 +220,12 @@ function renderMatchDetailPage(user, matchData) {
                         <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>337</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
+
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">1st innings run 3rd wkt SL</div><div class="text-[10px] text-gray-500">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>326</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>329</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('1st innings run 3rd wkt SL (No)', 326)"><div>326</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('1st innings run 3rd wkt SL (Yes)', 329)"><div>329</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
 
@@ -232,41 +236,44 @@ function renderMatchDetailPage(user, matchData) {
                         <button class="market-suspended px-3 py-1 rounded font-bold text-center"><div>285</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
+
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">2nd wkt SL</div><div class="text-[10px] text-gray-500">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>98</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>98</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('2nd wkt SL (No)', 98)"><div>98</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('2nd wkt SL (Yes)', 98)"><div>98</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
 
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">3rd wkt inwr SL</div><div class="text-[10px] text-gray-500">Min: 100 Max: 1L</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>101</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>101</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('3rd wkt inwr SL (No)', 101)"><div>101</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('3rd wkt inwr SL (Yes)', 101)"><div>101</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
+
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">L Udara 1st innings</div><div class="text-[10px] text-gray-500">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>72</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>72</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('L Udara 1st innings (No)', 72)"><div>72</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('L Udara 1st innings (Yes)', 72)"><div>72</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
 
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">Kusal Mendis runs</div><div class="text-[10px] text-gray-500">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>45</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>45</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('Kusal Mendis runs (No)', 45)"><div>45</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('Kusal Mendis runs (Yes)', 45)"><div>45</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
+
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">Kaminen Mendis boundaries</div><div class="text-[10px] text-gray-500">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>4</div><div class="text-[9px] font-normal">100</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>5</div><div class="text-[9px] font-normal">250K</div></button>
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('Kaminen Mendis boundaries (No)', 4)"><div>4</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('Kaminen Mendis boundaries (Yes)', 5)"><div>5</div><div class="text-[9px] font-normal">250K</div></button>
                     </div>
                 </div>
 
@@ -285,8 +292,8 @@ function renderMatchDetailPage(user, matchData) {
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">Only 18 over run SL</div><div class="text-[10px] text-gray-500">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>--</div><div class="text-[9px] font-normal">--</div></button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>--</div><div class="text-[9px] font-normal">--</div></button>
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('Only 18 over run SL (No)', 10)"><div>--</div><div class="text-[9px] font-normal">--</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center" onclick="openBetSlip('Only 18 over run SL (Yes)', 10)"><div>--</div><div class="text-[9px] font-normal">--</div></button>
                     </div>
                 </div>
             </div>
@@ -296,11 +303,11 @@ function renderMatchDetailPage(user, matchData) {
             <div class="bg-custom-navy border border-gray-200 rounded overflow-hidden p-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs shadow-sm">
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">3rd Wkt Caught out SL</div><div class="text-[10px] text-gray-500">Min: 100 Max: 10K</div></div>
-                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold">--</button><button class="odds-lay px-3 py-1 rounded font-bold">--</button></div>
+                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold" onclick="openBetSlip('3rd Wkt Caught out SL (Back)', 1.35)">--</button><button class="odds-lay px-3 py-1 rounded font-bold" onclick="openBetSlip('3rd Wkt Caught out SL (Lay)', 1.55)">--</button></div>
                 </div>
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">3rd wkt out L. Udara</div><div class="text-[10px] text-gray-500">Min: 100 Max: 10K</div></div>
-                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold">--</button><button class="odds-lay px-3 py-1 rounded font-bold">--</button></div>
+                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold" onclick="openBetSlip('3rd wkt out L. Udara (Back)', 1.75)">--</button><button class="odds-lay px-3 py-1 rounded font-bold" onclick="openBetSlip('3rd wkt out L. Udara (Lay)', 2.05)">--</button></div>
                 </div>
             </div>
 
@@ -309,11 +316,11 @@ function renderMatchDetailPage(user, matchData) {
             <div class="bg-custom-navy border border-gray-200 rounded overflow-hidden p-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs shadow-sm">
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">1st Inn 20 over run odd even SL</div><div class="text-[10px] text-gray-500">Min: 100 Max: 1L</div></div>
-                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold">1.96</button><button class="market-suspended px-3 py-1 rounded font-bold">1.96</button></div>
+                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold" onclick="openBetSlip('1st Inn 20 over run odd even SL (Odd)', 1.96)">1.96</button><button class="market-suspended px-3 py-1 rounded font-bold">1.96</button></div>
                 </div>
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">1st Inn 30 over run odd even SL</div><div class="text-[10px] text-gray-500">Min: 100 Max: 1L</div></div>
-                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold">1.96</button><button class="odds-back px-3 py-1 rounded font-bold">1.96</button></div>
+                    <div class="flex space-x-1"><button class="odds-back px-3 py-1 rounded font-bold" onclick="openBetSlip('1st Inn 30 over run odd even SL (Odd)', 1.96)">1.96</button><button class="odds-back px-3 py-1 rounded font-bold" onclick="openBetSlip('1st Inn 30 over run odd even SL (Even)', 1.96)">1.96</button></div>
                 </div>
             </div>
 
@@ -330,8 +337,8 @@ function renderMatchDetailPage(user, matchData) {
                 <div class="bg-white p-2 rounded border border-gray-200 flex justify-between items-center shadow-xs">
                     <div><div class="font-bold text-gray-900">L Udara meter</div><div class="text-[10px] text-gray-500">Min: 100 Max: 10K</div></div>
                     <div class="flex space-x-1">
-                        <button class="fancy-no px-3 py-1 rounded font-bold">83</button>
-                        <button class="fancy-yes px-3 py-1 rounded font-bold">86</button>
+                        <button class="fancy-no px-3 py-1 rounded font-bold" onclick="openBetSlip('L Udara meter (No)', 83)">83</button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold" onclick="openBetSlip('L Udara meter (Yes)', 86)">86</button>
                     </div>
                 </div>
             </div>
@@ -342,9 +349,9 @@ function renderMatchDetailPage(user, matchData) {
                     <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 20 OVER PAK VS SL</div>
                     <div class="bg-[#f1f5f9] px-2 py-1 text-[10px] text-gray-600 flex justify-between border-b border-gray-200"><span>Min: 100 Max: 1L</span><span class="text-[#0369a1] font-bold">Back</span></div>
                     <div class="p-2 space-y-1">
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 20 Ov - 0 Number', 9.5)">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 20 Ov - 1 Number', 9.5)">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 20 Ov - 2 Number', 9.5)">9.5</button></div>
                     </div>
                 </div>
 
@@ -352,9 +359,9 @@ function renderMatchDetailPage(user, matchData) {
                     <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 30 OVER PAK VS SL</div>
                     <div class="bg-[#f1f5f9] px-2 py-1 text-[10px] text-gray-600 flex justify-between border-b border-gray-200"><span>Min: 100 Max: 1L</span><span class="text-[#0369a1] font-bold">Back</span></div>
                     <div class="p-2 space-y-1">
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 30 Ov - 0 Number', 9.5)">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 30 Ov - 1 Number', 9.5)">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 30 Ov - 2 Number', 9.5)">9.5</button></div>
                     </div>
                 </div>
 
@@ -362,9 +369,9 @@ function renderMatchDetailPage(user, matchData) {
                     <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 40 OVER PAK VS SL</div>
                     <div class="bg-[#f1f5f9] px-2 py-1 text-[10px] text-gray-600 flex justify-between border-b border-gray-200"><span>Min: 100 Max: 1L</span><span class="text-[#0369a1] font-bold">Back</span></div>
                     <div class="p-2 space-y-1">
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 40 Ov - 0 Number', 9.5)">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 40 Ov - 1 Number', 9.5)">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 40 Ov - 2 Number', 9.5)">9.5</button></div>
                     </div>
                 </div>
 
@@ -372,46 +379,155 @@ function renderMatchDetailPage(user, matchData) {
                     <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 50 OVER PAK VS SL</div>
                     <div class="bg-[#f1f5f9] px-2 py-1 text-[10px] text-gray-600 flex justify-between border-b border-gray-200"><span>Min: 100 Max: 1L</span><span class="text-[#0369a1] font-bold">Back</span></div>
                     <div class="p-2 space-y-1">
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
-                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">0 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 50 Ov - 0 Number', 9.5)">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">1 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 50 Ov - 1 Number', 9.5)">9.5</button></div>
+                        <div class="flex justify-between items-center bg-white px-2 py-1 rounded text-xs border border-gray-200"><span class="text-gray-900 font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold" onclick="openBetSlip('2nd Inn 50 Ov - 2 Number', 9.5)">9.5</button></div>
                     </div>
                 </div>
             </div>
 
         </main>
 
-        <!-- LIVE API / WEBSOCKET SCRIPT HANDLING YELLOW FLASH & SUSPENDED STATES -->
+        <!-- ================= PLACE BET MODAL POPUP ================= -->
+        <div id="bet-slip-modal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center hidden">
+            <div class="bg-[#1e293b] text-white w-full max-w-md rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
+                <div class="bg-[#0f172a] px-4 py-2.5 flex justify-between items-center border-b border-gray-700 font-bold text-sm">
+                    <span id="modal-market-title" class="text-[#00c0FF]">Place Bet</span>
+                    <button onclick="closeBetSlip()" class="text-gray-400 hover:text-white text-base"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <div class="p-4 space-y-3 text-xs">
+                    <div class="flex justify-between bg-black/30 p-2 rounded">
+                        <div>
+                            <div class="text-gray-400 text-[10px]">Odds</div>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <button onclick="adjustOdds(-0.01)" class="bg-gray-700 px-2 py-0.5 rounded font-bold">-</button>
+                                <span id="modal-odds-val" class="font-bold text-sm text-yellow-400">0.00</span>
+                                <button onclick="adjustOdds(0.01)" class="bg-gray-700 px-2 py-0.5 rounded font-bold">+</button>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-gray-400 text-[10px]">Profit</div>
+                            <div id="modal-profit-val" class="font-bold text-sm text-green-400 mt-1">0.00</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-gray-300 font-semibold block mb-1">Amount (Stake)</label>
+                        <input type="number" id="modal-stake-input" class="w-full bg-black/50 border border-gray-600 rounded px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-[#00c0FF]" placeholder="Enter amount..." oninput="calculateProfit()">
+                    </div>
+
+                    <!-- Quick Stake Buttons -->
+                    <div class="grid grid-cols-4 gap-1.5">
+                        <button onclick="addStake(1000)" class="bg-[#334155] hover:bg-[#475569] py-1 rounded font-bold">+1k</button>
+                        <button onclick="addStake(2000)" class="bg-[#334155] hover:bg-[#475569] py-1 rounded font-bold">+2k</button>
+                        <button onclick="addStake(5000)" class="bg-[#334155] hover:bg-[#475569] py-1 rounded font-bold">+5k</button>
+                        <button onclick="addStake(10000)" class="bg-[#334155] hover:bg-[#475569] py-1 rounded font-bold">+10k</button>
+                        <button onclick="addStake(25000)" class="bg-[#334155] hover:bg-[#475569] py-1 rounded font-bold">+25k</button>
+                        <button onclick="addStake(50000)" class="bg-[#334155] hover:bg-[#475569] py-1 rounded font-bold">+50k</button>
+                        <button onclick="addStake(75000)" class="bg-[#334155] hover:bg-[#475569] py-1 rounded font-bold">+75k</button>
+                        <button onclick="clearStake()" class="bg-red-900/60 hover:bg-red-800 py-1 rounded font-bold text-red-200">Clear</button>
+                    </div>
+
+                    <div class="flex space-x-2 pt-2">
+                        <button onclick="closeBetSlip()" class="flex-1 bg-gray-700 hover:bg-gray-600 py-2 rounded font-bold text-gray-300">Reset</button>
+                        <button onclick="confirmPlaceBet()" class="flex-1 bg-green-600 hover:bg-green-500 py-2 rounded font-bold text-white shadow-lg">Place Bet</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- JAVASCRIPT FOR BETTING & POINTS LOGIC -->
         <script>
-            const matchId = "${matchId}";
+            let currentBet = {
+                title: '',
+                odds: 0,
+                stake: 0,
+                username: '${username}',
+                matchId: '${matchId}'
+            };
 
-            function initLiveExchangeFeed() {
-                // Future WebSocket integration hook
-                console.log("Exchange API Feed Listener ready for match: " + matchId);
+            let userBalance = ${balance};
+            let userExposure = ${exposure};
+            let betCount = 0;
+
+            function openBetSlip(title, odds) {
+                currentBet.title = title;
+                currentBet.odds = parseFloat(odds);
+                currentBet.stake = 0;
+
+                document.getElementById('modal-market-title').innerText = title;
+                document.getElementById('modal-odds-val').innerText = currentBet.odds;
+                document.getElementById('modal-stake-input').value = '';
+                document.getElementById('modal-profit-val').innerText = '0.00';
+                
+                document.getElementById('bet-slip-modal').classList.remove('hidden');
             }
 
-            function updateUIWithLiveData(apiPayload) {
-                if (apiPayload.scoreA) {
-                    document.getElementById('score-a').innerText = apiPayload.scoreA;
-                }
-                if (apiPayload.scoreB) {
-                    document.getElementById('score-b').innerText = apiPayload.scoreB;
-                }
-
-                // Yellow Price Flashing Logic
-                if (apiPayload.odds) {
-                    const oddsEl = document.getElementById('odds-ta-back');
-                    if (oddsEl && oddsEl.innerText !== apiPayload.odds.teamABack) {
-                        oddsEl.innerText = apiPayload.odds.teamABack;
-                        oddsEl.classList.add('price-update');
-                        setTimeout(() => oddsEl.classList.remove('price-update'), 800);
-                    }
-                }
+            function closeBetSlip() {
+                document.getElementById('bet-slip-modal').classList.add('hidden');
             }
 
-            window.addEventListener('DOMContentLoaded', () => {
-                initLiveExchangeFeed();
-            });
+            function adjustOdds(val) {
+                currentBet.odds = Math.max(1.01, +(currentBet.odds + val).toFixed(2));
+                document.getElementById('modal-odds-val').innerText = currentBet.odds;
+                calculateProfit();
+            }
+
+            function addStake(amount) {
+                const input = document.getElementById('modal-stake-input');
+                let currentVal = parseInt(input.value) || 0;
+                input.value = currentVal + amount;
+                calculateProfit();
+            }
+
+            function clearStake() {
+                document.getElementById('modal-stake-input').value = '';
+                calculateProfit();
+            }
+
+            function calculateProfit() {
+                const stake = parseFloat(document.getElementById('modal-stake-input').value) || 0;
+                currentBet.stake = stake;
+                const profit = (stake * (currentBet.odds - 1)).toFixed(2);
+                document.getElementById('modal-profit-val').innerText = profit > 0 ? profit : '0.00';
+            }
+
+            // CONFIRM PLACE BET (Deducts points & sends to Admin Panel)
+            function confirmPlaceBet() {
+                if (currentBet.stake <= 0) {
+                    alert('Please enter a valid stake amount.');
+                    return;
+                }
+
+                if (currentBet.stake > userBalance) {
+                    alert('Insufficient balance / points!');
+                    return;
+                }
+
+                // Deduct points locally
+                userBalance -= currentBet.stake;
+                userExposure += currentBet.stake;
+                betCount += 1;
+
+                document.getElementById('user-balance').innerText = userBalance.toLocaleString();
+                document.getElementById('user-exposure').innerText = userExposure.toLocaleString();
+                document.getElementById('matched-bet-count').innerText = betCount;
+
+                // Send Bet to Backend API so Admin can see it in real-time
+                fetch('/api/place-bet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentBet)
+                }).then(res => {
+                    console.log('Bet successfully recorded and sent to Admin panel.');
+                }).catch(err => {
+                    console.error('Error syncing bet with backend:', err);
+                });
+
+                alert('Bet Placed Successfully! Points deducted.');
+                closeBetSlip();
+            }
         </script>
 
         <footer class="bg-gray-900 border-t border-gray-200 p-4 text-center text-gray-400 text-[10px] space-y-2 mt-4">
@@ -419,10 +535,6 @@ function renderMatchDetailPage(user, matchData) {
                 <a href="#" class="hover:text-white">Terms and Conditions</a>
                 <span>|</span>
                 <a href="#" class="hover:text-white">24X7 Support</a>
-            </div>
-            <div class="flex justify-center items-center space-x-2 py-1">
-                <span class="bg-green-800 text-green-200 px-2 py-0.5 rounded font-bold text-[9px]">100% SAFE</span>
-                <span class="text-gray-400">Protected connection and encrypted data.</span>
             </div>
             <div>&copy; 2026 SONIEXCHANGE. All Rights Reserved. Powered by TULA111.</div>
         </footer>
