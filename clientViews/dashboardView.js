@@ -5,11 +5,9 @@ function renderDashboardPage(user, liveMatches) {
     const balance = Number(user.points || 0).toLocaleString();
     const exposure = Number(user.exposure || 0).toLocaleString();
 
-    // Upar ticker ke liye dono matches jo poori line mein fit hokar blink karenge
+    // Sirf unique live matches jo upar ticker bar mein blink karenge (No duplicates)
     const tickerMatches = [
         { id: 'match-1', teamA: 'Bangladesh', teamB: 'West Indies' },
-        { id: 'match-2', teamA: 'Afghanistan', teamB: 'Zimbabwe' },
-        { id: 'match-1', teamA: 'Bangladesh', teamB: 'West Indies' }, // Khali jagah bharne ke liye repeat
         { id: 'match-2', teamA: 'Afghanistan', teamB: 'Zimbabwe' }
     ];
 
@@ -17,40 +15,6 @@ function renderDashboardPage(user, liveMatches) {
         <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="bg-[#1f2937] px-4 py-1.5 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-bold hover:border-white transition whitespace-nowrap match-blink inline-block mr-3 text-xs">
             <span>${m.teamA} v ${m.teamB}</span>
         </a>
-    `).join('');
-
-    // Neeche wala table jaisa aapne bola bilkul waisa hi rahega
-    const activeMatches = [
-        { id: 'match-1', tournament: 'Test Match', teamA: 'Bangladesh', teamB: 'West Indies', date: '09/11/2026 10:00:00', odds: { aBack: '2.10', aLay: '2.15', drawBack: '3.20', drawLay: '3.30', bBack: '2.40', bLay: '2.48' } },
-        { id: 'match-2', tournament: 'Test Match', teamA: 'Afghanistan', teamB: 'Zimbabwe', date: '09/11/2026 11:30:00', odds: { aBack: '1.85', aLay: '1.90', drawBack: '3.50', drawLay: '3.60', bBack: '2.05', bLay: '2.12' } }
-    ];
-
-    const matchesHTML = activeMatches.map(m => `
-        <tr class="border-b border-[#2b394a] text-xs hover:bg-[#1f2937] transition cursor-pointer" onclick="window.location.href='/match/${m.id}?user=${encodeURIComponent(username)}'">
-            <td class="p-2.5 text-white font-semibold">
-                <span class="text-[#00c0FF] text-[10px] font-bold block">${m.tournament}</span>
-                <span class="text-xs text-white font-bold">${m.teamA} <span class="text-gray-400 font-normal">v</span> ${m.teamB}</span>
-                <span class="text-[10px] text-gray-400 block">${m.date}</span>
-            </td>
-            <td class="p-1.5 text-center border-l border-[#2b394a] bg-[#72bbef]/20">
-                <span class="inline-block bg-[#72bbef] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.aBack}</span>
-            </td>
-            <td class="p-1.5 text-center bg-[#faa9ba]/20 border-r border-[#2b394a]">
-                <span class="inline-block bg-[#faa9ba] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.aLay}</span>
-            </td>
-            <td class="p-1.5 text-center bg-[#72bbef]/20">
-                <span class="inline-block bg-[#72bbef] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.drawBack}</span>
-            </td>
-            <td class="p-1.5 text-center bg-[#faa9ba]/20 border-r border-[#2b394a]">
-                <span class="inline-block bg-[#faa9ba] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.drawLay}</span>
-            </td>
-            <td class="p-1.5 text-center bg-[#72bbef]/20">
-                <span class="inline-block bg-[#72bbef] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.bBack}</span>
-            </td>
-            <td class="p-1.5 text-center bg-[#faa9ba]/20">
-                <span class="inline-block bg-[#faa9ba] text-black font-bold py-1 px-2 rounded text-[11px]">${m.odds.bLay}</span>
-            </td>
-        </tr>
     `).join('');
 
     return `
@@ -100,7 +64,7 @@ function renderDashboardPage(user, liveMatches) {
             </div>
         </header>
 
-        <!-- TOP MATCH TICKER BAR (Dono match poori line mein fit hokar blink karenge) -->
+        <!-- TOP MATCH TICKER BAR (Only Unique Live Matches Blinking) -->
         <div class="bg-[#111827] border-b border-[#2b394a] py-1.5 px-3 overflow-x-auto whitespace-nowrap">
             ${tickerHTML}
         </div>
@@ -150,33 +114,11 @@ function renderDashboardPage(user, liveMatches) {
             </a>
         </div>
 
-        <!-- MAIN CONTENT AREA -->
-        <main class="flex-1 p-3 max-w-7xl mx-auto w-full space-y-4">
-            
-            <!-- LIVE MATCHES TABLE (Jaise aapne kaha bilkul waisa hi hai) -->
-            <div class="bg-custom-navy border border-[#2b394a] rounded shadow-lg overflow-hidden">
-                <div class="bg-[#1f2937] px-3 py-2.5 font-bold text-white flex justify-between items-center text-xs">
-                    <span>LIVE CRICKET MATCHES</span>
-                    <span class="text-[10px] bg-red-600 text-white px-2.5 py-1 rounded uppercase font-bold animate-pulse">In-Play</span>
-                </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-[#0b1118] text-gray-400 text-[10px] uppercase border-b border-[#2b394a]">
-                                <th class="p-2.5 border-r border-[#2b394a]">Match</th>
-                                <th colspan="2" class="p-2.5 text-center border-r border-[#2b394a]">1</th>
-                                <th colspan="2" class="p-2.5 text-center border-r border-[#2b394a]">X</th>
-                                <th colspan="2" class="p-2.5 text-center">2</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${matchesHTML}
-                        </tbody>
-                    </table>
-                </div>
+        <!-- MAIN CONTENT AREA (Neeche ka poora table area hata diya hai as requested) -->
+        <main class="flex-1 p-4 max-w-7xl mx-auto w-full flex items-center justify-center">
+            <div class="text-gray-500 text-xs italic">
+                Select a live match from the ticker above.
             </div>
-
         </main>
 
         <footer class="bg-[#0b1118] border-t border-[#2b394a] p-3 text-center text-gray-500 text-[10px]">
