@@ -5,10 +5,10 @@ function renderDashboardPage(user, liveMatches) {
     const balance = Number(user.points || 0).toLocaleString();
     const exposure = Number(user.exposure || 0).toLocaleString();
 
-    // Ticker matches with blinking effect
+    // Ticker matches with blinking effect (Updated as requested)
     const tickerMatches = [
-        { id: 'match-1', teamA: 'Bangladesh', teamB: 'West Indies' },
-        { id: 'match-2', teamA: 'Afghanistan', teamB: 'Zimbabwe' }
+        { id: 'match-1', teamA: 'Pakistan', teamB: 'Sri Lanka' },
+        { id: 'match-2', teamA: 'Hobart Hurricanes W', teamB: 'Adelaide Strikers W' }
     ];
 
     const tickerHTML = tickerMatches.map(m => `
