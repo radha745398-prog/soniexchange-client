@@ -7,6 +7,7 @@ function renderMatchDetailPage(user, matchData) {
 
     const teamA = matchData ? matchData.teamA : 'Pakistan';
     const teamB = matchData ? matchData.teamB : 'Sri Lanka';
+    const matchId = matchData ? matchData.id : '556727281';
 
     return `
     <!DOCTYPE html>
@@ -26,8 +27,19 @@ function renderMatchDetailPage(user, matchData) {
             .odds-lay { background-color: #faa9ba; color: #000; }
             .fancy-no { background-color: #faa9ba; color: #000; }
             .fancy-yes { background-color: #72bbef; color: #000; }
-            .market-suspended { background-color: #e2e8f0 !important; color: #94a3b8 !important; position: relative; cursor: not-allowed; }
+            
+            /* Suspended Market State */
+            .market-suspended { background-color: #2a2e33 !important; color: #71767a !important; position: relative; cursor: not-allowed; }
             .market-suspended::after { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background-color: #ef4444; }
+            
+            /* Yellow Price Flash Animation for Real-Time API Updates */
+            @keyframes priceFlash {
+                0% { background-color: #fde047 !important; color: #000 !important; }
+                100% { background-color: inherit; }
+            }
+            .price-update {
+                animation: priceFlash 0.8s ease-in-out;
+            }
         </style>
     </head>
     <body class="min-h-screen flex flex-col text-xs">
@@ -41,8 +53,8 @@ function renderMatchDetailPage(user, matchData) {
             
             <div class="flex items-center space-x-3 text-[11px]">
                 <div class="text-right">
-                    <div class="text-gray-300">Balance: <span class="font-bold text-green-400">${balance}</span></div>
-                    <div class="text-gray-400">Exp: <span class="font-bold text-red-400">${exposure}</span></div>
+                    <div class="text-gray-300">Balance: <span class="font-bold text-green-400" id="user-balance">${balance}</span></div>
+                    <div class="text-gray-400">Exp: <span class="font-bold text-red-400" id="user-exposure">${exposure}</span></div>
                 </div>
                 <div class="bg-[#1f2937] px-2.5 py-1 rounded border border-gray-700 font-bold text-white flex items-center space-x-1">
                     <i class="fa-solid fa-user text-[#00c0FF]"></i>
@@ -54,7 +66,7 @@ function renderMatchDetailPage(user, matchData) {
         <!-- MATCH SCORE & INFO BANNER -->
         <div class="bg-teal-bar px-3 py-2 text-white">
             <div class="flex justify-between items-center text-[11px] border-b border-white/10 pb-1 mb-1.5 font-semibold">
-                <span><i class="fa-solid fa-circle text-[7px] text-green-400 animate-pulse mr-1"></i> ${teamA} V ${teamB}</span>
+                <span><i class="fa-solid fa-circle text-[7px] text-green-400 animate-pulse mr-1"></i> <span id="team-a-name">${teamA}</span> V <span id="team-b-name">${teamB}</span></span>
                 <span class="text-[10px] text-gray-200">09/11/2026 10:00:00</span>
             </div>
             <div class="text-[10px] text-gray-200 mb-1">LIVE Test • Rawalpindi Cricket Stadium, Pakistan</div>
@@ -62,7 +74,7 @@ function renderMatchDetailPage(user, matchData) {
             <div class="bg-black/30 rounded p-2 flex justify-between items-center text-xs mb-2 text-white">
                 <div class="flex items-center space-x-2">
                     <span class="font-bold">${teamA}</span>
-                    <span class="text-sm font-black text-white">434/9 <span class="text-[10px] text-gray-200 font-normal">d</span></span>
+                    <span class="text-sm font-black text-white" id="score-a">434/9 <span class="text-[10px] text-gray-200 font-normal">d</span></span>
                     <span class="text-[10px] text-gray-300">(106.3)</span>
                 </div>
                 <div class="text-center bg-white/10 px-2 py-0.5 rounded text-[10px]">
@@ -70,7 +82,7 @@ function renderMatchDetailPage(user, matchData) {
                     <div class="text-yellow-300 font-bold">35.5 ovr</div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <span class="text-sm font-black text-white">63/2</span>
+                    <span class="text-sm font-black text-white" id="score-b">63/2</span>
                     <span class="text-[10px] text-gray-300">(15.4)</span>
                     <span class="font-bold">SL</span>
                 </div>
@@ -118,10 +130,10 @@ function renderMatchDetailPage(user, matchData) {
                     <div class="col-span-3 grid grid-cols-3 gap-1 text-center">
                         <div class="bg-[#72bbef]/30 rounded py-1"><span class="font-bold text-xs text-black">5</span></div>
                         <div class="bg-[#72bbef]/30 rounded py-1"><span class="font-bold text-xs text-black">5.2</span></div>
-                        <div class="odds-back rounded py-1 font-bold text-xs">5.3</div>
+                        <div class="odds-back rounded py-1 font-bold text-xs" id="odds-ta-back">5.3</div>
                     </div>
                     <div class="col-span-3 grid grid-cols-3 gap-1 text-center pl-1">
-                        <div class="odds-lay rounded py-1 font-bold text-xs">5.4</div>
+                        <div class="odds-lay rounded py-1 font-bold text-xs" id="odds-ta-lay">5.4</div>
                         <div class="bg-[#faa9ba]/30 rounded py-1"><span class="font-bold text-xs text-black">5.5</span></div>
                         <div class="bg-[#faa9ba]/30 rounded py-1"><span class="font-bold text-xs text-black">5.6</span></div>
                     </div>
@@ -179,7 +191,7 @@ function renderMatchDetailPage(user, matchData) {
                 </div>
             </div>
 
-            <!-- 3. NORMAL SECTION -->
+            <!-- 3. NORMAL SECTION (2-Column Grid) -->
             <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs rounded">Normal</div>
             <div class="bg-custom-navy border border-gray-200 rounded overflow-hidden p-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs shadow-sm">
                 
@@ -368,6 +380,39 @@ function renderMatchDetailPage(user, matchData) {
             </div>
 
         </main>
+
+        <!-- LIVE API / WEBSOCKET SCRIPT HANDLING YELLOW FLASH & SUSPENDED STATES -->
+        <script>
+            const matchId = "${matchId}";
+
+            function initLiveExchangeFeed() {
+                // Future WebSocket integration hook
+                console.log("Exchange API Feed Listener ready for match: " + matchId);
+            }
+
+            function updateUIWithLiveData(apiPayload) {
+                if (apiPayload.scoreA) {
+                    document.getElementById('score-a').innerText = apiPayload.scoreA;
+                }
+                if (apiPayload.scoreB) {
+                    document.getElementById('score-b').innerText = apiPayload.scoreB;
+                }
+
+                // Yellow Price Flashing Logic
+                if (apiPayload.odds) {
+                    const oddsEl = document.getElementById('odds-ta-back');
+                    if (oddsEl && oddsEl.innerText !== apiPayload.odds.teamABack) {
+                        oddsEl.innerText = apiPayload.odds.teamABack;
+                        oddsEl.classList.add('price-update');
+                        setTimeout(() => oddsEl.classList.remove('price-update'), 800);
+                    }
+                }
+            }
+
+            window.addEventListener('DOMContentLoaded', () => {
+                initLiveExchangeFeed();
+            });
+        </script>
 
         <footer class="bg-gray-900 border-t border-gray-200 p-4 text-center text-gray-400 text-[10px] space-y-2 mt-4">
             <div class="flex justify-center space-x-4 font-bold text-gray-300 text-xs">
