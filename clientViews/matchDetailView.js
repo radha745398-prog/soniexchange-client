@@ -5,8 +5,8 @@ function renderMatchDetailPage(user, matchData) {
     const balance = Number(user.points || 0).toLocaleString();
     const exposure = Number(user.exposure || 0).toLocaleString();
 
-    const teamA = matchData ? matchData.teamA : 'New Zealand';
-    const teamB = matchData ? matchData.teamB : 'India';
+    const teamA = matchData ? matchData.teamA : 'Pakistan';
+    const teamB = matchData ? matchData.teamB : 'Sri Lanka';
 
     return `
     <!DOCTYPE html>
@@ -57,7 +57,6 @@ function renderMatchDetailPage(user, matchData) {
             </div>
             <div class="text-[10px] text-gray-200 mb-1">LIVE Test • Rawalpindi Cricket Stadium, Pakistan</div>
             
-            <!-- Scoreboard Box -->
             <div class="bg-black/40 rounded p-2 flex justify-between items-center text-xs">
                 <div class="flex items-center space-x-2">
                     <span class="font-bold">${teamA}</span>
@@ -85,13 +84,12 @@ function renderMatchDetailPage(user, matchData) {
         <!-- MAIN CONTENT MARKETS -->
         <main class="flex-1 p-2 space-y-3 max-w-7xl mx-auto w-full">
             
-            <!-- 1. MATCH ODDS TABLE -->
+            <!-- 1. MATCH ODDS -->
             <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
                 <div class="bg-[#1f2937] px-3 py-1.5 font-bold text-white flex justify-between items-center text-xs border-b border-[#2b394a]">
                     <span>MATCH_ODDS</span>
                     <span class="text-[10px] text-gray-400">Min: 100 Max: 50K</span>
                 </div>
-                
                 <div class="grid grid-cols-12 bg-[#0b1118] text-gray-400 text-[10px] py-1 px-2 border-b border-[#2b394a]">
                     <div class="col-span-6"></div>
                     <div class="col-span-3 text-center text-[#72bbef] font-bold">Back</div>
@@ -141,7 +139,7 @@ function renderMatchDetailPage(user, matchData) {
                 </div>
             </div>
 
-            <!-- 2. BOOKMAKER SECTION -->
+            <!-- 2. BOOKMAKER -->
             <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
                 <div class="bg-[#1f2937] px-3 py-1.5 font-bold text-white text-xs border-b border-[#2b394a]">
                     Bookmaker
@@ -164,9 +162,11 @@ function renderMatchDetailPage(user, matchData) {
                 </div>
             </div>
 
-            <!-- 3. NORMAL / FANCY MARKETS -->
+            <!-- 3. NORMAL SECTION (2-Column Grid exactly like screenshot) -->
             <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs rounded">Normal</div>
             <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden p-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                
+                <!-- Left Column Item 1 -->
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">15 Over Run SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
@@ -174,6 +174,7 @@ function renderMatchDetailPage(user, matchData) {
                         <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>54</div><div class="text-[9px] font-normal">100</div></button>
                     </div>
                 </div>
+                <!-- Right Column Item 1 -->
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">13 Over run SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
@@ -181,6 +182,8 @@ function renderMatchDetailPage(user, matchData) {
                         <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>45</div><div class="text-[9px] font-normal">250K</div></button>
                     </div>
                 </div>
+
+                <!-- Left Column Item 2 -->
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">1st Innings run SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 25K</div></div>
                     <div class="flex space-x-1">
@@ -188,6 +191,7 @@ function renderMatchDetailPage(user, matchData) {
                         <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>312</div><div class="text-[9px] font-normal">25K</div></button>
                     </div>
                 </div>
+                <!-- Right Column Item 2 -->
                 <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
                     <div><div class="font-bold text-white">1st Innings run 1st Wkt SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 10K</div></div>
                     <div class="flex space-x-1">
@@ -195,6 +199,24 @@ function renderMatchDetailPage(user, matchData) {
                         <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>310</div><div class="text-[9px] font-normal">10K</div></button>
                     </div>
                 </div>
+
+                <!-- Left Column Item 3 -->
+                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
+                    <div><div class="font-bold text-white">3rd Wkt SL</div><div class="text-[10px] text-gray-400">Min: 100 Max: 10K</div></div>
+                    <div class="flex space-x-1">
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>76</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>76</div><div class="text-[9px] font-normal">10K</div></button>
+                    </div>
+                </div>
+                <!-- Right Column Item 3 -->
+                <div class="bg-[#0b1118] p-2 rounded border border-[#2b394a] flex justify-between items-center">
+                    <div><div class="font-bold text-white">Kusal Mendis runs</div><div class="text-[10px] text-gray-400">Min: 100 Max: 10K</div></div>
+                    <div class="flex space-x-1">
+                        <button class="fancy-no px-3 py-1 rounded font-bold text-center"><div>41</div><div class="text-[9px] font-normal">100</div></button>
+                        <button class="fancy-yes px-3 py-1 rounded font-bold text-center"><div>41</div><div class="text-[9px] font-normal">10K</div></button>
+                    </div>
+                </div>
+
             </div>
 
             <!-- 4. OVER BY OVER -->
@@ -244,9 +266,8 @@ function renderMatchDetailPage(user, matchData) {
                 </div>
             </div>
 
-            <!-- 8. 2ND INN OVER MARKETS (20, 30, 40, 50) -->
+            <!-- 8. 2ND INN OVERS (20, 30, 40, 50) -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <!-- 20 Over -->
                 <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
                     <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 20 OVER PAK VS SL</div>
                     <div class="bg-[#0b1118] px-2 py-1 text-[10px] text-gray-400 flex justify-between border-b border-[#2b394a]"><span>Min: 100 Max: 1L</span><span class="text-[#72bbef] font-bold">Back</span></div>
@@ -256,7 +277,7 @@ function renderMatchDetailPage(user, matchData) {
                         <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
                     </div>
                 </div>
-                <!-- 30 Over -->
+
                 <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
                     <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 30 OVER PAK VS SL</div>
                     <div class="bg-[#0b1118] px-2 py-1 text-[10px] text-gray-400 flex justify-between border-b border-[#2b394a]"><span>Min: 100 Max: 1L</span><span class="text-[#72bbef] font-bold">Back</span></div>
@@ -266,7 +287,7 @@ function renderMatchDetailPage(user, matchData) {
                         <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
                     </div>
                 </div>
-                <!-- 40 Over -->
+
                 <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
                     <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 40 OVER PAK VS SL</div>
                     <div class="bg-[#0b1118] px-2 py-1 text-[10px] text-gray-400 flex justify-between border-b border-[#2b394a]"><span>Min: 100 Max: 1L</span><span class="text-[#72bbef] font-bold">Back</span></div>
@@ -276,7 +297,7 @@ function renderMatchDetailPage(user, matchData) {
                         <div class="flex justify-between items-center bg-[#0b1118] px-2 py-1 rounded text-xs"><span class="text-white font-semibold">2 Number</span><button class="odds-back px-3 py-0.5 rounded font-bold">9.5</button></div>
                     </div>
                 </div>
-                <!-- 50 Over -->
+
                 <div class="bg-custom-navy border border-[#2b394a] rounded overflow-hidden">
                     <div class="bg-teal-bar text-white px-3 py-1.5 font-bold text-xs">2ND INN 50 OVER PAK VS SL</div>
                     <div class="bg-[#0b1118] px-2 py-1 text-[10px] text-gray-400 flex justify-between border-b border-[#2b394a]"><span>Min: 100 Max: 1L</span><span class="text-[#72bbef] font-bold">Back</span></div>
