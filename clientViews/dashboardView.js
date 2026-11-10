@@ -80,48 +80,48 @@ function renderDashboardPage(user, liveMatches) {
             <a href="#" class="py-2.5 text-gray-400 hover:text-white">Fantasy</a>
         </nav>
 
-        <!-- SPORTS SUB-NAVIGATION BAR (Halka Blue Panel Background & All Games Added) -->
-        <div class="bg-custom-navy px-3 py-2.5 flex space-x-6 text-[10px] font-bold overflow-x-auto border-b border-[#2b394a] whitespace-nowrap">
-            <a href="#" class="flex flex-col items-center text-[#00c0FF]">
+        <!-- SPORTS SUB-NAVIGATION BAR (Background color matching SONIEXCHANGE logo blue tone) -->
+        <div class="bg-[#0e5c75] px-3 py-2.5 flex space-x-6 text-[10px] font-bold overflow-x-auto border-b border-[#00c0FF]/40 whitespace-nowrap text-white">
+            <a href="#" class="flex flex-col items-center text-white border-b-2 border-white pb-0.5">
                 <i class="fa-solid fa-baseball-bat-ball text-sm mb-1"></i> <span>CRICKET</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-futbol text-sm mb-1"></i> <span>FOOTBALL</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-table-tennis-paddle-ball text-sm mb-1"></i> <span>TENNIS</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-table-tennis text-sm mb-1"></i> <span>TABLE TENNIS</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-horse-head text-sm mb-1"></i> <span>HORSE RACING</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-dog text-sm mb-1"></i> <span>GREYHOUND</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-basketball text-sm mb-1"></i> <span>BASKETBALL</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-user-shield text-sm mb-1"></i> <span>KABADDI</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-feather text-sm mb-1"></i> <span>BADMINTON</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-hand-fist text-sm mb-1"></i> <span>BOXING</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-flag-checkered text-sm mb-1"></i> <span>MOTOR SPORTS</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-landmark text-sm mb-1"></i> <span>POLITICS</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-bullseye text-sm mb-1"></i> <span>DARTS</span>
             </a>
-            <a href="#" class="flex flex-col items-center text-gray-300 hover:text-[#00c0FF]">
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
                 <i class="fa-solid fa-circle-dot text-sm mb-1"></i> <span>E-SOCCER</span>
             </a>
         </div>
