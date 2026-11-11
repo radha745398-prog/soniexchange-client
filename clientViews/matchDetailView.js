@@ -74,7 +74,7 @@ function renderMatchDetailPage(user, matchData) {
             </div>
         </header>
 
-        <!-- EXACT MATCH SCORE & OVER-BY-OVER INFO BANNER (As highlighted in screenshot) -->
+        <!-- EXACT MATCH SCORE & OVER-BY-OVER INFO BANNER -->
         <div class="bg-scoreboard-dark text-white border-b border-gray-800">
             <!-- Top Match Header info line -->
             <div class="bg-[#0b141d] px-3 py-1.5 flex justify-between items-center text-[11px] font-semibold text-gray-300 border-b border-gray-800">
@@ -85,7 +85,7 @@ function renderMatchDetailPage(user, matchData) {
             </div>
 
             <!-- Main Live Score Card with Team Logos -->
-            <div class="p-3 bg-[#111c26]">
+            <div class="p-3 bg-[#111c26] relative">
                 <div class="text-[10px] text-gray-400 flex items-center space-x-1.5 mb-2">
                     <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                     <span class="font-bold text-green-400">LIVE</span>
@@ -105,8 +105,11 @@ function renderMatchDetailPage(user, matchData) {
                         </div>
                     </div>
 
-                    <!-- Match Status Center Badge -->
-                    <div class="col-span-4 text-center bg-[#070d14]/70 px-2 py-1 rounded border border-gray-700/50">
+                    <!-- Match Status Center Badge & Dynamic Ball Event Badge (DOT / 4 / 6 / W) Added Here -->
+                    <div class="col-span-4 text-center flex flex-col items-center justify-center">
+                        <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase bg-[#00c0FF]/20 border border-[#00c0FF] text-[#00c0FF] shadow-[0_0_10px_rgba(0,192,255,0.4)] animate-pulse">
+                            DOT
+                        </div>
                         <div class="text-[10px] text-gray-300 font-bold">Day 2 | SL trail by 348</div>
                         <div class="text-yellow-400 font-extrabold text-xs">31.5 ovr</div>
                     </div>
@@ -171,7 +174,7 @@ function renderMatchDetailPage(user, matchData) {
             </div>
         </div>
 
-        <!-- TABS BAR WITH LIVE TV ICON (Exact match from red circle in screenshot) -->
+        <!-- TABS BAR WITH LIVE TV ICON -->
         <div class="bg-[#0b141d] border-b border-gray-800 flex text-center font-bold text-xs sticky top-[41px] z-40">
             <div class="flex-1 py-2.5 border-b-2 border-[#00c0FF] text-[#00c0FF] tracking-wider uppercase">ODDS</div>
             <div class="flex-1 py-2.5 text-gray-400 hover:text-white cursor-pointer tracking-wider uppercase">MATCHED BET (<span id="matched-bet-count">0</span>)</div>
