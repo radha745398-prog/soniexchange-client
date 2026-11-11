@@ -9,6 +9,10 @@ function renderMatchDetailPage(user, matchData) {
     const teamB = matchData ? matchData.teamB : 'Sri Lanka';
     const matchId = matchData ? matchData.id : '556727281';
 
+    // Flag URLs for national teams (fallback to SVG placeholder if custom)
+    const flagA = 'https://flagcdn.com/w40/pk.png';
+    const flagB = 'https://flagcdn.com/w40/lk.png';
+
     return `
     <!DOCTYPE html>
     <html lang="en">
@@ -23,6 +27,7 @@ function renderMatchDetailPage(user, matchData) {
             .bg-custom-navy { background-color: #f8fafc; }
             .bg-custom-header { background-color: #0b1118; color: #ffffff; }
             .bg-teal-bar { background-color: #0e5c75; color: #ffffff; }
+            .bg-scoreboard-dark { background-color: #111827; }
             .odds-back { background-color: #72bbef; color: #000; cursor: pointer; }
             .odds-lay { background-color: #faa9ba; color: #000; cursor: pointer; }
             .fancy-no { background-color: #faa9ba; color: #000; cursor: pointer; }
@@ -42,6 +47,10 @@ function renderMatchDetailPage(user, matchData) {
 
             /* Modal Overlay */
             .modal-overlay { background: rgba(0, 0, 0, 0.6); }
+
+            /* Custom Horizontal Scrollbar */
+            .no-scrollbar::-webkit-scrollbar { display: none; }
+            .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         </style>
     </head>
     <body class="min-h-screen flex flex-col text-xs relative">
@@ -65,51 +74,110 @@ function renderMatchDetailPage(user, matchData) {
             </div>
         </header>
 
-        <!-- MATCH SCORE & INFO BANNER -->
-        <div class="bg-teal-bar px-3 py-2 text-white">
-            <div class="flex justify-between items-center text-[11px] border-b border-white/10 pb-1 mb-1.5 font-semibold">
-                <span><i class="fa-solid fa-circle text-[7px] text-green-400 animate-pulse mr-1"></i> <span id="team-a-name">${teamA}</span> V <span id="team-b-name">${teamB}</span></span>
-                <span class="text-[10px] text-gray-200">09/11/2026 10:00:00</span>
-            </div>
-            <div class="text-[10px] text-gray-200 mb-1">LIVE Test • Rawalpindi Cricket Stadium, Pakistan</div>
-            
-            <div class="bg-black/30 rounded p-2 flex justify-between items-center text-xs mb-2 text-white">
-                <div class="flex items-center space-x-2">
-                    <span class="font-bold">${teamA}</span>
-                    <span class="text-sm font-black text-white" id="score-a">434/9 <span class="text-[10px] text-gray-200 font-normal">d</span></span>
-                    <span class="text-[10px] text-gray-300">(106.3)</span>
+        <!-- EXACT MATCH SCORE & OVER-BY-OVER INFO BANNER (As highlighted in screenshot) -->
+        <div class="bg-scoreboard-dark text-white border-b border-gray-800">
+            <!-- Top Match Header info line -->
+            <div class="bg-[#0b141d] px-3 py-1.5 flex justify-between items-center text-[11px] font-semibold text-gray-300 border-b border-gray-800">
+                <div class="flex items-center space-x-1.5">
+                    <span class="text-white font-bold tracking-wide">${teamA.toUpperCase()} V ${teamB.toUpperCase()}</span>
                 </div>
-                <div class="text-center bg-white/10 px-2 py-0.5 rounded text-[10px]">
-                    <div>Day 2 | SL trail by 371</div>
-                    <div class="text-yellow-300 font-bold">35.5 ovr</div>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <span class="text-sm font-black text-white" id="score-b">63/2</span>
-                    <span class="text-[10px] text-gray-300">(15.4)</span>
-                    <span class="font-bold">SL</span>
-                </div>
+                <div class="text-[10px] text-gray-400 font-mono">09/11/2026 10:00:00</div>
             </div>
 
-            <!-- Over Ball Trackers -->
-            <div class="flex items-center space-x-1.5 overflow-x-auto text-[10px] pb-1 whitespace-nowrap text-white">
-                <span class="bg-black/30 px-2 py-0.5 rounded text-gray-200">Ov 13 (4)</span>
-                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold text-white border border-gray-600">0</span>
-                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold text-white border border-gray-600">0</span>
-                <span class="bg-blue-600 w-5 h-5 rounded-full flex items-center justify-center font-bold text-white">1</span>
-                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold text-white border border-gray-600">0</span>
-                <span class="bg-blue-500 w-5 h-5 rounded-full flex items-center justify-center font-bold text-white">4</span>
-                <span class="bg-black/30 px-2 py-0.5 rounded text-gray-200 ml-2">Ov 14 (0)</span>
-                <span class="bg-[#1f2937] w-5 h-5 rounded-full flex items-center justify-center font-bold text-white border border-gray-600">0</span>
-                <span class="bg-black/30 px-2 py-0.5 rounded text-gray-200 ml-2">Ov 15 (12)</span>
-                <span class="bg-blue-600 w-5 h-5 rounded-full flex items-center justify-center font-bold text-white">4</span>
-                <span class="bg-blue-600 w-5 h-5 rounded-full flex items-center justify-center font-bold text-white">4</span>
+            <!-- Main Live Score Card with Team Logos -->
+            <div class="p-3 bg-[#111c26]">
+                <div class="text-[10px] text-gray-400 flex items-center space-x-1.5 mb-2">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span class="font-bold text-green-400">LIVE</span>
+                    <span>• Test • Rawalpindi Cricket Stadium, Pakistan</span>
+                </div>
+                
+                <div class="grid grid-cols-12 items-center gap-2">
+                    <!-- Team A Score & Flag -->
+                    <div class="col-span-4 flex items-center space-x-2">
+                        <img src="${flagA}" alt="${teamA}" class="w-6 h-4 rounded shadow-sm object-cover border border-white/20">
+                        <div>
+                            <div class="font-black text-sm text-white flex items-center space-x-1">
+                                <span id="score-a">434/9</span>
+                                <span class="text-[9px] text-gray-400 font-normal">d</span>
+                            </div>
+                            <div class="text-[9px] text-gray-400">(106.3)</div>
+                        </div>
+                    </div>
+
+                    <!-- Match Status Center Badge -->
+                    <div class="col-span-4 text-center bg-[#070d14]/70 px-2 py-1 rounded border border-gray-700/50">
+                        <div class="text-[10px] text-gray-300 font-bold">Day 2 | SL trail by 348</div>
+                        <div class="text-yellow-400 font-extrabold text-xs">31.5 ovr</div>
+                    </div>
+
+                    <!-- Team B Score & Flag -->
+                    <div class="col-span-4 flex items-center justify-end space-x-2 text-right">
+                        <div>
+                            <div class="font-black text-sm text-white" id="score-b">86/3</div>
+                            <div class="text-[9px] text-gray-400">(20.0) <span class="text-yellow-400">CRR: 4.3</span></div>
+                        </div>
+                        <img src="${flagB}" alt="${teamB}" class="w-6 h-4 rounded shadow-sm object-cover border border-white/20">
+                    </div>
+                </div>
+
+                <!-- Over-by-Over Ball Tracker Line (1 Over to All Overs Scrollable Underline) -->
+                <div class="mt-3 pt-2 border-t border-gray-800/80 flex items-center space-x-2 overflow-x-auto no-scrollbar whitespace-nowrap text-[10px]">
+                    
+                    <!-- Over 20 -->
+                    <div class="flex items-center space-x-1 bg-black/40 px-2 py-1 rounded border border-gray-700/40">
+                        <span class="text-gray-300 font-bold">Ov 20 <span class="text-yellow-400">(9)</span></span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[9px]">4</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">1</span>
+                        <span class="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[9px]">4</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                    </div>
+
+                    <!-- Over 19 -->
+                    <div class="flex items-center space-x-1 bg-black/40 px-2 py-1 rounded border border-gray-700/40">
+                        <span class="text-gray-300 font-bold">Ov 19 <span class="text-yellow-400">(5)</span></span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">1</span>
+                        <span class="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[9px]">4</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                    </div>
+
+                    <!-- Over 18 -->
+                    <div class="flex items-center space-x-1 bg-black/40 px-2 py-1 rounded border border-gray-700/40">
+                        <span class="text-gray-300 font-bold">Ov 18 <span class="text-yellow-400">(7)</span></span>
+                        <span class="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[9px]">1</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-[#00c0FF] text-black flex items-center justify-center font-bold text-[9px]">6</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                    </div>
+
+                    <!-- Over 17 -->
+                    <div class="flex items-center space-x-1 bg-black/40 px-2 py-1 rounded border border-gray-700/40">
+                        <span class="text-gray-300 font-bold">Ov 17 <span class="text-red-400">(W)</span></span>
+                        <span class="w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center font-bold text-[9px]">W</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                        <span class="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[9px]">1</span>
+                        <span class="w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-[9px]">0</span>
+                    </div>
+
+                </div>
             </div>
         </div>
 
-        <!-- TABS BAR -->
-        <div class="bg-[#f1f5f9] border-b border-gray-200 flex text-center font-bold text-xs">
-            <div class="flex-1 py-2 border-b-2 border-[#00c0FF] text-[#00c0FF]">ODDS</div>
-            <div class="flex-1 py-2 text-gray-500 hover:text-black cursor-pointer">MATCHED BET (<span id="matched-bet-count">0</span>)</div>
+        <!-- TABS BAR WITH LIVE TV ICON (Exact match from red circle in screenshot) -->
+        <div class="bg-[#0b141d] border-b border-gray-800 flex text-center font-bold text-xs sticky top-[41px] z-40">
+            <div class="flex-1 py-2.5 border-b-2 border-[#00c0FF] text-[#00c0FF] tracking-wider uppercase">ODDS</div>
+            <div class="flex-1 py-2.5 text-gray-400 hover:text-white cursor-pointer tracking-wider uppercase">MATCHED BET (<span id="matched-bet-count">0</span>)</div>
+            <div class="px-4 py-2.5 text-gray-400 hover:text-white cursor-pointer border-l border-gray-800 flex items-center justify-center">
+                <i class="fa-solid fa-tv text-sm text-[#00c0FF]"></i>
+            </div>
         </div>
 
         <!-- MAIN CONTENT MARKETS -->
@@ -390,7 +458,7 @@ function renderMatchDetailPage(user, matchData) {
 
         <!-- ================= PLACE BET MODAL POPUP ================= -->
         <div id="bet-slip-modal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center hidden">
-            <div class="bg-[#1e293b] text-white w-full max-w-md rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
+            <div class="bg-[#1e293b] text-white w-full max-w-md rounded-lg shadow-2xl border border-gray-700 overflow-hidden mx-3">
                 <div class="bg-[#0f172a] px-4 py-2.5 flex justify-between items-center border-b border-gray-700 font-bold text-sm">
                     <span id="modal-market-title" class="text-[#00c0FF]">Place Bet</span>
                     <button onclick="closeBetSlip()" class="text-gray-400 hover:text-white text-base"><i class="fa-solid fa-xmark"></i></button>
