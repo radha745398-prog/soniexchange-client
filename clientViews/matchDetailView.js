@@ -1,13 +1,13 @@
 // clientViews/matchDetailView.js
 
-const { renderMatchHeader } = require('./components/matchHeader');
-const { renderMatchOdds } = require('./components/matchOdds');
-const { renderBookmaker } = require('./components/bookmaker');
-const { renderNormalMarkets } = require('./components/normalMarkets');
-const { renderOverByOver } = require('./components/overByOver');
-const { renderFancyMarkets } = require('./components/fancyMarkets');
-const { renderSecondInnings } = require('./components/secondInnings');
-const { renderFooter } = require('./components/footer');
+const { renderMatchHeader } = require('./clientViews/components/matchHeader');
+const { renderMatchOdds } = require('./clientViews/components/matchOdds');
+const { renderBookmaker } = require('./clientViews/components/bookmaker');
+const { renderNormalMarkets } = require('./clientViews/components/normalMarkets');
+const { renderOverByOver } = require('./clientViews/components/overByOver');
+const { renderFancyMarkets } = require('./clientViews/components/fancyMarkets');
+const { renderSecondInnings } = require('./clientViews/components/secondInnings');
+const { renderFooter } = require('./clientViews/components/footer');
 
 function renderMatchDetailPage(user, matchData) {
     const username = user.username || 'Client';
