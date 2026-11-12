@@ -10,31 +10,35 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// RapidAPI Credentials (Exact Active Key)
 const RAPIDAPI_KEY = '269384970fmsh3bc319f6f386606p1959e6jsn36927c504ec7';
 const RAPIDAPI_HOST = 'cricbuzz-cricket.p.rapidapi.com';
 
-// Robust Real Extractor for Cricbuzz /matches/live API structure
-function extractRealMatches(data) {
+// Universal parser to extract all live matches and their real names/scores
+function extractAllLiveMatches(data) {
     let extracted = [];
-    if (!data || !data.typeMatches) return extracted;
+    if (!data) return data;
 
-    data.typeMatches.forEach(typeMatch => {
-        if (typeMatch.seriesMatches) {
-            typeMatch.seriesMatches.forEach(seriesWrapper => {
-                const series = seriesWrapper.seriesAdWrapper;
-                if (series && series.matches) {
-                    series.matches.forEach(match => {
-                        if (match.matchInfo) {
-                            extracted.push({
-                                matchInfo: match.matchInfo,
-                                matchScore: match.matchScore || null
-                            });
-                        }
-                    });
+    // Handle different Cricbuzz API JSON roots
+    const typeMatches = data.typeMatches || data.data || [];
+    
+    typeMatches.forEach(typeMatch => {
+        const seriesMatches = typeMatch.seriesMatches || typeMatch.matchList || [];
+        seriesMatches.forEach(series => {
+            const matches = series.matches 
+                         || series.seriesAdWrapper?.matches 
+                         || series.seriesAdWrapper?.seriesMatches 
+                         || (series.matchInfo ? [series] : []) 
+                         || [];
+
+            matches.forEach(m => {
+                const matchInfo = m.matchInfo || m;
+                const matchScore = m.matchScore || matchInfo.matchScore;
+                
+                if (matchInfo && matchInfo.matchId) {
+                    extracted.push({ matchInfo, matchScore });
                 }
             });
-        }
+        });
     });
     return extracted;
 }
@@ -50,7 +54,7 @@ app.get('/switch-to-client', (req, res) => {
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Client Dashboard Route (Real Live Matches from API)
+// 3. Client Dashboard Route - Shows ALL active live matches with real names
 app.get('/dashboard', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -66,15 +70,20 @@ app.get('/dashboard', async (req, res) => {
         });
         const data = await response.json();
         
-        const realMatches = extractRealMatches(data);
-        realMatches.forEach(item => {
-            const matchInfo = item.matchInfo;
+        const rawMatches = extractAllLiveMatches(data);
+        
+        rawMatches.forEach(item => {
+            const mi = item.matchInfo;
+            // Extract real names from API fields safely
+            const teamAName = mi.team1?.teamName || mi.team1?.name || mi.team1?.sName || 'Team A';
+            const teamBName = mi.team2?.teamName || mi.team2?.name || mi.team2?.sName || 'Team B';
+            
             liveMatches.push({
-                id: matchInfo.matchId.toString(),
-                tournament: matchInfo.seriesName || 'Live Series',
-                teamA: matchInfo.team1?.teamName || 'Team A',
-                teamB: matchInfo.team2?.teamName || 'Team B',
-                dateTime: matchInfo.status || 'LIVE',
+                id: mi.matchId.toString(),
+                tournament: mi.seriesName || mi.seriesDesc || 'Live Match',
+                teamA: teamAName,
+                teamB: teamBName,
+                dateTime: mi.status || mi.state || 'LIVE',
                 odds: { 
                     teamA_back: '1.98', teamA_lay: '2.00', 
                     draw_back: '-', draw_lay: '-', 
@@ -83,13 +92,13 @@ app.get('/dashboard', async (req, res) => {
             });
         });
     } catch (error) {
-        console.error("Error fetching real live matches:", error.message);
+        console.error("Dashboard Fetch Error:", error.message);
     }
 
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route (Real Score & Live Data)
+// 4. Match Detail Route - Shows real scores and team names for the selected match
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -104,8 +113,8 @@ app.get('/match/:id', async (req, res) => {
         oversA: '(0.0)',
         scoreB: 'Yet to bat',
         oversB: '(0.0)',
-        matchStateText: 'Match Live',
-        venue: 'Live Stadium',
+        matchStateText: 'Live',
+        venue: 'Stadium',
         status: 'LIVE'
     };
 
@@ -118,34 +127,34 @@ app.get('/match/:id', async (req, res) => {
         });
         const data = await response.json();
         
-        const realMatches = extractRealMatches(data);
-        realMatches.forEach(item => {
-            const matchInfo = item.matchInfo;
-            const matchScore = item.matchScore;
+        const rawMatches = extractAllLiveMatches(data);
+        
+        const found = rawMatches.find(item => item.matchInfo.matchId.toString() === matchId.toString());
+        
+        if (found) {
+            const mi = found.matchInfo;
+            const ms = found.matchScore;
             
-            if (matchInfo && matchInfo.matchId.toString() === matchId.toString()) {
-                matchData.tournament = matchInfo.seriesName || 'Live Series';
-                matchData.teamA = matchInfo.team1?.teamName || 'Team A';
-                matchData.teamB = matchInfo.team2?.teamName || 'Team B';
-                matchData.venue = matchInfo.venueInfo?.ground || 'Live Stadium';
-                matchData.status = matchInfo.state || 'LIVE';
-                matchData.matchStateText = matchInfo.status || matchInfo.state || 'Live';
+            matchData.tournament = mi.seriesName || mi.seriesDesc || 'Live Match';
+            matchData.teamA = mi.team1?.teamName || mi.team1?.name || mi.team1?.sName || 'Team A';
+            matchData.teamB = mi.team2?.teamName || mi.team2?.name || mi.team2?.sName || 'Team B';
+            matchData.venue = mi.venueInfo?.ground || mi.venueInfo?.city || 'Live Ground';
+            matchData.status = mi.state || 'LIVE';
+            matchData.matchStateText = mi.status || mi.state || 'Live';
 
-                // Extract real live scores from API
-                if (matchScore) {
-                    if (matchScore.team1Score && matchScore.team1Score.inngs1) {
-                        matchData.scoreA = `${matchScore.team1Score.inngs1.runs}/${matchScore.team1Score.inngs1.wickets}`;
-                        matchData.oversA = `(${matchScore.team1Score.inngs1.overs})`;
-                    }
-                    if (matchScore.team2Score && matchScore.team2Score.inngs1) {
-                        matchData.scoreB = `${matchScore.team2Score.inngs1.runs}/${matchScore.team2Score.inngs1.wickets}`;
-                        matchData.oversB = `(${matchScore.team2Score.inngs1.overs})`;
-                    }
+            if (ms) {
+                if (ms.team1Score && ms.team1Score.inngs1) {
+                    matchData.scoreA = `${ms.team1Score.inngs1.runs}/${ms.team1Score.inngs1.wickets}`;
+                    matchData.oversA = `(${ms.team1Score.inngs1.overs})`;
+                }
+                if (ms.team2Score && ms.team2Score.inngs1) {
+                    matchData.scoreB = `${ms.team2Score.inngs1.runs}/${ms.team2Score.inngs1.wickets}`;
+                    matchData.oversB = `(${ms.team2Score.inngs1.overs})`;
                 }
             }
-        });
+        }
     } catch (error) {
-        console.error("Error fetching real match detail:", error.message);
+        console.error("Match Detail Fetch Error:", error.message);
     }
 
     res.send(renderMatchDetailPage(user, matchData));
