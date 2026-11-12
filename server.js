@@ -74,13 +74,12 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route (Advanced & Robust API Score Mapping)
+// 4. Match Detail Route (Using /matches/live data to bypass subscription error)
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
     const matchId = req.params.id;
     
-    // Default fallback
     let matchData = {
         id: matchId,
         tournament: 'Live Match',
@@ -90,13 +89,13 @@ app.get('/match/:id', async (req, res) => {
         oversA: '(0.0)',
         scoreB: '0/0',
         oversB: '(0.0)',
-        matchStateText: 'Live Match',
+        matchStateText: 'Match Live',
         venue: 'Live Stadium',
         status: 'LIVE'
     };
 
     try {
-        const response = await fetch(`https://${RAPIDAPI_HOST}/match-details/get-info?matchId=${matchId}`, {
+        const response = await fetch(`https://${RAPIDAPI_HOST}/matches/live`, {
             headers: {
                 'X-RapidAPI-Key': RAPIDAPI_KEY,
                 'X-RapidAPI-Host': RAPIDAPI_HOST
@@ -104,47 +103,40 @@ app.get('/match/:id', async (req, res) => {
         });
         const data = await response.json();
         
-        // Debug log to see exact fields in Render logs
-        console.log("Cricbuzz Match Detail API Response:", JSON.stringify(data));
-        
-        if (data) {
-            // Series & Venue Name
-            matchData.tournament = data.seriesName || data.matchInfo?.seriesName || data.matchHeader?.seriesName || 'Live Series';
-            matchData.venue = data.venueInfo?.ground || data.matchInfo?.venueInfo?.ground || data.matchHeader?.venueInfo?.ground || 'Stadium';
-            matchData.status = data.status || data.matchInfo?.status || data.matchHeader?.status || 'LIVE';
-            matchData.matchStateText = data.matchHeader?.state || data.status || data.matchInfo?.status || 'Live';
+        if (data && data.typeMatches) {
+            data.typeMatches.forEach(typeMatch => {
+                if (typeMatch.seriesMatches) {
+                    typeMatch.seriesMatches.forEach(series => {
+                        if (series.seriesAdWrapper && series.seriesAdWrapper.matches) {
+                            series.seriesAdWrapper.matches.forEach(match => {
+                                const matchInfo = match.matchInfo;
+                                const matchScore = match.matchScore;
+                                
+                                if (matchInfo && matchInfo.matchId.toString() === matchId.toString()) {
+                                    matchData.tournament = matchInfo.seriesName || 'Live Series';
+                                    matchData.teamA = matchInfo.team1?.teamName || 'Team A';
+                                    matchData.teamB = matchInfo.team2?.teamName || 'Team B';
+                                    matchData.venue = matchInfo.venueInfo?.ground || 'Live Stadium';
+                                    matchData.status = matchInfo.state || 'LIVE';
+                                    matchData.matchStateText = matchInfo.status || matchInfo.state || 'Live';
 
-            // Team Names
-            matchData.teamA = data.team1?.name || data.team1?.teamName || data.matchInfo?.team1?.teamName || data.matchHeader?.team1?.name || 'Team A';
-            matchData.teamB = data.team2?.name || data.team2?.teamName || data.matchInfo?.team2?.teamName || data.matchHeader?.team2?.name || 'Team B';
-
-            // Extracting Scores & Overs from Cricbuzz structures (matchHeader or miniscore)
-            const header = data.matchHeader || data.matchInfo;
-            if (header) {
-                // Team A Score extraction
-                if (header.team1Score && header.team1Score.inngs1) {
-                    matchData.scoreA = `${header.team1Score.inngs1.runs}/${header.team1Score.inngs1.wickets}`;
-                    matchData.oversA = `(${header.team1Score.inngs1.overs})`;
+                                    // Extract scores directly from live match payload
+                                    if (matchScore) {
+                                        if (matchScore.team1Score && matchScore.team1Score.inngs1) {
+                                            matchData.scoreA = `${matchScore.team1Score.inngs1.runs}/${matchScore.team1Score.inngs1.wickets}`;
+                                            matchData.oversA = `(${matchScore.team1Score.inngs1.overs})`;
+                                        }
+                                        if (matchScore.team2Score && matchScore.team2Score.inngs1) {
+                                            matchData.scoreB = `${matchScore.team2Score.inngs1.runs}/${matchScore.team2Score.inngs1.wickets}`;
+                                            matchData.oversB = `(${matchScore.team2Score.inngs1.overs})`;
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    });
                 }
-                // Team B Score extraction
-                if (header.team2Score && header.team2Score.inngs1) {
-                    matchData.scoreB = `${header.team2Score.inngs1.runs}/${header.team2Score.inngs1.wickets}`;
-                    matchData.oversB = `(${header.team2Score.inngs1.overs})`;
-                }
-            }
-
-            // Fallback check in miniscore if header scores are missing
-            if (data.miniscore) {
-                if (data.miniscore.batTeam?.teamScore) {
-                    matchData.scoreA = data.miniscore.batTeam.teamScore;
-                }
-                if (data.miniscore.overs) {
-                    matchData.oversA = `(${data.miniscore.overs})`;
-                }
-                if (data.miniscore.matchScoreDetails) {
-                    matchData.matchStateText = data.miniscore.matchScoreDetails.fullStatus || matchData.matchStateText;
-                }
-            }
+            });
         }
     } catch (error) {
         console.error("Error fetching match detail:", error.message);
@@ -152,6 +144,7 @@ app.get('/match/:id', async (req, res) => {
 
     res.send(renderMatchDetailPage(user, matchData));
 });
+
 
 
 const PORT = process.env.PORT || 3000;
