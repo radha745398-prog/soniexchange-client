@@ -13,51 +13,30 @@ app.use(express.json());
 const RAPIDAPI_KEY = '269384970fmsh3bc319f6f386606p1959e6jsn36927c504ec7';
 const RAPIDAPI_HOST = 'cricbuzz-cricket.p.rapidapi.com';
 
-// Universal bulletproof parser that catches matches from ANY format
+// Corrected Parser matched with Cricbuzz API response structure
 function extractAllLiveMatches(data) {
     let extracted = [];
-    if (!data) return extracted;
+    if (!data || !data.typeMatches) return extracted;
 
-    // DEBUG: Prints exact keys received from API in Render logs
-    console.log("CRICBUZZ API ROOT KEYS:", Object.keys(data));
+    data.typeMatches.forEach(typeMatch => {
+        if (typeMatch.seriesMatches) {
+            typeMatch.seriesMatches.forEach(seriesItem => {
+                // Cricbuzz nests matches inside seriesAdWrapper or directly inside seriesMatches
+                const matchWrapper = seriesItem.seriesAdWrapper || seriesItem;
+                const matches = matchWrapper.matches || [];
 
-    // Handle if data is directly an array of matches
-    let rawList = [];
-    if (Array.isArray(data)) {
-        rawList = data;
-    } else if (data.typeMatches) {
-        data.typeMatches.forEach(tm => {
-            if (tm.seriesMatches) {
-                tm.seriesMatches.forEach(sm => {
-                    const wrapper = sm.seriesAdWrapper || sm;
-                    if (wrapper && wrapper.matches) {
-                        wrapper.matches.forEach(m => rawList.push(m));
-                    } else if (sm.matchInfo) {
-                        rawList.push(sm);
+                matches.forEach(m => {
+                    const matchInfo = m.matchInfo;
+                    const matchScore = m.matchScore;
+                    if (matchInfo && matchInfo.matchId) {
+                        extracted.push({ matchInfo, matchScore });
                     }
                 });
-            }
-        });
-    } else if (data.matches) {
-        rawList = data.matches;
-    } else if (data.data) {
-        if (Array.isArray(data.data)) {
-            rawList = data.data;
-        } else {
-            // Recurse into data object
-            return extractAllLiveMatches(data.data);
-        }
-    }
-
-    rawList.forEach(m => {
-        const matchInfo = m.matchInfo || m;
-        const matchScore = m.matchScore || matchInfo.matchScore;
-        if (matchInfo && (matchInfo.matchId || matchInfo.id)) {
-            extracted.push({ matchInfo, matchScore });
+            });
         }
     });
 
-    console.log("Total Matches Extracted:", extracted.length);
+    console.log("Total Matches Extracted Successfully:", extracted.length);
     return extracted;
 }
 
@@ -92,12 +71,12 @@ app.get('/dashboard', async (req, res) => {
         
         rawMatches.forEach(item => {
             const mi = item.matchInfo;
-            const teamAName = mi.team1?.teamName || mi.team1?.name || mi.team1?.sName || mi.team1Name || 'Team A';
-            const teamBName = mi.team2?.teamName || mi.team2?.name || mi.team2?.sName || mi.team2Name || 'Team B';
+            const teamAName = mi.team1?.teamName || mi.team1?.name || 'Team A';
+            const teamBName = mi.team2?.teamName || mi.team2?.name || 'Team B';
             
             liveMatches.push({
-                id: (mi.matchId || mi.id).toString(),
-                tournament: mi.seriesName || mi.seriesDesc || mi.matchDesc || 'Live Match',
+                id: mi.matchId.toString(),
+                tournament: mi.seriesName || 'Live Series',
                 teamA: teamAName,
                 teamB: teamBName,
                 dateTime: mi.status || mi.state || 'LIVE',
@@ -145,16 +124,16 @@ app.get('/match/:id', async (req, res) => {
         const data = await response.json();
         
         const rawMatches = extractAllLiveMatches(data);
-        const found = rawMatches.find(item => (item.matchInfo.matchId || item.matchInfo.id).toString() === matchId.toString());
+        const found = rawMatches.find(item => item.matchInfo.matchId.toString() === matchId.toString());
         
         if (found) {
             const mi = found.matchInfo;
             const ms = found.matchScore;
             
-            matchData.tournament = mi.seriesName || mi.seriesDesc || 'Live Match';
-            matchData.teamA = mi.team1?.teamName || mi.team1?.name || mi.team1?.sName || mi.team1Name || 'Team A';
-            matchData.teamB = mi.team2?.teamName || mi.team2?.name || mi.team2?.sName || mi.team2Name || 'Team B';
-            matchData.venue = mi.venueInfo?.ground || mi.venueInfo?.city || 'Live Ground';
+            matchData.tournament = mi.seriesName || 'Live Match';
+            matchData.teamA = mi.team1?.teamName || mi.team1?.name || 'Team A';
+            matchData.teamB = mi.team2?.teamName || mi.team2?.name || 'Team B';
+            matchData.venue = mi.venueInfo?.ground || 'Live Ground';
             matchData.status = mi.state || 'LIVE';
             matchData.matchStateText = mi.status || mi.state || 'Live';
 
