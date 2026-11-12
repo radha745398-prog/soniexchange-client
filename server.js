@@ -1,6 +1,7 @@
 // server.js
 const express = require('express');
 const path = require('path');
+const fetch = require('node-fetch'); // Added to ensure fetch works seamlessly on all Node versions
 const app = express();
 
 const { renderDashboardPage } = require('./clientViews/dashboardView');
