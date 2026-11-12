@@ -9,8 +9,8 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// RapidAPI Credentials
-const RAPIDAPI_KEY = '26938f4970hnsf3bc3101bf38660p19fde5n38927c04ec7';
+// RapidAPI Credentials (Updated with your exact active key)
+const RAPIDAPI_KEY = '269384970fmsh3bc319f6f386606p1959e6jsn36927c504ec7';
 const RAPIDAPI_HOST = 'cricbuzz-cricket.p.rapidapi.com';
 
 // 1. Login Page Route
@@ -74,7 +74,7 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route (Using /matches/live data to bypass subscription error)
+// 4. Match Detail Route (Using /matches/live data with correct API Key)
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -144,8 +144,6 @@ app.get('/match/:id', async (req, res) => {
 
     res.send(renderMatchDetailPage(user, matchData));
 });
-
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
