@@ -1,7 +1,6 @@
 // server.js
 const express = require('express');
 const path = require('path');
-const axios = require('axios'); // <-- 1. Axios import kiya
 const app = express();
 
 const { renderDashboardPage } = require('./clientViews/dashboardView');
@@ -19,13 +18,13 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 2. Direct Admin Switch Route (Bina password ke direct entry)
+// 2. Direct Admin Switch Route
 app.get('/switch-to-client', (req, res) => {
     const targetUser = req.query.user || 'Client';
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Client Dashboard Route (Yahan live matches API se fetch honge)
+// 3. Client Dashboard Route
 app.get('/dashboard', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -33,24 +32,18 @@ app.get('/dashboard', async (req, res) => {
     let liveMatches = [];
     
     try {
-        // RapidAPI se live matches fetch kar rahe hain
-        const response = await axios.get(`https://${RAPIDAPI_HOST}/matches/live`, {
+        const response = await fetch(`https://${RAPIDAPI_HOST}/matches/live`, {
             headers: {
                 'X-RapidAPI-Key': RAPIDAPI_KEY,
                 'X-RapidAPI-Host': RAPIDAPI_HOST
             }
         });
-
-        // Agar API data sahi se aaye toh usko apne format mein map kar sakte hain
-        // (Filhal fallback ke liye dummy rakha hai agar API response structure match na ho)
-        if (response.data && response.data.typeMatches) {
-            // Aap apne API response ke structure ke hisaab se yahan parse kar sakte hain
-        }
+        const data = await response.json();
+        // Agar data mil gaya toh yahan use kar sakte hain
     } catch (error) {
-        console.error("Error fetching live matches from API:", error.message);
+        console.error("Error fetching live matches:", error.message);
     }
 
-    // Fallback/Default live match agar API fetch hone mein koi issue ho
     if (liveMatches.length === 0) {
         liveMatches = [
             {
@@ -82,18 +75,14 @@ app.get('/match/:id', async (req, res) => {
     };
 
     try {
-        // Agar specific match ki details leni ho toh Cricbuzz API endpoint use kar sakte hain
-        const response = await axios.get(`https://${RAPIDAPI_HOST}/match-details/get-info`, {
-            params: { matchId: matchId },
+        const response = await fetch(`https://${RAPIDAPI_HOST}/match-details/get-info?matchId=${matchId}`, {
             headers: {
                 'X-RapidAPI-Key': RAPIDAPI_KEY,
                 'X-RapidAPI-Host': RAPIDAPI_HOST
             }
         });
-        
-        if (response.data) {
-            // Agar API se data mil gaya toh matchData ko update kar sakte hain
-        }
+        const data = await response.json();
+        // Match detail data handle kar sakte hain
     } catch (error) {
         console.error("Error fetching match detail:", error.message);
     }
