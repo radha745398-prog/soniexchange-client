@@ -74,7 +74,7 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route (Dynamic Match Info & Debug Logs)
+// 4. Match Detail Route (Fully Mapped Dynamic API Data)
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -85,7 +85,13 @@ app.get('/match/:id', async (req, res) => {
         tournament: 'Live Match',
         teamA: 'Team A',
         teamB: 'Team B',
-        teamA_score: 'Live Score'
+        scoreA: '0/0',
+        oversA: '(0.0)',
+        scoreB: '0/0',
+        oversB: '(0.0)',
+        matchStateText: 'Match Live',
+        venue: 'Live Stadium',
+        status: 'LIVE'
     };
 
     try {
@@ -101,9 +107,17 @@ app.get('/match/:id', async (req, res) => {
         console.log("Cricbuzz Match Detail API Response:", JSON.stringify(data));
         
         if (data) {
-            matchData.tournament = data.seriesName || data.matchInfo?.seriesName || 'Live Match';
-            matchData.teamA = data.team1?.name || data.team1Name || data.matchInfo?.team1?.teamName || 'Team A';
-            matchData.teamB = data.team2?.name || data.team2Name || data.matchInfo?.team2?.teamName || 'Team B';
+            matchData.tournament = data.seriesName || data.matchInfo?.seriesName || data.matchHeader?.seriesName || 'Live Match';
+            matchData.teamA = data.team1?.name || data.team1?.teamName || data.matchInfo?.team1?.teamName || data.matchHeader?.team1?.name || 'Team A';
+            matchData.teamB = data.team2?.name || data.team2?.teamName || data.matchInfo?.team2?.teamName || data.matchHeader?.team2?.name || 'Team B';
+            matchData.venue = data.venueInfo?.ground || data.matchInfo?.venueInfo?.ground || data.matchHeader?.venueInfo?.ground || 'Live Stadium';
+            matchData.status = data.status || data.matchInfo?.status || 'LIVE';
+            
+            if (data.status) {
+                matchData.matchStateText = data.status;
+            } else if (data.matchInfo?.status) {
+                matchData.matchStateText = data.matchInfo.status;
+            }
         }
     } catch (error) {
         console.error("Error fetching match detail:", error.message);
