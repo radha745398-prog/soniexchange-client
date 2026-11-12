@@ -74,7 +74,7 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route (Dynamic Match Info)
+// 4. Match Detail Route (Dynamic Match Info & Debug Logs)
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -97,10 +97,13 @@ app.get('/match/:id', async (req, res) => {
         });
         const data = await response.json();
         
+        // Console mein print karwayenge taaki Render logs mein exact structure dikhe
+        console.log("Cricbuzz Match Detail API Response:", JSON.stringify(data));
+        
         if (data) {
-            matchData.tournament = data.seriesName || 'Live Match';
-            matchData.teamA = data.team1?.name || 'Team A';
-            matchData.teamB = data.team2?.name || 'Team B';
+            matchData.tournament = data.seriesName || data.matchInfo?.seriesName || 'Live Match';
+            matchData.teamA = data.team1?.name || data.team1Name || data.matchInfo?.team1?.teamName || 'Team A';
+            matchData.teamB = data.team2?.name || data.team2Name || data.matchInfo?.team2?.teamName || 'Team B';
         }
     } catch (error) {
         console.error("Error fetching match detail:", error.message);
