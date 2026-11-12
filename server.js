@@ -9,7 +9,7 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// RapidAPI Credentials (Updated with your exact active key)
+// RapidAPI Credentials (Exact Active Key)
 const RAPIDAPI_KEY = '269384970fmsh3bc319f6f386606p1959e6jsn36927c504ec7';
 const RAPIDAPI_HOST = 'cricbuzz-cricket.p.rapidapi.com';
 
@@ -24,7 +24,7 @@ app.get('/switch-to-client', (req, res) => {
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Client Dashboard Route (Live Matches from API)
+// 3. Client Dashboard Route (Live Matches from API with Debug Logging)
 app.get('/dashboard', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -39,6 +39,9 @@ app.get('/dashboard', async (req, res) => {
             }
         });
         const data = await response.json();
+        
+        // Debug log to inspect raw API response in Render logs
+        console.log("Cricbuzz Live API Raw Data:", JSON.stringify(data).substring(0, 500));
         
         if (data && data.typeMatches) {
             data.typeMatches.forEach(typeMatch => {
@@ -74,7 +77,7 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route (Using /matches/live data with correct API Key)
+// 4. Match Detail Route (Using /matches/live data)
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
