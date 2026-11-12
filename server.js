@@ -24,7 +24,7 @@ app.get('/switch-to-client', (req, res) => {
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Client Dashboard Route
+// 3. Client Dashboard Route (Live Matches from API)
 app.get('/dashboard', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -39,28 +39,42 @@ app.get('/dashboard', async (req, res) => {
             }
         });
         const data = await response.json();
-        // Agar data mil gaya toh yahan use kar sakte hain
+        
+        if (data && data.typeMatches) {
+            data.typeMatches.forEach(typeMatch => {
+                if (typeMatch.seriesMatches) {
+                    typeMatch.seriesMatches.forEach(series => {
+                        if (series.seriesAdWrapper && series.seriesAdWrapper.matches) {
+                            series.seriesAdWrapper.matches.forEach(match => {
+                                const matchInfo = match.matchInfo;
+                                if (matchInfo) {
+                                    liveMatches.push({
+                                        id: matchInfo.matchId.toString(),
+                                        tournament: matchInfo.seriesName || 'Live Series',
+                                        teamA: matchInfo.team1?.teamName || 'Team A',
+                                        teamB: matchInfo.team2?.teamName || 'Team B',
+                                        dateTime: matchInfo.startDate ? new Date(parseInt(matchInfo.startDate)).toLocaleString() : 'Live',
+                                        odds: { 
+                                            teamA_back: '1.98', teamA_lay: '2.00', 
+                                            draw_back: '-', draw_lay: '-', 
+                                            teamB_back: '1.98', teamB_lay: '2.00' 
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
     } catch (error) {
         console.error("Error fetching live matches:", error.message);
-    }
-
-    if (liveMatches.length === 0) {
-        liveMatches = [
-            {
-                id: '567516426',
-                tournament: 'ODI International',
-                teamA: 'New Zealand',
-                teamB: 'India',
-                dateTime: '08/11/2026 14:30:00',
-                odds: { teamA_back: '1.05', teamA_lay: '1.08', draw_back: '-', draw_lay: '-', teamB_back: '14.0', teamB_lay: '15.5' }
-            }
-        ];
     }
 
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route
+// 4. Match Detail Route (Dynamic Match Info)
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -68,10 +82,10 @@ app.get('/match/:id', async (req, res) => {
     
     let matchData = {
         id: matchId,
-        tournament: 'ODI International',
-        teamA: 'New Zealand',
-        teamB: 'India',
-        teamA_score: '185/5 (40.2)'
+        tournament: 'Live Match',
+        teamA: 'Team A',
+        teamB: 'Team B',
+        teamA_score: 'Live Score'
     };
 
     try {
@@ -82,7 +96,12 @@ app.get('/match/:id', async (req, res) => {
             }
         });
         const data = await response.json();
-        // Match detail data handle kar sakte hain
+        
+        if (data) {
+            matchData.tournament = data.seriesName || 'Live Match';
+            matchData.teamA = data.team1?.name || 'Team A';
+            matchData.teamB = data.team2?.name || 'Team B';
+        }
     } catch (error) {
         console.error("Error fetching match detail:", error.message);
     }
