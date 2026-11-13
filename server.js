@@ -13,7 +13,7 @@ app.use(express.json());
 const RAPIDAPI_KEY = '269384970fmsh3bc319f6f386606p1959e6jsn36927c504ec7';
 const RAPIDAPI_HOST = 'cricbuzz-cricket.p.rapidapi.com';
 
-// Corrected Parser matched with Cricbuzz API response structure
+// Safe Parser matched with Cricbuzz API response structure
 function extractAllLiveMatches(data) {
     let extracted = [];
     if (!data || !data.typeMatches) return extracted;
@@ -21,7 +21,6 @@ function extractAllLiveMatches(data) {
     data.typeMatches.forEach(typeMatch => {
         if (typeMatch.seriesMatches) {
             typeMatch.seriesMatches.forEach(seriesItem => {
-                // Cricbuzz nests matches inside seriesAdWrapper or directly inside seriesMatches
                 const matchWrapper = seriesItem.seriesAdWrapper || seriesItem;
                 const matches = matchWrapper.matches || [];
 
@@ -65,7 +64,19 @@ app.get('/dashboard', async (req, res) => {
                 'X-RapidAPI-Host': RAPIDAPI_HOST
             }
         });
-        const data = await response.json();
+
+        // Safe check for empty body / HTTP 204 from Cricbuzz API
+        const text = await response.text();
+        let data = {};
+        if (text && text.trim().length > 0) {
+            try {
+                data = JSON.parse(text);
+            } catch (parseErr) {
+                console.error("JSON Parse Error:", parseErr.message);
+            }
+        } else {
+            console.log("API returned empty body (No live matches currently).");
+        }
         
         const rawMatches = extractAllLiveMatches(data);
         
@@ -121,7 +132,19 @@ app.get('/match/:id', async (req, res) => {
                 'X-RapidAPI-Host': RAPIDAPI_HOST
             }
         });
-        const data = await response.json();
+
+        // Safe check for empty body
+        const text = await response.text();
+        let data = {};
+        if (text && text.trim().length > 0) {
+            try {
+                data = JSON.parse(text);
+            } catch (parseErr) {
+                console.error("JSON Parse Error:", parseErr.message);
+            }
+        } else {
+            console.log("API returned empty body for match detail.");
+        }
         
         const rawMatches = extractAllLiveMatches(data);
         const found = rawMatches.find(item => item.matchInfo.matchId.toString() === matchId.toString());
