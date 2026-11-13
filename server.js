@@ -23,7 +23,7 @@ app.get('/switch-to-client', (req, res) => {
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Client Dashboard Route
+// 3. Client Dashboard Route (Asli Live Matches)
 app.get('/dashboard', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -43,44 +43,43 @@ app.get('/dashboard', async (req, res) => {
             }
         }
         
-        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || []);
+        // Highlightly API response formats handle karne ke liye flexible array mapping
+        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || data.results || []);
         
         matchesList.forEach(match => {
-            liveMatches.push({
-                id: (match.id || match.match_id || 'match-1').toString(),
-                tournament: match.league || match.tournament || 'Live Cricket',
-                teamA: match.home_team || match.teamA || 'Team A',
-                teamB: match.away_team || match.teamB || 'Team B',
-                dateTime: `LIVE (${match.score || match.status || 'In Progress'})`,
-                odds: { 
-                    teamA_back: '1.98', teamA_lay: '2.00', 
-                    draw_back: '-', draw_lay: '-', 
-                    teamB_back: '1.98', teamB_lay: '2.00' 
-                }
-            });
+            const matchId = (match.id || match.match_id || match.matchId || '').toString();
+            const tournamentName = match.league || match.tournament || match.series || 'Live Cricket';
+            const teamAName = match.home_team || match.team1 || match.teamA || 'Team A';
+            const teamBName = match.away_team || match.team2 || match.teamB || 'Team B';
+            const matchStatus = match.status || match.state || 'LIVE';
+            const matchScoreText = match.score || match.matchScore || '';
+
+            if (matchId) {
+                liveMatches.push({
+                    id: matchId,
+                    tournament: tournamentName,
+                    teamA: teamAName,
+                    teamB: teamBName,
+                    dateTime: matchScoreText ? `LIVE (${matchScoreText})` : `LIVE (${matchStatus})`,
+                    odds: { 
+                        teamA_back: match.odds?.teamA_back || '1.98', 
+                        teamA_lay: match.odds?.teamA_lay || '2.00', 
+                        draw_back: '-', 
+                        draw_lay: '-', 
+                        teamB_back: match.odds?.teamB_back || '1.98', 
+                        teamB_lay: match.odds?.teamB_lay || '2.00' 
+                    }
+                });
+            }
         });
     } catch (error) {
         console.error("Dashboard Fetch Error:", error.message);
     }
 
-    // Smart Fallback taaki screen khali na lage agar API me koi live match na ho
-    if (liveMatches.length === 0) {
-        liveMatches = [
-            {
-                id: 'demo-match-1',
-                tournament: 'Live Exchange Series',
-                teamA: 'India',
-                teamB: 'Australia',
-                dateTime: 'LIVE (145/3 - 16.4 ov)',
-                odds: { teamA_back: '1.75', teamA_lay: '1.77', draw_back: '-', draw_lay: '-', teamB_back: '2.18', teamB_lay: '2.22' }
-            }
-        ];
-    }
-
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route
+// 4. Match Detail Route (Asli Match Data & Proper ID Routing)
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -113,16 +112,19 @@ app.get('/match/:id', async (req, res) => {
             }
         }
         
-        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || []);
-        const found = matchesList.find(match => (match.id || match.match_id || '').toString() === matchId.toString());
+        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || data.results || []);
+        const found = matchesList.find(match => (match.id || match.match_id || match.matchId || '').toString() === matchId.toString());
         
         if (found) {
-            matchData.tournament = found.league || found.tournament || 'Live Match';
-            matchData.teamA = found.home_team || found.teamA || 'Team A';
-            matchData.teamB = found.away_team || found.teamB || 'Team B';
-            matchData.venue = found.venue || 'Live Ground';
-            matchData.status = found.status || 'LIVE';
+            matchData.tournament = found.league || found.tournament || found.series || 'Live Match';
+            matchData.teamA = found.home_team || found.team1 || found.teamA || 'Team A';
+            matchData.teamB = found.away_team || found.team2 || found.teamB || 'Team B';
+            matchData.venue = found.venue || found.ground || 'Live Ground';
+            matchData.status = found.status || found.state || 'LIVE';
             matchData.matchStateText = found.score || found.status || 'Live';
+            
+            if (found.scoreA) matchData.scoreA = found.scoreA;
+            if (found.scoreB) matchData.scoreB = found.scoreB;
         }
     } catch (error) {
         console.error("Match Detail Fetch Error:", error.message);
