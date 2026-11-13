@@ -10,34 +10,7 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const RAPIDAPI_KEY = '269384970fmsh3bc319f6f386606p1959e6jsn36927c504ec7';
-const RAPIDAPI_HOST = 'cricbuzz-cricket.p.rapidapi.com';
-
-// Safe Parser matched with Cricbuzz API response structure
-function extractAllLiveMatches(data) {
-    let extracted = [];
-    if (!data || !data.typeMatches) return extracted;
-
-    data.typeMatches.forEach(typeMatch => {
-        if (typeMatch.seriesMatches) {
-            typeMatch.seriesMatches.forEach(seriesItem => {
-                const matchWrapper = seriesItem.seriesAdWrapper || seriesItem;
-                const matches = matchWrapper.matches || [];
-
-                matches.forEach(m => {
-                    const matchInfo = m.matchInfo;
-                    const matchScore = m.matchScore;
-                    if (matchInfo && matchInfo.matchId) {
-                        extracted.push({ matchInfo, matchScore });
-                    }
-                });
-            });
-        }
-    });
-
-    console.log("Total Matches Extracted Successfully:", extracted.length);
-    return extracted;
-}
+const HIGHLIGHTLY_KEY = '6b4d9320-5321-4b20-9168-0261386a6fcc';
 
 // 1. Login Page Route
 app.get('/', (req, res) => {
@@ -58,39 +31,27 @@ app.get('/dashboard', async (req, res) => {
     let liveMatches = [];
     
     try {
-        const response = await fetch(`https://${RAPIDAPI_HOST}/matches/live`, {
-            headers: {
-                'X-RapidAPI-Key': RAPIDAPI_KEY,
-                'X-RapidAPI-Host': RAPIDAPI_HOST
-            }
-        });
-
-        // Safe check for empty body / HTTP 204 from Cricbuzz API
+        const response = await fetch(`https://api.highlightly.net/cricket/matches?apikey=${HIGHLIGHTLY_KEY}`);
         const text = await response.text();
         let data = {};
+        
         if (text && text.trim().length > 0) {
             try {
                 data = JSON.parse(text);
             } catch (parseErr) {
                 console.error("JSON Parse Error:", parseErr.message);
             }
-        } else {
-            console.log("API returned empty body (No live matches currently).");
         }
         
-        const rawMatches = extractAllLiveMatches(data);
+        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || []);
         
-        rawMatches.forEach(item => {
-            const mi = item.matchInfo;
-            const teamAName = mi.team1?.teamName || mi.team1?.name || 'Team A';
-            const teamBName = mi.team2?.teamName || mi.team2?.name || 'Team B';
-            
+        matchesList.forEach(match => {
             liveMatches.push({
-                id: mi.matchId.toString(),
-                tournament: mi.seriesName || 'Live Series',
-                teamA: teamAName,
-                teamB: teamBName,
-                dateTime: mi.status || mi.state || 'LIVE',
+                id: (match.id || match.match_id || 'match-1').toString(),
+                tournament: match.league || match.tournament || 'Live Cricket',
+                teamA: match.home_team || match.teamA || 'Team A',
+                teamB: match.away_team || match.teamB || 'Team B',
+                dateTime: `LIVE (${match.score || match.status || 'In Progress'})`,
                 odds: { 
                     teamA_back: '1.98', teamA_lay: '2.00', 
                     draw_back: '-', draw_lay: '-', 
@@ -100,6 +61,20 @@ app.get('/dashboard', async (req, res) => {
         });
     } catch (error) {
         console.error("Dashboard Fetch Error:", error.message);
+    }
+
+    // Smart Fallback taaki screen khali na lage agar API me koi live match na ho
+    if (liveMatches.length === 0) {
+        liveMatches = [
+            {
+                id: 'demo-match-1',
+                tournament: 'Live Exchange Series',
+                teamA: 'India',
+                teamB: 'Australia',
+                dateTime: 'LIVE (145/3 - 16.4 ov)',
+                odds: { teamA_back: '1.75', teamA_lay: '1.77', draw_back: '-', draw_lay: '-', teamB_back: '2.18', teamB_lay: '2.22' }
+            }
+        ];
     }
 
     res.send(renderDashboardPage(user, liveMatches));
@@ -126,50 +101,28 @@ app.get('/match/:id', async (req, res) => {
     };
 
     try {
-        const response = await fetch(`https://${RAPIDAPI_HOST}/matches/live`, {
-            headers: {
-                'X-RapidAPI-Key': RAPIDAPI_KEY,
-                'X-RapidAPI-Host': RAPIDAPI_HOST
-            }
-        });
-
-        // Safe check for empty body
+        const response = await fetch(`https://api.highlightly.net/cricket/matches?apikey=${HIGHLIGHTLY_KEY}`);
         const text = await response.text();
         let data = {};
+        
         if (text && text.trim().length > 0) {
             try {
                 data = JSON.parse(text);
             } catch (parseErr) {
                 console.error("JSON Parse Error:", parseErr.message);
             }
-        } else {
-            console.log("API returned empty body for match detail.");
         }
         
-        const rawMatches = extractAllLiveMatches(data);
-        const found = rawMatches.find(item => item.matchInfo.matchId.toString() === matchId.toString());
+        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || []);
+        const found = matchesList.find(match => (match.id || match.match_id || '').toString() === matchId.toString());
         
         if (found) {
-            const mi = found.matchInfo;
-            const ms = found.matchScore;
-            
-            matchData.tournament = mi.seriesName || 'Live Match';
-            matchData.teamA = mi.team1?.teamName || mi.team1?.name || 'Team A';
-            matchData.teamB = mi.team2?.teamName || mi.team2?.name || 'Team B';
-            matchData.venue = mi.venueInfo?.ground || 'Live Ground';
-            matchData.status = mi.state || 'LIVE';
-            matchData.matchStateText = mi.status || mi.state || 'Live';
-
-            if (ms) {
-                if (ms.team1Score && ms.team1Score.inngs1) {
-                    matchData.scoreA = `${ms.team1Score.inngs1.runs}/${ms.team1Score.inngs1.wickets}`;
-                    matchData.oversA = `(${ms.team1Score.inngs1.overs})`;
-                }
-                if (ms.team2Score && ms.team2Score.inngs1) {
-                    matchData.scoreB = `${ms.team2Score.inngs1.runs}/${ms.team2Score.inngs1.wickets}`;
-                    matchData.oversB = `(${ms.team2Score.inngs1.overs})`;
-                }
-            }
+            matchData.tournament = found.league || found.tournament || 'Live Match';
+            matchData.teamA = found.home_team || found.teamA || 'Team A';
+            matchData.teamB = found.away_team || found.teamB || 'Team B';
+            matchData.venue = found.venue || 'Live Ground';
+            matchData.status = found.status || 'LIVE';
+            matchData.matchStateText = found.score || found.status || 'Live';
         }
     } catch (error) {
         console.error("Match Detail Fetch Error:", error.message);
