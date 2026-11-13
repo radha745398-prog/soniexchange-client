@@ -10,126 +10,161 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const HIGHLIGHTLY_KEY = '6b4d9320-5321-4b20-9168-0261386a6fcc';
+// KEY code mein mat likhna. Render > Environment > HIGHLIGHTLY_KEY
+const HIGHLIGHTLY_KEY = process.env.HIGHLIGHTLY_KEY;
 const BASE_URL = 'https://cricket.highlightly.net';
+if (!HIGHLIGHTLY_KEY) console.error('HIGHLIGHTLY_KEY set nahi hai (Render > Environment mein daalo)');
 
-// 1. Login Page Route
+// HTML escape: user ya API ka text page ko tod na sake
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
+
+// ---------- API call + cache + daily limit guard ----------
+const cache = new Map();
+let usage = { day: '', count: 0 };
+const DAILY_LIMIT = 90; // free plan 100/din, 10 ka buffer
+
+async function hl(pathAndQuery, ttlMs) {
+    const hit = cache.get(pathAndQuery);
+    if (hit && Date.now() - hit.time < ttlMs) return hit.data;
+
+    const day = new Date().toISOString().slice(0, 10);
+    if (usage.day !== day) usage = { day, count: 0 };
+    if (usage.count >= DAILY_LIMIT) {
+        console.warn('Daily limit guard: purana cache dikha rahe hain');
+        return hit ? hit.data : null;
+    }
+    usage.count++;
+
+    try {
+        const r = await fetch(`${BASE_URL}${pathAndQuery}`, {
+            headers: { 'x-rapidapi-key': HIGHLIGHTLY_KEY }
+        });
+        console.log(`Highlightly ${pathAndQuery} -> status ${r.status} | bachi requests: ${r.headers.get('x-ratelimit-requests-remaining')}`);
+        const text = await r.text();
+        if (!r.ok) {
+            console.error('API error body:', text.slice(0, 300));
+            return hit ? hit.data : null;
+        }
+        const data = JSON.parse(text);
+        cache.set(pathAndQuery, { time: Date.now(), data });
+        return data;
+    } catch (e) {
+        console.error('Fetch/parse error:', e.message);
+        return hit ? hit.data : null;
+    }
+}
+
+// ---------- Match data ko saaf karna ----------
+const str = (v) => (typeof v === 'string' ? v : '');
+
+function statusText(m) {
+    const s = m.state ?? m.status;
+    if (typeof s === 'string') return s;
+    return str(s?.description) || str(s?.name) || str(s?.long) || str(s?.shortName) || str(s?.report) || '';
+}
+
+function classify(m) {
+    if (m.isLive === true || m.live === true) return 'LIVE';
+    const t = statusText(m).toLowerCase();
+    if (/finish|complete|ended|result|won by|abandon|cancel/.test(t)) return 'FINISHED';
+    if (/not started|yet to|scheduled|upcoming/.test(t)) return 'SCHEDULED';
+    if (/live|progress|innings|ongoing|started|break|toss|lunch|tea|stumps|drinks/.test(t)) return 'LIVE';
+    return 'SCHEDULED';
+}
+
+// Score alag-alag shape mein aa sakta hai, isliye kai jagah dekhte hain
+function pickScore(m, side) {
+    const team = m[`${side}Team`];
+    const cands = [team?.score, m.score?.[side], m.scores?.[side], m.state?.score?.[side]];
+    for (const c of cands) {
+        if (c == null) continue;
+        if (typeof c === 'string' || typeof c === 'number') return { score: String(c), overs: '' };
+        if (typeof c === 'object') {
+            const r = c.runs ?? c.score;
+            const w = c.wickets ?? c.wkts;
+            if (r != null) return { score: w != null ? `${r}/${w}` : String(r), overs: c.overs != null ? `(${c.overs})` : '' };
+        }
+    }
+    return { score: '-', overs: '' };
+}
+
+function safeLogo(u) {
+    return typeof u === 'string' && u.startsWith('https://') ? u : '';
+}
+
+function formatDate(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    return isNaN(dt) ? '' : dt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function normalize(m) {
+    const a = pickScore(m, 'home');
+    const b = pickScore(m, 'away');
+    const status = classify(m);
+    return {
+        id: esc(m.id),
+        tournament: esc(m.league?.name || m.title || 'Cricket'),
+        teamA: esc(m.homeTeam?.name || 'Team A'),
+        teamB: esc(m.awayTeam?.name || 'Team B'),
+        logoA: safeLogo(m.homeTeam?.logo),
+        logoB: safeLogo(m.awayTeam?.logo),
+        scoreA: esc(a.score), oversA: esc(a.overs),
+        scoreB: esc(b.score), oversB: esc(b.overs),
+        status,
+        isLive: status === 'LIVE',
+        matchStateText: esc(statusText(m) || status),
+        dateTime: esc(statusText(m) || formatDate(m.date) || status),
+        venue: esc(m.venue?.name || (typeof m.venue === 'string' ? m.venue : '') || 'Stadium')
+    };
+}
+
+// ---------- Routes ----------
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 2. Direct Admin Switch Route
 app.get('/switch-to-client', (req, res) => {
     const targetUser = req.query.user || 'Client';
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Client Dashboard Route (Using correct endpoint /matches/list)
+// Dashboard: aaj ke saare matches, live wale sabse upar
 app.get('/dashboard', async (req, res) => {
-    const username = req.query.user || 'Client';
-    const user = { username: username, points: 50000, exposure: 1200 };
-    
-    let liveMatches = [];
-    
-    try {
-        const response = await fetch(`${BASE_URL}/matches/list`, {
-            headers: {
-                'x-rapidapi-key': HIGHLIGHTLY_KEY
-            }
-        });
-        
-        const text = await response.text();
-        console.log("HIGHLIGHTLY RAW RESPONSE:", text);
-        
-        let data = {};
-        if (text && text.trim().length > 0) {
-            try {
-                data = JSON.parse(text);
-            } catch (parseErr) {
-                console.error("JSON Parse Error:", parseErr.message);
-            }
-        }
-        
-        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || data.response || data.results || []);
-        
-        matchesList.forEach(match => {
-            const matchId = (match.id || match.match_id || match.matchId || '').toString();
-            if (matchId) {
-                liveMatches.push({
-                    id: matchId,
-                    tournament: match.league?.name || match.tournament || match.series || 'Live Cricket',
-                    teamA: match.homeTeam?.name || match.home_team || match.team1 || 'Team A',
-                    teamB: match.awayTeam?.name || match.away_team || match.team2 || 'Team B',
-                    dateTime: `LIVE (${match.status?.shortName || match.score || 'In Progress'})`,
-                    odds: { 
-                        teamA_back: match.odds?.teamA_back || '1.98', 
-                        teamA_lay: match.odds?.teamA_lay || '2.00', 
-                        draw_back: '-', 
-                        draw_lay: '-', 
-                        teamB_back: match.odds?.teamB_back || '1.98', 
-                        teamB_lay: match.odds?.teamB_lay || '2.00' 
-                    }
-                });
-            }
-        });
-    } catch (error) {
-        console.error("Dashboard Fetch Error:", error.message);
-    }
+    const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
 
-    res.send(renderDashboardPage(user, liveMatches));
+    const today = new Date().toISOString().slice(0, 10);
+    const json = await hl(`/matches?date=${today}`, 20 * 60 * 1000); // 20 min cache
+    const list = Array.isArray(json) ? json : (json?.data || []);
+    console.log('Total matches:', list.length);
+    if (list[0]) console.log('PEHLA MATCH:', JSON.stringify(list[0], null, 2).slice(0, 2500));
+
+    const order = { LIVE: 0, SCHEDULED: 1, FINISHED: 2 };
+    const matches = list.filter((m) => m && m.id != null).map(normalize)
+        .sort((x, y) => order[x.status] - order[y.status]);
+
+    res.send(renderDashboardPage(user, matches));
 });
 
-// 4. Match Detail Route (Using correct endpoint /matches/{id})
+// Match detail: API ka jawab array hota hai, isliye [0]
 app.get('/match/:id', async (req, res) => {
-    const username = req.query.user || 'Client';
-    const user = { username: username, points: 50000, exposure: 1200 };
-    const matchId = req.params.id;
-    
-    let matchData = {
-        id: matchId,
-        tournament: 'Live Match',
-        teamA: 'Team A',
-        teamB: 'Team B',
-        scoreA: 'Yet to bat',
-        oversA: '(0.0)',
-        scoreB: 'Yet to bat',
-        oversB: '(0.0)',
-        matchStateText: 'Live',
-        venue: 'Stadium',
-        status: 'LIVE'
-    };
+    const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
+    const id = encodeURIComponent(req.params.id);
 
-    try {
-        const response = await fetch(`${BASE_URL}/matches/${matchId}`, {
-            headers: {
-                'x-rapidapi-key': HIGHLIGHTLY_KEY
-            }
-        });
-        
-        const text = await response.text();
-        let found = {};
-        if (text && text.trim().length > 0) {
-            try {
-                found = JSON.parse(text);
-            } catch (parseErr) {
-                console.error("JSON Parse Error:", parseErr.message);
-            }
-        }
-        
-        if (found && (found.id || found.match_id)) {
-            matchData.tournament = found.league?.name || found.tournament || found.series || 'Live Match';
-            matchData.teamA = found.homeTeam?.name || found.home_team || found.team1 || 'Team A';
-            matchData.teamB = found.awayTeam?.name || found.away_team || found.team2 || 'Team B';
-            matchData.venue = found.venue?.name || found.venue || 'Live Ground';
-            matchData.status = found.status?.shortName || found.status || 'LIVE';
-            matchData.matchStateText = found.score || found.status?.longName || 'Live';
-            
-            if (found.scoreA) matchData.scoreA = found.scoreA;
-            if (found.scoreB) matchData.scoreB = found.scoreB;
-        }
-    } catch (error) {
-        console.error("Match Detail Fetch Error:", error.message);
-    }
+    const json = await hl(`/matches/${id}`, 5 * 60 * 1000); // 5 min cache
+    const found = Array.isArray(json) ? json[0] : json;
+    if (found) console.log('MATCH DETAIL:', JSON.stringify(found, null, 2).slice(0, 2500));
+
+    const matchData = found
+        ? normalize(found)
+        : {
+            id: esc(req.params.id), tournament: 'Match', teamA: 'Team A', teamB: 'Team B',
+            logoA: '', logoB: '', scoreA: '-', oversA: '', scoreB: '-', oversB: '',
+            status: 'SCHEDULED', isLive: false, matchStateText: 'Data abhi available nahi',
+            dateTime: '', venue: 'Stadium'
+        };
 
     res.send(renderMatchDetailPage(user, matchData));
 });
