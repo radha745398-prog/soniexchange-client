@@ -1,27 +1,36 @@
 // clientViews/components/matchHeader.js
+// Note: matchData ke saare text server.js mein pehle hi escape ho chuke hain.
+
+function logoHTML(src, name) {
+    if (src) {
+        return `<img src="${src}" alt="${name}" class="w-6 h-6 rounded-full object-contain bg-white/10 border border-white/20">`;
+    }
+    const initials = String(name || '?').trim().slice(0, 2).toUpperCase();
+    return `<div class="w-6 h-6 rounded-full bg-[#1f2937] border border-white/20 flex items-center justify-center text-[8px] font-bold text-gray-300">${initials}</div>`;
+}
 
 function renderMatchHeader(user, matchData) {
     const username = user ? user.username || 'Client' : 'Client';
     const balance = Number(user ? user.points || 0 : 0);
     const exposure = Number(user ? user.exposure || 0 : 0);
 
-    const teamA = matchData && matchData.teamA ? matchData.teamA : 'Team A';
-    const teamB = matchData && matchData.teamB ? matchData.teamB : 'Team B';
-    const flagA = matchData && matchData.flagA ? matchData.flagA : 'https://flagcdn.com/w40/pk.png';
-    const flagB = matchData && matchData.flagB ? matchData.flagB : 'https://flagcdn.com/lk.png';
-    
-    const venue = matchData && matchData.venue ? matchData.venue : 'Live Stadium';
-    const matchTime = matchData && matchData.dateTime ? matchData.dateTime : 'Live';
+    const d = matchData || {};
+    const teamA = d.teamA || 'Team A';
+    const teamB = d.teamB || 'Team B';
+    const venue = d.venue || 'Stadium';
+    const matchTime = d.dateTime || '';
+    const matchStatus = String(d.status || 'SCHEDULED').toUpperCase(); // LIVE | SCHEDULED | FINISHED
 
-    // API ke liye match status ('LIVE', 'TOSS', 'SCHEDULED')
-    const matchStatus = matchData && matchData.status ? matchData.status.toUpperCase() : 'LIVE';
+    const scoreA = d.scoreA || '-';
+    const oversA = d.oversA || '';
+    const scoreB = d.scoreB || '-';
+    const oversB = d.oversB || '';
+    const matchStateText = d.matchStateText || matchStatus;
 
-    // Dynamic Scores & Status from API / Server
-    const scoreA = matchData && matchData.scoreA ? matchData.scoreA : '0/0';
-    const oversA = matchData && matchData.oversA ? matchData.oversA : '(0.0)';
-    const scoreB = matchData && matchData.scoreB ? matchData.scoreB : '0/0';
-    const oversB = matchData && matchData.oversB ? matchData.oversB : '(0.0)';
-    const matchStateText = matchData && matchData.matchStateText ? matchData.matchStateText : 'Match Live';
+    const isLive = matchStatus === 'LIVE';
+    const dot = isLive ? 'bg-green-500 animate-pulse' : 'bg-gray-500';
+    const statusColor = isLive ? 'text-green-400' : 'text-gray-400';
+    const badgeText = isLive ? 'LIVE' : (matchStatus === 'FINISHED' ? 'FINISHED' : 'UPCOMING');
 
     return `
     <!-- TOP HEADER BAR -->
@@ -30,7 +39,7 @@ function renderMatchHeader(user, matchData) {
             <a href="/dashboard?user=${encodeURIComponent(username)}" class="text-white text-base focus:outline-none"><i class="fa-solid fa-arrow-left"></i></a>
             <h1 class="text-base font-black tracking-wider italic text-[#00c0FF]">SONIEXCHANGE</h1>
         </div>
-        
+
         <div class="flex items-center space-x-3 text-[11px]">
             <div class="text-right">
                 <div class="text-gray-300">Balance: <span class="font-bold text-green-400" id="user-balance">${balance.toLocaleString()}</span></div>
@@ -55,23 +64,27 @@ function renderMatchHeader(user, matchData) {
         ${matchStatus === 'SCHEDULED' ? `
             <div class="p-4 bg-[#111c26] text-center space-y-2">
                 <div class="flex items-center justify-center space-x-1.5 text-[10px] text-gray-400">
-                    <span class="bg-blue-500/20 text-blue-400 border border-blue-500/40 px-1.5 py-0.5 rounded font-bold uppercase">Scheduled</span>
+                    <span class="bg-blue-500/20 text-blue-400 border border-blue-500/40 px-1.5 py-0.5 rounded font-bold uppercase">Upcoming</span>
                     <span>• ${venue}</span>
                 </div>
-                <div class="text-sm font-bold text-white">${teamA} vs ${teamB}</div>
+                <div class="flex items-center justify-center space-x-3">
+                    ${logoHTML(d.logoA, teamA)}
+                    <span class="text-sm font-bold text-white">${teamA} vs ${teamB}</span>
+                    ${logoHTML(d.logoB, teamB)}
+                </div>
             </div>
         ` : `
-            <!-- LIVE SCOREBOARD VIEW -->
+            <!-- SCOREBOARD VIEW (LIVE / FINISHED) -->
             <div class="p-3 bg-[#111c26] relative">
                 <div class="text-[10px] text-gray-400 flex items-center space-x-1.5 mb-2">
-                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    <span class="font-bold text-green-400">LIVE</span>
+                    <span class="w-2 h-2 rounded-full ${dot}"></span>
+                    <span class="font-bold ${statusColor}">${badgeText}</span>
                     <span>• ${venue}</span>
                 </div>
-                
+
                 <div class="grid grid-cols-12 items-center gap-2">
                     <div class="col-span-4 flex items-center space-x-2">
-                        <img src="${flagA}" alt="${teamA}" class="w-6 h-4 rounded shadow-sm object-cover border border-white/20">
+                        ${logoHTML(d.logoA, teamA)}
                         <div>
                             <div class="font-black text-sm text-white flex items-center space-x-1">
                                 <span id="score-a">${scoreA}</span>
@@ -81,8 +94,8 @@ function renderMatchHeader(user, matchData) {
                     </div>
 
                     <div class="col-span-4 text-center flex flex-col items-center justify-center">
-                        <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase bg-[#00c0FF]/20 border border-[#00c0FF] text-[#00c0FF] shadow-[0_0_10px_rgba(0,192,255,0.4)] animate-pulse">
-                            LIVE
+                        <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase bg-[#00c0FF]/20 border border-[#00c0FF] text-[#00c0FF] ${isLive ? 'shadow-[0_0_10px_rgba(0,192,255,0.4)] animate-pulse' : ''}">
+                            ${badgeText}
                         </div>
                         <div class="text-[10px] text-gray-300 font-bold">${matchStateText}</div>
                     </div>
@@ -92,14 +105,14 @@ function renderMatchHeader(user, matchData) {
                             <div class="font-black text-sm text-white" id="score-b">${scoreB}</div>
                             <div class="text-[9px] text-gray-400">${oversB}</div>
                         </div>
-                        <img src="${flagB}" alt="${teamB}" class="w-6 h-4 rounded shadow-sm object-cover border border-white/20">
+                        ${logoHTML(d.logoB, teamB)}
                     </div>
                 </div>
             </div>
         `}
     </div>
 
-    <!-- TABS BAR -->
+    <!-- TABS BAR (tumhari original, bina badle) -->
     <div class="bg-[#0b141d] border-b border-gray-800 flex text-center font-bold text-xs sticky top-[41px] z-40">
         <div class="flex-1 py-2.5 border-b-2 border-[#00c0FF] text-[#00c0FF] tracking-wider uppercase">ODDS</div>
         <div class="flex-1 py-2.5 text-gray-400 hover:text-white cursor-pointer tracking-wider uppercase">MATCHED BET (<span id="matched-bet-count">0</span>)</div>
