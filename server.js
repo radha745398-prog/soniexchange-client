@@ -11,6 +11,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 const HIGHLIGHTLY_KEY = '6b4d9320-5321-4b20-9168-0261386a6fcc';
+const BASE_URL = 'https://cricket.highlightly.net';
 
 // 1. Login Page Route
 app.get('/', (req, res) => {
@@ -31,12 +32,14 @@ app.get('/dashboard', async (req, res) => {
     let liveMatches = [];
     
     try {
-        const response = await fetch(`https://api.highlightly.net/cricket/matches?apikey=${HIGHLIGHTLY_KEY}`);
-        const text = await response.text();
+        const response = await fetch(`${BASE_URL}/matches`, {
+            headers: {
+                'x-rapidapi-key': HIGHLIGHTLY_KEY
+            }
+        });
         
-        console.log("=== HIGHLIGHTLY RAW RESPONSE START ===");
-        console.log(text);
-        console.log("=== HIGHLIGHTLY RAW RESPONSE END ===");
+        const text = await response.text();
+        console.log("HIGHLIGHTLY RAW RESPONSE:", text);
         
         let data = {};
         if (text && text.trim().length > 0) {
@@ -97,10 +100,14 @@ app.get('/match/:id', async (req, res) => {
     };
 
     try {
-        const response = await fetch(`https://api.highlightly.net/cricket/matches?apikey=${HIGHLIGHTLY_KEY}`);
+        const response = await fetch(`${BASE_URL}/matches`, {
+            headers: {
+                'x-rapidapi-key': HIGHLIGHTLY_KEY
+            }
+        });
+        
         const text = await response.text();
         let data = {};
-        
         if (text && text.trim().length > 0) {
             try {
                 data = JSON.parse(text);
