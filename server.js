@@ -34,8 +34,9 @@ app.get('/dashboard', async (req, res) => {
         const response = await fetch(`https://api.highlightly.net/cricket/matches?apikey=${HIGHLIGHTLY_KEY}`);
         const text = await response.text();
         
-        // Terminal mein check karne ke liye ki API kya bhej rahi hai
-        console.log("HIGHLIGHTLY RAW RESPONSE:", text);
+        console.log("=== HIGHLIGHTLY RAW RESPONSE START ===");
+        console.log(text);
+        console.log("=== HIGHLIGHTLY RAW RESPONSE END ===");
         
         let data = {};
         if (text && text.trim().length > 0) {
@@ -46,7 +47,6 @@ app.get('/dashboard', async (req, res) => {
             }
         }
         
-        // Flexible array mapping for different response structures
         const matchesList = Array.isArray(data) ? data : (data.matches || data.data || data.response || data.results || []);
         
         matchesList.forEach(match => {
@@ -71,20 +71,6 @@ app.get('/dashboard', async (req, res) => {
         });
     } catch (error) {
         console.error("Dashboard Fetch Error:", error.message);
-    }
-
-    // Fallback taaki screen khali na dikhe agar API se turant data na aaye
-    if (liveMatches.length === 0) {
-        liveMatches = [
-            {
-                id: 'match-1',
-                tournament: 'Live Exchange Series',
-                teamA: 'India',
-                teamB: 'New Zealand',
-                dateTime: 'LIVE (In Progress)',
-                odds: { teamA_back: '1.90', teamA_lay: '1.92', draw_back: '-', draw_lay: '-', teamB_back: '1.98', teamB_lay: '2.00' }
-            }
-        ];
     }
 
     res.send(renderDashboardPage(user, liveMatches));
