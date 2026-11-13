@@ -24,7 +24,7 @@ app.get('/switch-to-client', (req, res) => {
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Client Dashboard Route
+// 3. Client Dashboard Route (Using correct endpoint /matches/list)
 app.get('/dashboard', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -32,7 +32,7 @@ app.get('/dashboard', async (req, res) => {
     let liveMatches = [];
     
     try {
-        const response = await fetch(`${BASE_URL}/matches`, {
+        const response = await fetch(`${BASE_URL}/matches/list`, {
             headers: {
                 'x-rapidapi-key': HIGHLIGHTLY_KEY
             }
@@ -57,10 +57,10 @@ app.get('/dashboard', async (req, res) => {
             if (matchId) {
                 liveMatches.push({
                     id: matchId,
-                    tournament: match.league || match.tournament || match.series || 'Live Cricket',
-                    teamA: match.home_team || match.team1 || match.teamA || 'Team A',
-                    teamB: match.away_team || match.team2 || match.teamB || 'Team B',
-                    dateTime: `LIVE (${match.score || match.status || 'In Progress'})`,
+                    tournament: match.league?.name || match.tournament || match.series || 'Live Cricket',
+                    teamA: match.homeTeam?.name || match.home_team || match.team1 || 'Team A',
+                    teamB: match.awayTeam?.name || match.away_team || match.team2 || 'Team B',
+                    dateTime: `LIVE (${match.status?.shortName || match.score || 'In Progress'})`,
                     odds: { 
                         teamA_back: match.odds?.teamA_back || '1.98', 
                         teamA_lay: match.odds?.teamA_lay || '2.00', 
@@ -79,7 +79,7 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route
+// 4. Match Detail Route (Using correct endpoint /matches/{id})
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -100,32 +100,29 @@ app.get('/match/:id', async (req, res) => {
     };
 
     try {
-        const response = await fetch(`${BASE_URL}/matches`, {
+        const response = await fetch(`${BASE_URL}/matches/${matchId}`, {
             headers: {
                 'x-rapidapi-key': HIGHLIGHTLY_KEY
             }
         });
         
         const text = await response.text();
-        let data = {};
+        let found = {};
         if (text && text.trim().length > 0) {
             try {
-                data = JSON.parse(text);
+                found = JSON.parse(text);
             } catch (parseErr) {
                 console.error("JSON Parse Error:", parseErr.message);
             }
         }
         
-        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || data.response || data.results || []);
-        const found = matchesList.find(match => (match.id || match.match_id || match.matchId || '').toString() === matchId.toString());
-        
-        if (found) {
-            matchData.tournament = found.league || found.tournament || found.series || 'Live Match';
-            matchData.teamA = found.home_team || found.team1 || found.teamA || 'Team A';
-            matchData.teamB = found.away_team || found.team2 || found.teamB || 'Team B';
-            matchData.venue = found.venue || found.ground || 'Live Ground';
-            matchData.status = found.status || found.state || 'LIVE';
-            matchData.matchStateText = found.score || found.status || 'Live';
+        if (found && (found.id || found.match_id)) {
+            matchData.tournament = found.league?.name || found.tournament || found.series || 'Live Match';
+            matchData.teamA = found.homeTeam?.name || found.home_team || found.team1 || 'Team A';
+            matchData.teamB = found.awayTeam?.name || found.away_team || found.team2 || 'Team B';
+            matchData.venue = found.venue?.name || found.venue || 'Live Ground';
+            matchData.status = found.status?.shortName || found.status || 'LIVE';
+            matchData.matchStateText = found.score || found.status?.longName || 'Live';
             
             if (found.scoreA) matchData.scoreA = found.scoreA;
             if (found.scoreB) matchData.scoreB = found.scoreB;
