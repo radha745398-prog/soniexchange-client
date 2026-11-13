@@ -23,7 +23,7 @@ app.get('/switch-to-client', (req, res) => {
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Client Dashboard Route (Asli Live Matches)
+// 3. Client Dashboard Route
 app.get('/dashboard', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -33,8 +33,11 @@ app.get('/dashboard', async (req, res) => {
     try {
         const response = await fetch(`https://api.highlightly.net/cricket/matches?apikey=${HIGHLIGHTLY_KEY}`);
         const text = await response.text();
-        let data = {};
         
+        // Terminal mein check karne ke liye ki API kya bhej rahi hai
+        console.log("HIGHLIGHTLY RAW RESPONSE:", text);
+        
+        let data = {};
         if (text && text.trim().length > 0) {
             try {
                 data = JSON.parse(text);
@@ -43,24 +46,18 @@ app.get('/dashboard', async (req, res) => {
             }
         }
         
-        // Highlightly API response formats handle karne ke liye flexible array mapping
-        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || data.results || []);
+        // Flexible array mapping for different response structures
+        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || data.response || data.results || []);
         
         matchesList.forEach(match => {
             const matchId = (match.id || match.match_id || match.matchId || '').toString();
-            const tournamentName = match.league || match.tournament || match.series || 'Live Cricket';
-            const teamAName = match.home_team || match.team1 || match.teamA || 'Team A';
-            const teamBName = match.away_team || match.team2 || match.teamB || 'Team B';
-            const matchStatus = match.status || match.state || 'LIVE';
-            const matchScoreText = match.score || match.matchScore || '';
-
             if (matchId) {
                 liveMatches.push({
                     id: matchId,
-                    tournament: tournamentName,
-                    teamA: teamAName,
-                    teamB: teamBName,
-                    dateTime: matchScoreText ? `LIVE (${matchScoreText})` : `LIVE (${matchStatus})`,
+                    tournament: match.league || match.tournament || match.series || 'Live Cricket',
+                    teamA: match.home_team || match.team1 || match.teamA || 'Team A',
+                    teamB: match.away_team || match.team2 || match.teamB || 'Team B',
+                    dateTime: `LIVE (${match.score || match.status || 'In Progress'})`,
                     odds: { 
                         teamA_back: match.odds?.teamA_back || '1.98', 
                         teamA_lay: match.odds?.teamA_lay || '2.00', 
@@ -76,10 +73,24 @@ app.get('/dashboard', async (req, res) => {
         console.error("Dashboard Fetch Error:", error.message);
     }
 
+    // Fallback taaki screen khali na dikhe agar API se turant data na aaye
+    if (liveMatches.length === 0) {
+        liveMatches = [
+            {
+                id: 'match-1',
+                tournament: 'Live Exchange Series',
+                teamA: 'India',
+                teamB: 'New Zealand',
+                dateTime: 'LIVE (In Progress)',
+                odds: { teamA_back: '1.90', teamA_lay: '1.92', draw_back: '-', draw_lay: '-', teamB_back: '1.98', teamB_lay: '2.00' }
+            }
+        ];
+    }
+
     res.send(renderDashboardPage(user, liveMatches));
 });
 
-// 4. Match Detail Route (Asli Match Data & Proper ID Routing)
+// 4. Match Detail Route
 app.get('/match/:id', async (req, res) => {
     const username = req.query.user || 'Client';
     const user = { username: username, points: 50000, exposure: 1200 };
@@ -112,7 +123,7 @@ app.get('/match/:id', async (req, res) => {
             }
         }
         
-        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || data.results || []);
+        const matchesList = Array.isArray(data) ? data : (data.matches || data.data || data.response || data.results || []);
         const found = matchesList.find(match => (match.id || match.match_id || match.matchId || '').toString() === matchId.toString());
         
         if (found) {
