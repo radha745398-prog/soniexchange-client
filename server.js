@@ -18,7 +18,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
-// Safe API Fetcher
+// Safe API Fetcher with error handling
 async function hl(endpoint) {
     try {
         const r = await fetch(`${BASE_URL}${endpoint}`, {
@@ -26,7 +26,7 @@ async function hl(endpoint) {
         });
         const text = await r.text();
         if (!r.ok) {
-            console.error('API Error:', text);
+            console.error('API Error:', text.slice(0, 300));
             return null;
         }
         return JSON.parse(text);
@@ -34,6 +34,44 @@ async function hl(endpoint) {
         console.error('Fetch Exception:', e.message);
         return null;
     }
+}
+
+// Status classifier jo header component ke mutabiq 'LIVE', 'SCHEDULED', ya 'FINISHED' return karega
+function getMatchStatus(m) {
+    const raw = String(m.status?.shortName || m.status?.name || m.state || m.status || '').toUpperCase();
+    if (/FIN|COMP|RESULT|WON|ABANDON|CANCEL/.test(raw)) return 'FINISHED';
+    if (/LIVE|PROG|INNINGS|ONGOING|BREAK|TOSS|STUMP|TEA|LUNCH/.test(raw)) return 'LIVE';
+    if (/SCHED|UPCOMING|NOT|YET/.test(raw)) return 'SCHEDULED';
+    // Default fallback agar live flag true ho
+    if (m.isLive === true || m.live === true) return 'LIVE';
+    return 'LIVE'; // Defaulting to LIVE so header renders score view properly
+}
+
+// Normalizer to prepare clean data for views
+function normalizeMatch(m) {
+    const status = getMatchStatus(m);
+    return {
+        id: esc(m.id),
+        tournament: esc(m.league?.name || m.tournament || 'Live Cricket'),
+        teamA: esc(m.homeTeam?.name || m.home_team || 'Team A'),
+        teamB: esc(m.awayTeam?.name || m.away_team || 'Team B'),
+        logoA: esc(m.homeTeam?.logo || ''),
+        logoB: esc(m.awayTeam?.logo || ''),
+        scoreA: esc(m.scoreA || m.homeTeam?.score || '-'),
+        oversA: esc(m.oversA || ''),
+        scoreB: esc(m.scoreB || m.awayTeam?.score || '-'),
+        oversB: esc(m.oversB || ''),
+        status: status, // Must be LIVE, SCHEDULED, or FINISHED
+        isLive: status === 'LIVE',
+        matchStateText: esc(m.status?.longName || m.status?.description || 'In Progress'),
+        dateTime: esc(m.dateTime || 'LIVE'),
+        venue: esc(m.venue?.name || m.venue || 'Stadium'),
+        odds: { 
+            teamA_back: '1.98', teamA_lay: '2.00', 
+            draw_back: '-', draw_lay: '-', 
+            teamB_back: '1.98', teamB_lay: '2.00' 
+        }
+    };
 }
 
 // 1. Home Route
@@ -56,24 +94,7 @@ app.get('/dashboard', async (req, res) => {
         const json = await hl('/matches/list');
         const list = Array.isArray(json) ? json : (json?.data || json?.matches || []);
         
-        matches = list.map((m) => ({
-            id: esc(m.id),
-            tournament: esc(m.league?.name || m.tournament || 'Live Cricket'),
-            teamA: esc(m.homeTeam?.name || m.home_team || 'Team A'),
-            teamB: esc(m.awayTeam?.name || m.away_team || 'Team B'),
-            scoreA: esc(m.scoreA || '-'),
-            scoreB: esc(m.scoreB || '-'),
-            status: esc(m.status?.shortName || 'LIVE'),
-            isLive: true,
-            matchStateText: esc(m.status?.longName || 'In Progress'),
-            dateTime: 'LIVE',
-            venue: esc(m.venue?.name || 'Stadium'),
-            odds: { 
-                teamA_back: '1.98', teamA_lay: '2.00', 
-                draw_back: '-', draw_lay: '-', 
-                teamB_back: '1.98', teamB_lay: '2.00' 
-            }
-        }));
+        matches = list.filter(m => m && m.id).map(normalizeMatch);
     } catch (err) {
         console.error("Dashboard Render Error:", err.message);
     }
@@ -91,11 +112,17 @@ app.get('/match/:id', async (req, res) => {
         tournament: 'Live Match',
         teamA: 'Team A',
         teamB: 'Team B',
+        logoA: '',
+        logoB: '',
         scoreA: '-',
+        oversA: '',
         scoreB: '-',
+        oversB: '',
+        status: 'LIVE',
+        isLive: true,
         matchStateText: 'Live',
         venue: 'Stadium',
-        status: 'LIVE'
+        dateTime: 'LIVE'
     };
 
     try {
@@ -103,11 +130,7 @@ app.get('/match/:id', async (req, res) => {
         const found = Array.isArray(json) ? json[0] : json;
         
         if (found && found.id) {
-            matchData.tournament = esc(found.league?.name || 'Live Match');
-            matchData.teamA = esc(found.homeTeam?.name || 'Team A');
-            matchData.teamB = esc(found.awayTeam?.name || 'Team B');
-            matchData.venue = esc(found.venue?.name || 'Live Ground');
-            matchData.matchStateText = esc(found.status?.longName || 'Live');
+            matchData = normalizeMatch(found);
         }
     } catch (err) {
         console.error("Match Detail Error:", err.message);
