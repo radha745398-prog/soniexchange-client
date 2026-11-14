@@ -51,15 +51,30 @@ function getMatchStatus(m) {
     return 'LIVE';
 }
 
-// Smart Normalizer (Handles all possible API score/over keys)
+// Smart Normalizer (Handles Object scores, strings, and all API variations)
 function normalizeMatch(m) {
     const status = getMatchStatus(m);
     
-    // Extract scores & overs safely with multiple fallbacks
-    const sA = m.scoreA || m.homeScore || m.homeTeam?.score || m.homeTeam?.runs || m.runsA || '-';
-    const oA = m.oversA || m.homeOvers || m.homeTeam?.overs || '';
-    const sB = m.scoreB || m.awayScore || m.awayTeam?.score || m.awayTeam?.runs || m.runsB || '-';
-    const oB = m.oversB || m.awayOvers || m.awayTeam?.overs || '';
+    // Helper to format score from object or string
+    const formatScore = (scoreObj, fallback) => {
+        if (!scoreObj) return fallback;
+        if (typeof scoreObj === 'object') {
+            const r = scoreObj.runs ?? scoreObj.score ?? '';
+            const w = scoreObj.wickets ?? '';
+            if (r !== '' && w !== '') return `${r}/${w}`;
+            return r !== '' ? String(r) : fallback;
+        }
+        return String(scoreObj);
+    };
+
+    const rawHomeScore = m.scoreA || m.homeScore || m.homeTeam?.score || m.homeTeam?.runs || m.runsA;
+    const rawAwayScore = m.scoreB || m.awayScore || m.awayTeam?.score || m.awayTeam?.runs || m.runsB;
+
+    const scoreA = formatScore(rawHomeScore, '-');
+    const scoreB = formatScore(rawAwayScore, '-');
+
+    const oversA = String(m.oversA || m.homeOvers || m.homeTeam?.overs || m.homeScore?.overs || '');
+    const oversB = String(m.oversB || m.awayOvers || m.awayTeam?.overs || m.awayScore?.overs || '');
 
     return {
         id: esc(m.id),
@@ -68,13 +83,13 @@ function normalizeMatch(m) {
         teamB: esc(m.awayTeam?.name || m.away_team || m.teamB || 'Team B'),
         logoA: esc(m.homeTeam?.logo || m.home_logo || ''),
         logoB: esc(m.awayTeam?.logo || m.away_logo || ''),
-        scoreA: esc(sA),
-        oversA: esc(oA),
-        scoreB: esc(sB),
-        oversB: esc(oB),
+        scoreA: esc(scoreA),
+        oversA: esc(oversA),
+        scoreB: esc(scoreB),
+        oversB: esc(oversB),
         status: status,
-        isLive: status === 'LIVE',
-        matchStateText: esc(m.status?.longName || m.status?.description || m.state || 'In Progress'),
+        isLive: status === 'LIVE' || scoreA !== '-' || scoreB !== '-',
+        matchStateText: esc(m.status?.longName || m.status?.description || m.state || (scoreA !== '-' ? 'In Progress' : 'Scheduled')),
         dateTime: esc(m.dateTime || m.time || 'LIVE'),
         venue: esc(m.venue?.name || m.venue || 'Stadium'),
         odds: { 
