@@ -41,20 +41,37 @@ async function hl(endpoint) {
     }
 }
 
-// Status classifier
+// Safe Status Extractor & Classifier
 function getMatchStatus(m) {
-    const raw = String(m.status?.shortName || m.status?.name || m.state || m.status || '').toUpperCase();
-    if (/FIN|COMP|RESULT|WON|ABANDON|CANCEL/.test(raw)) return 'FINISHED';
-    if (/LIVE|PROG|INNINGS|ONGOING|BREAK|TOSS|STUMP|TEA|LUNCH/.test(raw)) return 'LIVE';
-    if (/SCHED|UPCOMING|NOT|YET/.test(raw)) return 'SCHEDULED';
-    if (m.isLive === true || m.live === true) return 'LIVE';
+    const statusObj = m.status;
+    let rawStr = '';
+    
+    if (typeof statusObj === 'object' && statusObj !== null) {
+        rawStr = String(statusObj.shortName || statusObj.name || statusObj.longName || statusObj.description || '').toUpperCase();
+    } else {
+        rawStr = String(statusObj || m.state || '').toUpperCase();
+    }
+
+    if (/FIN|COMP|RESULT|WON|ABANDON|CANCEL/.test(rawStr)) return 'FINISHED';
+    if (/LIVE|PROG|INNINGS|ONGOING|BREAK|TOSS|STUMP|TEA|LUNCH/.test(rawStr)) return 'LIVE';
+    if (/SCHED|UPCOMING|NOT|YET/.test(rawStr)) return 'SCHEDULED';
     return 'LIVE';
 }
 
-// Smart Normalizer (Handles Object scores, strings, and all API variations)
+// Smart Normalizer (Safely handles Object statuses, Object scores, and strings)
 function normalizeMatch(m) {
     const status = getMatchStatus(m);
     
+    // Extract readable state text safely
+    let stateText = 'In Progress';
+    if (m.status && typeof m.status === 'object') {
+        stateText = m.status.longName || m.status.description || m.status.name || 'Live';
+    } else if (typeof m.status === 'string') {
+        stateText = m.status;
+    } else if (m.state) {
+        stateText = m.state;
+    }
+
     // Helper to format score from object or string
     const formatScore = (scoreObj, fallback) => {
         if (!scoreObj) return fallback;
@@ -89,7 +106,7 @@ function normalizeMatch(m) {
         oversB: esc(oversB),
         status: status,
         isLive: status === 'LIVE' || scoreA !== '-' || scoreB !== '-',
-        matchStateText: esc(m.status?.longName || m.status?.description || m.state || (scoreA !== '-' ? 'In Progress' : 'Scheduled')),
+        matchStateText: esc(stateText),
         dateTime: esc(m.dateTime || m.time || 'LIVE'),
         venue: esc(m.venue?.name || m.venue || 'Stadium'),
         odds: { 
