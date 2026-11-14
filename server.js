@@ -4,12 +4,8 @@ const path = require('path');
 const fetch = require('node-fetch');
 const app = express();
 
-// Views import (ensure karo ki in files mein yehi exact functions export ho rahe hain)
-const dashboardModule = require('./clientViews/dashboardView');
-const detailModule = require('./clientViews/matchDetailView');
-
-const renderDashboardPage = dashboardModule.renderDashboardPage || dashboardModule.renderDashboard || dashboardModule;
-const renderMatchDetailPage = detailModule.renderMatchDetailPage || detailModule.renderMatchDetail || detailModule;
+const { renderDashboardPage } = require('./clientViews/dashboardView');
+const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -22,18 +18,23 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
-// Safe API Fetcher with error handling
+// Safe API Fetcher with detailed debugging
 async function hl(endpoint) {
     try {
+        console.log(`[API REQUEST] Fetching: ${BASE_URL}${endpoint}`);
         const r = await fetch(`${BASE_URL}${endpoint}`, {
             headers: { 'x-rapidapi-key': HIGHLIGHTLY_KEY }
         });
         const text = await r.text();
+        
         if (!r.ok) {
-            console.error('API Error:', text.slice(0, 300));
+            console.error('API Error Response:', text.slice(0, 300));
             return null;
         }
-        return JSON.parse(text);
+        
+        const json = JSON.parse(text);
+        console.log(`[API SUCCESS] Data received for ${endpoint}`);
+        return json;
     } catch (e) {
         console.error('Fetch Exception:', e.message);
         return null;
@@ -88,7 +89,7 @@ app.get('/switch-to-client', (req, res) => {
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Dashboard Route (Using correct /matches endpoint)
+// 3. Dashboard Route
 app.get('/dashboard', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     
@@ -104,9 +105,7 @@ app.get('/dashboard', async (req, res) => {
     }
 
     try {
-        const html = typeof renderDashboardPage === 'function' 
-            ? renderDashboardPage(user, matches) 
-            : '<h1>Dashboard View Error</h1>';
+        const html = renderDashboardPage(user, matches);
         res.send(html);
     } catch (renderErr) {
         console.error("Dashboard View Crash:", renderErr.message);
@@ -114,7 +113,7 @@ app.get('/dashboard', async (req, res) => {
     }
 });
 
-// 4. Match Detail Route
+// 4. Match Detail Route (Yehin par poora data print hoga server logs mein)
 app.get('/match/:id', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     const matchId = req.params.id;
@@ -127,9 +126,9 @@ app.get('/match/:id', async (req, res) => {
         logoA: '',
         logoB: '',
         scoreA: '-',
-        oversA: '',
+        oversA: '-',
         scoreB: '-',
-        oversB: '',
+        oversB: '-',
         status: 'LIVE',
         isLive: true,
         matchStateText: 'Live',
@@ -139,6 +138,12 @@ app.get('/match/:id', async (req, res) => {
 
     try {
         const json = await hl(`/matches/${matchId}`);
+        
+        // --- DEBUG PRINT ---
+        console.log("================ RAW MATCH API DATA ================");
+        console.log(JSON.stringify(json, null, 2));
+        console.log("=====================================================");
+
         const found = Array.isArray(json) ? json[0] : json;
         
         if (found && found.id) {
@@ -149,14 +154,20 @@ app.get('/match/:id', async (req, res) => {
     }
 
     try {
-        const html = typeof renderMatchDetailPage === 'function' 
-            ? renderMatchDetailPage(user, matchData) 
-            : '<h1>Match Detail View Error</h1>';
+        const html = renderMatchDetailPage(user, matchData);
         res.send(html);
     } catch (renderErr) {
         console.error("Match Detail View Crash:", renderErr.message);
         res.status(500).send("Match Detail View Crash: " + renderErr.message);
     }
+});
+
+// 5. Extra Debug Route (Agar browser par hi direct dekhna ho)
+app.get('/match/:id/debug-json', async (req, res) => {
+    const matchId = req.params.id;
+    const json = await hl(`/matches/${matchId}`);
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(json, null, 2));
 });
 
 const PORT = process.env.PORT || 3000;
