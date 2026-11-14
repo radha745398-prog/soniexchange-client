@@ -4,8 +4,12 @@ const path = require('path');
 const fetch = require('node-fetch');
 const app = express();
 
-const { renderDashboardPage } = require('./clientViews/dashboardView');
-const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
+// Views import (ensure karo ki in files mein yehi exact functions export ho rahe hain)
+const dashboardModule = require('./clientViews/dashboardView');
+const detailModule = require('./clientViews/matchDetailView');
+
+const renderDashboardPage = dashboardModule.renderDashboardPage || dashboardModule.renderDashboard || dashboardModule;
+const renderMatchDetailPage = detailModule.renderMatchDetailPage || detailModule.renderMatchDetail || detailModule;
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -36,7 +40,7 @@ async function hl(endpoint) {
     }
 }
 
-// Status classifier jo header component ke mutabiq 'LIVE', 'SCHEDULED', ya 'FINISHED' return karega
+// Status classifier
 function getMatchStatus(m) {
     const raw = String(m.status?.shortName || m.status?.name || m.state || m.status || '').toUpperCase();
     if (/FIN|COMP|RESULT|WON|ABANDON|CANCEL/.test(raw)) return 'FINISHED';
@@ -46,7 +50,7 @@ function getMatchStatus(m) {
     return 'LIVE';
 }
 
-// Normalizer to prepare clean data for views
+// Normalizer
 function normalizeMatch(m) {
     const status = getMatchStatus(m);
     return {
@@ -84,13 +88,14 @@ app.get('/switch-to-client', (req, res) => {
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Dashboard Route
+// 3. Dashboard Route (Using correct /matches endpoint)
 app.get('/dashboard', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     
     let matches = [];
     try {
-        const json = await hl('/matches/list');
+        const today = new Date().toISOString().slice(0, 10);
+        const json = await hl(`/matches?date=${today}`);
         const list = Array.isArray(json) ? json : (json?.data || json?.matches || []);
         
         matches = list.filter(m => m && m.id).map(normalizeMatch);
@@ -98,7 +103,15 @@ app.get('/dashboard', async (req, res) => {
         console.error("Dashboard Render Error:", err.message);
     }
 
-    res.send(renderDashboardPage(user, matches));
+    try {
+        const html = typeof renderDashboardPage === 'function' 
+            ? renderDashboardPage(user, matches) 
+            : '<h1>Dashboard View Error</h1>';
+        res.send(html);
+    } catch (renderErr) {
+        console.error("Dashboard View Crash:", renderErr.message);
+        res.status(500).send("Dashboard View Crash: " + renderErr.message);
+    }
 });
 
 // 4. Match Detail Route
@@ -135,7 +148,15 @@ app.get('/match/:id', async (req, res) => {
         console.error("Match Detail Error:", err.message);
     }
 
-    res.send(renderMatchDetailPage(user, matchData));
+    try {
+        const html = typeof renderMatchDetailPage === 'function' 
+            ? renderMatchDetailPage(user, matchData) 
+            : '<h1>Match Detail View Error</h1>';
+        res.send(html);
+    } catch (renderErr) {
+        console.error("Match Detail View Crash:", renderErr.message);
+        res.status(500).send("Match Detail View Crash: " + renderErr.message);
+    }
 });
 
 const PORT = process.env.PORT || 3000;
