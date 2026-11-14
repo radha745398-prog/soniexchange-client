@@ -1,4 +1,4 @@
-// server.js - Ultimate Bulletproof Version
+// server.js - Original Working Version with Fixed inplayData.scoreboard Parsing
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -44,30 +44,46 @@ async function hl(endpoint) {
     }
 }
 
-// Ultimate Deep Extractor to scan any object or innings array for score & overs
+// Updated Extractor checking inplayData.scoreboard first as per API logs
 function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
     let runs = '';
     let wickets = '';
     let overs = '';
 
-    // 1. Check direct team object properties
-    if (teamObj && typeof teamObj === 'object') {
+    const teamName = safestr(teamObj?.name || teamObj).toLowerCase();
+
+    // 1. Check inplayData.scoreboard (The actual structure from Highlightly API)
+    const scoreboard = matchObj.inplayData?.scoreboard || matchObj.scoreboard || [];
+    if (Array.isArray(scoreboard) && scoreboard.length > 0) {
+        const matched = scoreboard.find(s => {
+            const sName = safestr(s.team?.name || s.name || s.teamName || '').toLowerCase();
+            return sName && teamName && (sName.includes(teamName) || teamName.includes(sName));
+        }) || (isHome ? scoreboard[0] : scoreboard[1] || scoreboard[scoreboard.length - 1]);
+
+        if (matched) {
+            runs = matched.runs ?? matched.score ?? matched.r ?? matched.total ?? '';
+            wickets = matched.wickets ?? matched.w ?? matched.wkt ?? '';
+            overs = matched.overs ?? matched.ov ?? matched.over ?? '';
+        }
+    }
+
+    // 2. Check direct team object properties if scoreboard didn't yield anything
+    if (runs === '' && teamObj && typeof teamObj === 'object') {
         runs = teamObj.runs ?? teamObj.score ?? teamObj.r ?? teamObj.total ?? teamObj.runs_scored ?? '';
         wickets = teamObj.wickets ?? teamObj.w ?? teamObj.wkt ?? '';
         overs = teamObj.overs ?? teamObj.ov ?? teamObj.over ?? '';
     }
 
-    // 2. Check matchObj direct properties (e.g. scoreA, score_a, oversA, etc.)
+    // 3. Check matchObj direct properties
     if (runs === '') {
         const prefix = isHome ? 'a' : 'b';
         runs = matchObj[`score${isHome ? 'A' : 'B'}`] ?? matchObj[`score_${prefix}`] ?? matchObj[`runs_${prefix}`] ?? '';
         overs = matchObj[`overs${isHome ? 'A' : 'B'}`] ?? matchObj[`overs_${prefix}`] ?? matchObj[`ovr_${prefix}`] ?? '';
     }
 
-    // 3. Check innings array deeply
+    // 4. Check innings array deeply as fallback
     const inningsList = matchObj.innings || matchObj.scorecard || matchObj.runs_array || matchObj.data?.innings || [];
-    if (Array.isArray(inningsList) && inningsList.length > 0) {
-        const teamName = safestr(teamObj?.name || (isHome ? matchObj.teamA : matchObj.teamB)).toLowerCase();
+    if (runs === '' && Array.isArray(inningsList) && inningsList.length > 0) {
         const matchedInnings = inningsList.filter(inn => {
             const tName = safestr(inn.team?.name || inn.team || inn.battingTeam || '').toLowerCase();
             return tName && teamName && (tName.includes(teamName) || teamName.includes(tName));
@@ -76,20 +92,15 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
         const targetInn = matchedInnings.length > 0 ? matchedInnings[matchedInnings.length - 1] : (isHome ? inningsList[0] : inningsList[1] || inningsList[inningsList.length - 1]);
         
         if (targetInn) {
-            const iRuns = targetInn.runs ?? targetInn.score ?? targetInn.total ?? targetInn.r ?? '';
-            const iWickets = targetInn.wickets ?? targetInn.w ?? targetInn.wkt ?? '';
-            const iOvers = targetInn.overs ?? targetInn.ov ?? targetInn.over ?? '';
-            if (iRuns !== '') {
-                runs = iRuns;
-                wickets = iWickets;
-                overs = iOvers;
-            }
+            runs = targetInn.runs ?? targetInn.score ?? targetInn.total ?? targetInn.r ?? '';
+            wickets = targetInn.wickets ?? targetInn.w ?? targetInn.wkt ?? '';
+            overs = targetInn.overs ?? targetInn.ov ?? targetInn.over ?? '';
         }
     }
 
     let finalScore = '-';
     if (runs !== '' && runs !== null && runs !== undefined && runs !== '-') {
-        finalScore = (wickets !== '' && wickets !== null && wickets !== undefined) ? `${runs}/${wickets}` : String(runs);
+        finalScore = (wickets !== '' && wickets !== null && wickets !== undefined && String(wickets) !== '') ? `${runs}/${wickets}` : String(runs);
     }
     let finalOvers = (overs !== '' && overs !== null && overs !== undefined) ? String(overs) : '';
 
