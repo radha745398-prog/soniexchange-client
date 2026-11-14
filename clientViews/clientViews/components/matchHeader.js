@@ -1,5 +1,5 @@
 // clientViews/components/matchHeader.js
-// Note: matchData ke saare text server.js mein pehle hi escape ho chuke hain.
+// Note: matchData ke saare text server.js mein pehle hi escape ho chuke ہیں۔
 
 function logoHTML(src, name) {
     if (src) {
@@ -19,7 +19,7 @@ function renderMatchHeader(user, matchData) {
     const teamB = d.teamB || 'Team B';
     const venue = d.venue || 'Stadium';
     const matchTime = d.dateTime || '';
-    const matchStatus = String(d.status || 'SCHEDULED').toUpperCase(); // LIVE | SCHEDULED | FINISHED
+    const matchStatus = String(d.status || 'SCHEDULED').toUpperCase();
 
     const scoreA = d.scoreA || '-';
     const oversA = d.oversA || '';
@@ -27,7 +27,6 @@ function renderMatchHeader(user, matchData) {
     const oversB = d.oversB || '';
     const matchStateText = d.matchStateText || matchStatus;
 
-    // Force live view if scores are present even if status says scheduled
     const hasScore = (scoreA !== '-' || scoreB !== '-');
     const isLive = matchStatus === 'LIVE' || hasScore;
     const isFinished = matchStatus === 'FINISHED';
@@ -56,7 +55,7 @@ function renderMatchHeader(user, matchData) {
         </div>
     </header>
 
-    <!-- DYNAMIC MATCH BANNER -->
+    <!-- DYNAMIC MATCH BANNER (Always showing scoreboard structure for live experience) -->
     <div class="bg-scoreboard-dark text-white border-b border-gray-800">
         <div class="bg-[#0b141d] px-3 py-1.5 flex justify-between items-center text-[11px] font-semibold text-gray-300 border-b border-gray-800">
             <div class="flex items-center space-x-1.5">
@@ -65,55 +64,40 @@ function renderMatchHeader(user, matchData) {
             <div class="text-[10px] text-gray-400 font-mono">${matchTime}</div>
         </div>
 
-        ${!isLive && !isFinished && !hasScore ? `
-            <div class="p-4 bg-[#111c26] text-center space-y-2">
-                <div class="flex items-center justify-center space-x-1.5 text-[10px] text-gray-400">
-                    <span class="bg-blue-500/20 text-blue-400 border border-blue-500/40 px-1.5 py-0.5 rounded font-bold uppercase">Upcoming</span>
-                    <span>• ${venue}</span>
-                </div>
-                <div class="flex items-center justify-center space-x-3">
+        <div class="p-3 bg-[#111c26] relative">
+            <div class="text-[10px] text-gray-400 flex items-center space-x-1.5 mb-2">
+                <span class="w-2 h-2 rounded-full ${dot}"></span>
+                <span class="font-bold ${statusColor}">${badgeText}</span>
+                <span>• ${venue}</span>
+            </div>
+
+            <div class="grid grid-cols-12 items-center gap-2">
+                <div class="col-span-4 flex items-center space-x-2">
                     ${logoHTML(d.logoA, teamA)}
-                    <span class="text-sm font-bold text-white">${teamA} vs ${teamB}</span>
+                    <div>
+                        <div class="font-black text-sm text-white flex items-center space-x-1">
+                            <span id="score-a">${scoreA}</span>
+                        </div>
+                        <div class="text-[9px] text-gray-400" id="overs-a">${oversA}</div>
+                    </div>
+                </div>
+
+                <div class="col-span-4 text-center flex flex-col items-center justify-center">
+                    <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase bg-[#00c0FF]/20 border border-[#00c0FF] text-[#00c0FF] ${isLive ? 'shadow-[0_0_10px_rgba(0,192,255,0.4)] animate-pulse' : ''}">
+                        ${badgeText}
+                    </div>
+                    <div class="text-[10px] text-gray-300 font-bold" id="match-state-text">${matchStateText}</div>
+                </div>
+
+                <div class="col-span-4 flex items-center justify-end space-x-2 text-right">
+                    <div>
+                        <div class="font-black text-sm text-white" id="score-b">${scoreB}</div>
+                        <div class="text-[9px] text-gray-400" id="overs-b">${oversB}</div>
+                    </div>
                     ${logoHTML(d.logoB, teamB)}
                 </div>
             </div>
-        ` : `
-            <!-- SCOREBOARD VIEW (LIVE / FINISHED) -->
-            <div class="p-3 bg-[#111c26] relative">
-                <div class="text-[10px] text-gray-400 flex items-center space-x-1.5 mb-2">
-                    <span class="w-2 h-2 rounded-full ${dot}"></span>
-                    <span class="font-bold ${statusColor}">${badgeText}</span>
-                    <span>• ${venue}</span>
-                </div>
-
-                <div class="grid grid-cols-12 items-center gap-2">
-                    <div class="col-span-4 flex items-center space-x-2">
-                        ${logoHTML(d.logoA, teamA)}
-                        <div>
-                            <div class="font-black text-sm text-white flex items-center space-x-1">
-                                <span id="score-a">${scoreA}</span>
-                            </div>
-                            <div class="text-[9px] text-gray-400">${oversA}</div>
-                        </div>
-                    </div>
-
-                    <div class="col-span-4 text-center flex flex-col items-center justify-center">
-                        <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase bg-[#00c0FF]/20 border border-[#00c0FF] text-[#00c0FF] ${isLive ? 'shadow-[0_0_10px_rgba(0,192,255,0.4)] animate-pulse' : ''}">
-                            ${badgeText}
-                        </div>
-                        <div class="text-[10px] text-gray-300 font-bold">${matchStateText}</div>
-                    </div>
-
-                    <div class="col-span-4 flex items-center justify-end space-x-2 text-right">
-                        <div>
-                            <div class="font-black text-sm text-white" id="score-b">${scoreB}</div>
-                            <div class="text-[9px] text-gray-400">${oversB}</div>
-                        </div>
-                        ${logoHTML(d.logoB, teamB)}
-                    </div>
-                </div>
-            </div>
-        `}
+        </div>
     </div>
 
     <!-- TABS BAR -->
