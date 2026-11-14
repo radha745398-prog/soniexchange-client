@@ -11,8 +11,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
-// Updated BASE_URL with /cricket as per API dashboard logs
-const BASE_URL = 'https://cricket.highlightly.net/cricket';
+const BASE_URL = 'https://cricket.highlightly.net';
 
 // Bulletproof string extractor (Prevents [object Object] forever)
 const safestr = (val, fallback = '') => {
@@ -60,30 +59,42 @@ function getMatchStatus(m) {
     return 'LIVE';
 }
 
-// Smart Normalizer (Zero chance of [object Object])
+// Smart Normalizer (Deep score extractor & zero [object Object])
 function normalizeMatch(m) {
     const status = getMatchStatus(m);
     
     // Extract readable state text safely
     const stateText = safestr(m.status?.longName || m.status?.description || m.status?.name || m.status || m.state || 'In Progress');
 
-    // Helper to format score from object or string
-    const formatScore = (scoreObj, fallback) => {
-        if (!scoreObj) return fallback;
-        if (typeof scoreObj === 'object') {
-            const r = scoreObj.runs ?? scoreObj.score ?? scoreObj.r ?? '';
-            const w = scoreObj.wickets ?? scoreObj.w ?? '';
-            if (r !== '' && w !== '') return `${r}/${w}`;
-            return r !== '' ? String(r) : fallback;
+    // Deep extractor for score objects or properties
+    const extractScoreVal = (teamObj, directScore) => {
+        if (directScore) {
+            if (typeof directScore === 'object') {
+                const r = directScore.runs ?? directScore.score ?? directScore.r ?? '';
+                const w = directScore.wickets ?? directScore.w ?? '';
+                if (r !== '' && w !== '') return `${r}/${w}`;
+                return r !== '' ? String(r) : '-';
+            }
+            return String(directScore);
         }
-        return String(scoreObj);
+        if (teamObj) {
+            if (typeof teamObj.score === 'object') {
+                const r = teamObj.score.runs ?? teamObj.score.score ?? '';
+                const w = teamObj.score.wickets ?? '';
+                return r !== '' ? `${r}/${w}` : '-';
+            }
+            if (teamObj.score !== undefined) return String(teamObj.score);
+            if (teamObj.runs !== undefined) {
+                const r = teamObj.runs;
+                const w = teamObj.wickets ?? '';
+                return w !== '' ? `${r}/${w}` : String(r);
+            }
+        }
+        return '-';
     };
 
-    const rawHomeScore = m.scoreA || m.homeScore || m.homeTeam?.score || m.homeTeam?.runs || m.runsA;
-    const rawAwayScore = m.scoreB || m.awayScore || m.awayTeam?.score || m.awayTeam?.runs || m.runsB;
-
-    const scoreA = formatScore(rawHomeScore, '-');
-    const scoreB = formatScore(rawAwayScore, '-');
+    const scoreA = extractScoreVal(m.homeTeam, m.scoreA || m.homeScore);
+    const scoreB = extractScoreVal(m.awayTeam, m.scoreB || m.awayScore);
 
     const oversA = safestr(m.oversA || m.homeOvers || m.homeTeam?.overs || m.homeScore?.overs || '');
     const oversB = safestr(m.oversB || m.awayOvers || m.awayTeam?.overs || m.awayScore?.overs || '');
