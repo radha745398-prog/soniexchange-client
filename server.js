@@ -42,9 +42,8 @@ function getMatchStatus(m) {
     if (/FIN|COMP|RESULT|WON|ABANDON|CANCEL/.test(raw)) return 'FINISHED';
     if (/LIVE|PROG|INNINGS|ONGOING|BREAK|TOSS|STUMP|TEA|LUNCH/.test(raw)) return 'LIVE';
     if (/SCHED|UPCOMING|NOT|YET/.test(raw)) return 'SCHEDULED';
-    // Default fallback agar live flag true ho
     if (m.isLive === true || m.live === true) return 'LIVE';
-    return 'LIVE'; // Defaulting to LIVE so header renders score view properly
+    return 'LIVE';
 }
 
 // Normalizer to prepare clean data for views
@@ -61,7 +60,7 @@ function normalizeMatch(m) {
         oversA: esc(m.oversA || ''),
         scoreB: esc(m.scoreB || m.awayTeam?.score || '-'),
         oversB: esc(m.oversB || ''),
-        status: status, // Must be LIVE, SCHEDULED, or FINISHED
+        status: status,
         isLive: status === 'LIVE',
         matchStateText: esc(m.status?.longName || m.status?.description || 'In Progress'),
         dateTime: esc(m.dateTime || 'LIVE'),
@@ -140,4 +139,6 @@ app.get('/match/:id', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+});
