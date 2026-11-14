@@ -1,4 +1,4 @@
-// server.js - Ultimate Bulletproof Version
+// server.js - Final Ultimate Version with Auto-Logging & Deep Parsing
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -57,7 +57,7 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
         overs = teamObj.overs ?? teamObj.ov ?? teamObj.over ?? '';
     }
 
-    // 2. Check matchObj direct properties (e.g. scoreA, score_a, oversA, etc.)
+    // 2. Check matchObj direct properties
     if (runs === '') {
         const prefix = isHome ? 'a' : 'b';
         runs = matchObj[`score${isHome ? 'A' : 'B'}`] ?? matchObj[`score_${prefix}`] ?? matchObj[`runs_${prefix}`] ?? '';
@@ -168,6 +168,10 @@ app.get('/match/:id', async (req, res) => {
 
     try {
         const json = await hl(`/matches/${matchId}`);
+        
+        // <-- AUTOMATICALLY LOGGING RAW JSON TO RENDER LOGS -->
+        console.log("==> MATCH API RAW JSON FOR ID", matchId, ":", JSON.stringify(json, null, 2));
+
         let found = null;
         if (json) {
             if (Array.isArray(json)) found = json[0];
