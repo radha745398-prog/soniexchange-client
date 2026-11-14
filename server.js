@@ -10,10 +10,9 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// KEY code mein mat likhna. Render > Environment > HIGHLIGHTLY_KEY
-const HIGHLIGHTLY_KEY = process.env.HIGHLIGHTLY_KEY;
+// Nayi API key direct set kar di hai
+const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
 const BASE_URL = 'https://cricket.highlightly.net';
-if (!HIGHLIGHTLY_KEY) console.error('HIGHLIGHTLY_KEY set nahi hai (Render > Environment mein daalo)');
 
 // HTML escape: user ya API ka text page ko tod na sake
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
@@ -74,7 +73,6 @@ function classify(m) {
     return 'SCHEDULED';
 }
 
-// Score alag-alag shape mein aa sakta hai, isliye kai jagah dekhte hain
 function pickScore(m, side) {
     const team = m[`${side}Team`];
     const cands = [team?.score, m.score?.[side], m.scores?.[side], m.state?.score?.[side]];
@@ -131,13 +129,12 @@ app.get('/switch-to-client', (req, res) => {
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// Dashboard: aaj ke saare matches, live wale sabse upar
+// Dashboard: /matches/list endpoint use kar rahe hain
 app.get('/dashboard', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
 
-    const today = new Date().toISOString().slice(0, 10);
-    const json = await hl(`/matches?date=${today}`, 20 * 60 * 1000); // 20 min cache
-    const list = Array.isArray(json) ? json : (json?.data || []);
+    const json = await hl('/matches/list', 20 * 60 * 1000); // 20 min cache
+    const list = Array.isArray(json) ? json : (json?.data || json?.matches || []);
     console.log('Total matches:', list.length);
     if (list[0]) console.log('PEHLA MATCH:', JSON.stringify(list[0], null, 2).slice(0, 2500));
 
@@ -148,7 +145,7 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, matches));
 });
 
-// Match detail: API ka jawab array hota hai, isliye [0]
+// Match detail: /matches/{id} endpoint
 app.get('/match/:id', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     const id = encodeURIComponent(req.params.id);
