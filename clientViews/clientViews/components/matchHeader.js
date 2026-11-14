@@ -27,10 +27,14 @@ function renderMatchHeader(user, matchData) {
     const oversB = d.oversB || '';
     const matchStateText = d.matchStateText || matchStatus;
 
-    const isLive = matchStatus === 'LIVE';
+    // Force live view if scores are present even if status says scheduled
+    const hasScore = (scoreA !== '-' || scoreB !== '-');
+    const isLive = matchStatus === 'LIVE' || hasScore;
+    const isFinished = matchStatus === 'FINISHED';
+
     const dot = isLive ? 'bg-green-500 animate-pulse' : 'bg-gray-500';
     const statusColor = isLive ? 'text-green-400' : 'text-gray-400';
-    const badgeText = isLive ? 'LIVE' : (matchStatus === 'FINISHED' ? 'FINISHED' : 'UPCOMING');
+    const badgeText = isLive ? 'LIVE' : (isFinished ? 'FINISHED' : 'UPCOMING');
 
     return `
     <!-- TOP HEADER BAR -->
@@ -61,7 +65,7 @@ function renderMatchHeader(user, matchData) {
             <div class="text-[10px] text-gray-400 font-mono">${matchTime}</div>
         </div>
 
-        ${matchStatus === 'SCHEDULED' ? `
+        ${!isLive && !isFinished && !hasScore ? `
             <div class="p-4 bg-[#111c26] text-center space-y-2">
                 <div class="flex items-center justify-center space-x-1.5 text-[10px] text-gray-400">
                     <span class="bg-blue-500/20 text-blue-400 border border-blue-500/40 px-1.5 py-0.5 rounded font-bold uppercase">Upcoming</span>
@@ -112,7 +116,7 @@ function renderMatchHeader(user, matchData) {
         `}
     </div>
 
-    <!-- TABS BAR (tumhari original, bina badle) -->
+    <!-- TABS BAR -->
     <div class="bg-[#0b141d] border-b border-gray-800 flex text-center font-bold text-xs sticky top-[41px] z-40">
         <div class="flex-1 py-2.5 border-b-2 border-[#00c0FF] text-[#00c0FF] tracking-wider uppercase">ODDS</div>
         <div class="flex-1 py-2.5 text-gray-400 hover:text-white cursor-pointer tracking-wider uppercase">MATCHED BET (<span id="matched-bet-count">0</span>)</div>
