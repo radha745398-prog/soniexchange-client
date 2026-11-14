@@ -1,4 +1,4 @@
-// server.js - Final Restored SoniExchange Server (Login + Real Team Names + Live Score)
+// server.js - Final Clean SoniExchange Server (Pure API Real Matches)
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -43,7 +43,7 @@ async function hl(endpoint) {
     }
 }
 
-// Deep extractor scanning all possible nests for scores and overs
+// Extract scores and overs from API response structure (inplayData.scoreboard or innings)
 function extractScoreAndOvers(teamName, matchObj) {
     if (!matchObj) return { score: '-', overs: '-' };
 
@@ -134,18 +134,18 @@ function normalizeMatch(m) {
     };
 }
 
-// 1. Restored Login / Landing Page Route
+// 1. Login / Landing Page Route
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 2. Restored Client Switch Route
+// 2. Client Switch Route
 app.get('/switch-to-client', (req, res) => {
     const targetUser = req.query.user || 'Client';
     res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
 });
 
-// 3. Dashboard Route
+// 3. Dashboard Route (Fetching live matches from API for today)
 app.get('/dashboard', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     let matches = [];
@@ -157,6 +157,7 @@ app.get('/dashboard', async (req, res) => {
     } catch (err) {
         console.error("Dashboard Error:", err.message);
     }
+
     res.send(renderDashboardPage(user, matches));
 });
 
