@@ -1,4 +1,4 @@
-// server.js - Fully Verified Deep-Scanning SoniExchange Server
+// server.js - Final Restored SoniExchange Server (Login + Real Team Names + Live Score)
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -43,7 +43,7 @@ async function hl(endpoint) {
     }
 }
 
-// Deep extractor scanning all possible nests (inplayData, scoreboard, innings, direct objects)
+// Deep extractor scanning all possible nests for scores and overs
 function extractScoreAndOvers(teamName, matchObj) {
     if (!matchObj) return { score: '-', overs: '-' };
 
@@ -51,7 +51,6 @@ function extractScoreAndOvers(teamName, matchObj) {
     let wickets = '';
     let overs = '';
 
-    // Collect all potential array sources where scores might live
     const sources = [
         matchObj.inplayData?.scoreboard,
         matchObj.scoreboard,
@@ -64,11 +63,10 @@ function extractScoreAndOvers(teamName, matchObj) {
 
     for (const list of sources) {
         if (Array.isArray(list) && list.length > 0) {
-            // Try to find matching team
             const matched = list.find(item => {
                 const name = safestr(item.team?.name || item.name || item.teamName || item.battingTeam || '').toLowerCase();
                 return name && teamName && (name.includes(teamName.toLowerCase()) || teamName.toLowerCase().includes(name));
-            }) || list[list.length - 1]; // Fallback to latest item
+            }) || list[list.length - 1];
 
             if (matched) {
                 const r = matched.runs ?? matched.score ?? matched.r ?? matched.total ?? '';
@@ -84,7 +82,6 @@ function extractScoreAndOvers(teamName, matchObj) {
         }
     }
 
-    // Fallback to direct team properties if arrays yielded nothing
     if (runs === '') {
         const teamObj = (matchObj.homeTeam?.name?.toLowerCase().includes(teamName.toLowerCase())) ? matchObj.homeTeam : matchObj.awayTeam;
         if (teamObj) {
@@ -108,11 +105,11 @@ function extractScoreAndOvers(teamName, matchObj) {
 function normalizeMatch(m) {
     if (!m) return {};
 
-    const teamAObj = m.homeTeam || m.localteam || m.teamA || { name: 'Team A' };
-    const teamBObj = m.awayTeam || m.visitorteam || m.teamB || { name: 'Team B' };
+    const teamAObj = m.homeTeam || m.localteam || m.teamA || m.home_team || {};
+    const teamBObj = m.awayTeam || m.visitorteam || m.teamB || m.away_team || {};
 
-    const teamAName = safestr(teamAObj.name || teamAObj);
-    const teamBName = safestr(teamBObj.name || teamBObj);
+    const teamAName = safestr(teamAObj.name || teamAObj.longName || teamAObj.shortName || m.teamA || m.home_team || 'Team A');
+    const teamBName = safestr(teamBObj.name || teamBObj.longName || teamBObj.shortName || m.teamB || m.away_team || 'Team B');
 
     const resA = extractScoreAndOvers(teamAName, m);
     const resB = extractScoreAndOvers(teamBName, m);
@@ -137,8 +134,18 @@ function normalizeMatch(m) {
     };
 }
 
-app.get('/', (req, res) => res.redirect('/dashboard'));
+// 1. Restored Login / Landing Page Route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
+// 2. Restored Client Switch Route
+app.get('/switch-to-client', (req, res) => {
+    const targetUser = req.query.user || 'Client';
+    res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
+});
+
+// 3. Dashboard Route
 app.get('/dashboard', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     let matches = [];
@@ -153,6 +160,7 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, matches));
 });
 
+// 4. Match Detail Route
 app.get('/match/:id', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     const matchId = req.params.id;
