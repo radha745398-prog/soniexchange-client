@@ -152,7 +152,7 @@ app.get('/dashboard', async (req, res) => {
     }
 });
 
-// 4. Match Detail Route
+// 4. Match Detail Route (Enhanced with Live Score Fallback Endpoints)
 app.get('/match/:id', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     const matchId = req.params.id;
@@ -176,13 +176,8 @@ app.get('/match/:id', async (req, res) => {
     };
 
     try {
+        // 1. Fetch main match info
         const json = await hl(`/matches/${matchId}`);
-        
-        // --- DEBUG PRINT ---
-        console.log("================ RAW MATCH API DATA ================");
-        console.log(JSON.stringify(json, null, 2));
-        console.log("=====================================================");
-
         let found = null;
         if (json) {
             if (Array.isArray(json)) found = json[0];
@@ -190,8 +185,23 @@ app.get('/match/:id', async (req, res) => {
             else if (json.data) found = json.data;
             else found = json;
         }
-        
-        if (found && (found.id || found.matchId)) {
+
+        // 2. Try fetching live score from potential sub-endpoints
+        const liveJson = await hl(`/matches/${matchId}/live`) || await hl(`/livescore/${matchId}`) || await hl(`/match/${matchId}/score`);
+        let liveData = null;
+        if (liveJson) {
+            if (Array.isArray(liveJson)) liveData = liveJson[0];
+            else if (liveJson.data) liveData = liveJson.data;
+            else liveData = liveJson;
+        }
+
+        if (found) {
+            if (liveData) {
+                found.scoreA = found.scoreA || liveData.scoreA || liveData.homeScore;
+                found.scoreB = found.scoreB || liveData.scoreB || liveData.awayScore;
+                found.oversA = found.oversA || liveData.oversA || liveData.homeOvers;
+                found.oversB = found.oversB || liveData.oversB || liveData.awayOvers;
+            }
             matchData = normalizeMatch(found);
         }
     } catch (err) {
