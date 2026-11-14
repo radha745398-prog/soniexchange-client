@@ -13,8 +13,17 @@ app.use(express.json());
 const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
 const BASE_URL = 'https://cricket.highlightly.net';
 
+// Bulletproof string extractor (Prevents [object Object] forever)
+const safestr = (val, fallback = '') => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'object') {
+        return val.name || val.longName || val.description || val.shortName || val.text || val.runs || val.score || fallback;
+    }
+    return String(val);
+};
+
 // HTML escape utility
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
+const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
@@ -41,43 +50,28 @@ async function hl(endpoint) {
     }
 }
 
-// Safe Status Extractor & Classifier
+// Status classifier
 function getMatchStatus(m) {
-    const statusObj = m.status;
-    let rawStr = '';
-    
-    if (typeof statusObj === 'object' && statusObj !== null) {
-        rawStr = String(statusObj.shortName || statusObj.name || statusObj.longName || statusObj.description || '').toUpperCase();
-    } else {
-        rawStr = String(statusObj || m.state || '').toUpperCase();
-    }
-
-    if (/FIN|COMP|RESULT|WON|ABANDON|CANCEL/.test(rawStr)) return 'FINISHED';
-    if (/LIVE|PROG|INNINGS|ONGOING|BREAK|TOSS|STUMP|TEA|LUNCH/.test(rawStr)) return 'LIVE';
-    if (/SCHED|UPCOMING|NOT|YET/.test(rawStr)) return 'SCHEDULED';
+    const raw = safestr(m.status?.shortName || m.status?.name || m.status?.description || m.status || m.state || '').toUpperCase();
+    if (/FIN|COMP|RESULT|WON|ABANDON|CANCEL/.test(raw)) return 'FINISHED';
+    if (/LIVE|PROG|INNINGS|ONGOING|BREAK|TOSS|STUMP|TEA|LUNCH/.test(raw)) return 'LIVE';
+    if (/SCHED|UPCOMING|NOT|YET/.test(raw)) return 'SCHEDULED';
     return 'LIVE';
 }
 
-// Smart Normalizer (Safely handles Object statuses, Object scores, and strings)
+// Smart Normalizer (Zero chance of [object Object])
 function normalizeMatch(m) {
     const status = getMatchStatus(m);
     
     // Extract readable state text safely
-    let stateText = 'In Progress';
-    if (m.status && typeof m.status === 'object') {
-        stateText = m.status.longName || m.status.description || m.status.name || 'Live';
-    } else if (typeof m.status === 'string') {
-        stateText = m.status;
-    } else if (m.state) {
-        stateText = m.state;
-    }
+    const stateText = safestr(m.status?.longName || m.status?.description || m.status?.name || m.status || m.state || 'In Progress');
 
     // Helper to format score from object or string
     const formatScore = (scoreObj, fallback) => {
         if (!scoreObj) return fallback;
         if (typeof scoreObj === 'object') {
-            const r = scoreObj.runs ?? scoreObj.score ?? '';
-            const w = scoreObj.wickets ?? '';
+            const r = scoreObj.runs ?? scoreObj.score ?? scoreObj.r ?? '';
+            const w = scoreObj.wickets ?? scoreObj.w ?? '';
             if (r !== '' && w !== '') return `${r}/${w}`;
             return r !== '' ? String(r) : fallback;
         }
@@ -90,8 +84,8 @@ function normalizeMatch(m) {
     const scoreA = formatScore(rawHomeScore, '-');
     const scoreB = formatScore(rawAwayScore, '-');
 
-    const oversA = String(m.oversA || m.homeOvers || m.homeTeam?.overs || m.homeScore?.overs || '');
-    const oversB = String(m.oversB || m.awayOvers || m.awayTeam?.overs || m.awayScore?.overs || '');
+    const oversA = safestr(m.oversA || m.homeOvers || m.homeTeam?.overs || m.homeScore?.overs || '');
+    const oversB = safestr(m.oversB || m.awayOvers || m.awayTeam?.overs || m.awayScore?.overs || '');
 
     return {
         id: esc(m.id),
@@ -152,7 +146,7 @@ app.get('/dashboard', async (req, res) => {
     }
 });
 
-// 4. Match Detail Route (Enhanced with Live Score Fallback Endpoints)
+// 4. Match Detail Route (Clean & Direct)
 app.get('/match/:id', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     const matchId = req.params.id;
@@ -176,8 +170,13 @@ app.get('/match/:id', async (req, res) => {
     };
 
     try {
-        // 1. Fetch main match info
         const json = await hl(`/matches/${matchId}`);
+        
+        // --- DEBUG PRINT ---
+        console.log("================ RAW MATCH API DATA ================");
+        console.log(JSON.stringify(json, null, 2));
+        console.log("=====================================================");
+
         let found = null;
         if (json) {
             if (Array.isArray(json)) found = json[0];
@@ -185,23 +184,8 @@ app.get('/match/:id', async (req, res) => {
             else if (json.data) found = json.data;
             else found = json;
         }
-
-        // 2. Try fetching live score from potential sub-endpoints
-        const liveJson = await hl(`/matches/${matchId}/live`) || await hl(`/livescore/${matchId}`) || await hl(`/match/${matchId}/score`);
-        let liveData = null;
-        if (liveJson) {
-            if (Array.isArray(liveJson)) liveData = liveJson[0];
-            else if (liveJson.data) liveData = liveJson.data;
-            else liveData = liveJson;
-        }
-
-        if (found) {
-            if (liveData) {
-                found.scoreA = found.scoreA || liveData.scoreA || liveData.homeScore;
-                found.scoreB = found.scoreB || liveData.scoreB || liveData.awayScore;
-                found.oversA = found.oversA || liveData.oversA || liveData.homeOvers;
-                found.oversB = found.oversB || liveData.oversB || liveData.awayOvers;
-            }
+        
+        if (found && (found.id || found.matchId)) {
             matchData = normalizeMatch(found);
         }
     } catch (err) {
@@ -213,7 +197,7 @@ app.get('/match/:id', async (req, res) => {
         res.send(html);
     } catch (renderErr) {
         console.error("Match Detail View Crash:", renderErr.message);
-        res.status(500).send("Match Detail View Crash: " + renderErr.message);
+        res.status(500).send("Dashboard View Crash: " + renderErr.message);
     }
 });
 
