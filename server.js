@@ -59,45 +59,71 @@ function getMatchStatus(m) {
     return 'LIVE';
 }
 
-// Smart Normalizer (Deep score extractor & zero [object Object])
+// Advanced Recursive Property Finder (Automatically hunts down scores/overs anywhere in JSON)
+function deepFind(obj, keywords) {
+    if (!obj || typeof obj !== 'object') return null;
+    for (const k of Object.keys(obj)) {
+        const lowerK = k.toLowerCase();
+        if (keywords.some(kw => lowerK.includes(kw))) {
+            const val = obj[k];
+            if (val !== null && val !== undefined && val !== '' && typeof val !== 'object') {
+                return val;
+            }
+            if (val && typeof val === 'object') {
+                // If it's an object with runs/score inside it
+                const subR = val.runs ?? val.score ?? val.r ?? val.value;
+                if (subR !== undefined && subR !== '') return subR;
+            }
+        }
+        if (typeof obj[k] === 'object') {
+            const found = deepFind(obj[k], keywords);
+            if (found !== null && found !== undefined && found !== '') return found;
+        }
+    }
+    return null;
+}
+
+// Smart Normalizer with Automatic Deep Score & Overs Extractor
 function normalizeMatch(m) {
     const status = getMatchStatus(m);
-    
-    // Extract readable state text safely
     const stateText = safestr(m.status?.longName || m.status?.description || m.status?.name || m.status || m.state || 'In Progress');
 
-    // Deep extractor for score objects or properties
-    const extractScoreVal = (teamObj, directScore) => {
-        if (directScore) {
-            if (typeof directScore === 'object') {
-                const r = directScore.runs ?? directScore.score ?? directScore.r ?? '';
-                const w = directScore.wickets ?? directScore.w ?? '';
-                if (r !== '' && w !== '') return `${r}/${w}`;
-                return r !== '' ? String(r) : '-';
-            }
-            return String(directScore);
+    // Extract Score for Home / Away using deep inspection
+    const getTeamScore = (teamObj, teamNameFallback) => {
+        if (!teamObj) return '-';
+        
+        // 1. Check direct properties
+        let runs = teamObj.runs ?? teamObj.score ?? teamObj.r ?? teamObj.totalRuns;
+        let wickets = teamObj.wickets ?? teamObj.w ?? teamObj.totalWickets;
+
+        // 2. If not found directly, use deep search inside the team object
+        if (runs === undefined || runs === null) {
+            runs = deepFind(teamObj, ['run', 'score', 'total']);
         }
-        if (teamObj) {
-            if (typeof teamObj.score === 'object') {
-                const r = teamObj.score.runs ?? teamObj.score.score ?? '';
-                const w = teamObj.score.wickets ?? '';
-                return r !== '' ? `${r}/${w}` : '-';
-            }
-            if (teamObj.score !== undefined) return String(teamObj.score);
-            if (teamObj.runs !== undefined) {
-                const r = teamObj.runs;
-                const w = teamObj.wickets ?? '';
-                return w !== '' ? `${r}/${w}` : String(r);
-            }
+        if (wickets === undefined || wickets === null) {
+            wickets = deepFind(teamObj, ['wicket', 'wkts', 'wkt']);
+        }
+
+        if (runs !== null && runs !== undefined && runs !== '') {
+            return wickets !== null && wickets !== undefined && wickets !== '' ? `${runs}/${wickets}` : String(runs);
         }
         return '-';
     };
 
-    const scoreA = extractScoreVal(m.homeTeam, m.scoreA || m.homeScore);
-    const scoreB = extractScoreVal(m.awayTeam, m.scoreB || m.awayScore);
+    const getTeamOvers = (teamObj) => {
+        if (!teamObj) return '-';
+        let overs = teamObj.overs ?? teamObj.ov ?? teamObj.over;
+        if (overs === undefined || overs === null) {
+            overs = deepFind(teamObj, ['over']);
+        }
+        return overs !== null && overs !== undefined && overs !== '' ? String(overs) : '-';
+    };
 
-    const oversA = safestr(m.oversA || m.homeOvers || m.homeTeam?.overs || m.homeScore?.overs || '');
-    const oversB = safestr(m.oversB || m.awayOvers || m.awayTeam?.overs || m.awayScore?.overs || '');
+    const scoreA = getTeamScore(m.homeTeam, 'Team A');
+    const scoreB = getTeamScore(m.awayTeam, 'Team B');
+
+    const oversA = getTeamOvers(m.homeTeam);
+    const oversB = getTeamOvers(m.awayTeam);
 
     return {
         id: esc(m.id),
