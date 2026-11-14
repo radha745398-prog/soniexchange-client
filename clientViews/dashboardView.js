@@ -1,126 +1,173 @@
-// clientViews/components/matchHeader.js
-// Note: matchData ke saare text server.js mein pehle hi escape ho chuke hain.
+// clientViews/dashboardView.js
 
-function logoHTML(src, name) {
-    if (src) {
-        return `<img src="${src}" alt="${name}" class="w-6 h-6 rounded-full object-contain bg-white/10 border border-white/20">`;
+function renderDashboardPage(user, liveMatches) {
+    const username = user.username || 'Client';
+    const balance = Number(user.points || 0).toLocaleString();
+    const exposure = Number(user.exposure || 0).toLocaleString();
+
+    // Dynamically map live matches coming from server.js (Cricbuzz API)
+    let tickerHTML = '';
+    let matchesContentHTML = '';
+
+    if (liveMatches && liveMatches.length > 0) {
+        // 1. Ticker HTML generation for ALL live matches
+        tickerHTML = liveMatches.map(m => `
+            <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="bg-[#1f2937] px-4 py-1.5 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-bold hover:border-white transition whitespace-nowrap match-blink inline-block mr-3 text-xs">
+                <span>${m.teamA} v ${m.teamB}</span>
+            </a>
+        `).join('');
+
+        // 2. Main content cards for live matches so they appear nicely on the dashboard too
+        matchesContentHTML = `
+            <div class="w-full space-y-3">
+                <h2 class="text-sm font-bold text-[#00c0FF] uppercase tracking-wider mb-2">Live Matches (${liveMatches.length})</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    ${liveMatches.map(m => `
+                        <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="block bg-custom-navy p-4 rounded border border-[#2b394a] hover:border-[#00c0FF] transition">
+                            <div class="text-[10px] text-gray-400 mb-1">${m.tournament}</div>
+                            <div class="flex justify-between items-center font-bold text-sm mb-2">
+                                <span>${m.teamA} vs ${m.teamB}</span>
+                                <span class="text-red-400 text-[10px] animate-pulse px-2 py-0.5 bg-red-950 rounded border border-red-800">LIVE</span>
+                            </div>
+                            <div class="text-[11px] text-gray-300 flex justify-between items-center">
+                                <span>Status: ${m.dateTime}</span>
+                                <span class="text-[#00c0FF] underline">Click to View Match & Odds &rarr;</span>
+                            </div>
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    } else {
+        // Fallback if no live matches are currently returned by API
+        tickerHTML = `<span class="text-gray-400 text-xs px-2">No live matches currently available.</span>`;
+        matchesContentHTML = `
+            <div class="text-gray-400 text-xs italic bg-[#16202c] px-6 py-4 rounded border border-[#2b394a]">
+                No live matches running right now. Please check back later or check ticker when matches are live.
+            </div>
+        `;
     }
-    const initials = String(name || '?').trim().slice(0, 2).toUpperCase();
-    return `<div class="w-6 h-6 rounded-full bg-[#1f2937] border border-white/20 flex items-center justify-center text-[8px] font-bold text-gray-300">${initials}</div>`;
-}
-
-function renderMatchHeader(user, matchData) {
-    const username = user ? user.username || 'Client' : 'Client';
-    const balance = Number(user ? user.points || 0 : 0);
-    const exposure = Number(user ? user.exposure || 0 : 0);
-
-    const d = matchData || {};
-    const teamA = d.teamA || 'Team A';
-    const teamB = d.teamB || 'Team B';
-    const venue = d.venue || 'Stadium';
-    const matchTime = d.dateTime || '';
-    const matchStatus = String(d.status || 'SCHEDULED').toUpperCase(); // LIVE | SCHEDULED | FINISHED
-
-    const scoreA = d.scoreA || '-';
-    const oversA = d.oversA || '';
-    const scoreB = d.scoreB || '-';
-    const oversB = d.oversB || '';
-    const matchStateText = d.matchStateText || matchStatus;
-
-    const isLive = matchStatus === 'LIVE';
-    const dot = isLive ? 'bg-green-500 animate-pulse' : 'bg-gray-500';
-    const statusColor = isLive ? 'text-green-400' : 'text-gray-400';
-    const badgeText = isLive ? 'LIVE' : (matchStatus === 'FINISHED' ? 'FINISHED' : 'UPCOMING');
 
     return `
-    <!-- TOP HEADER BAR -->
-    <header class="bg-custom-header border-b border-[#2b394a] px-3 py-2 flex items-center justify-between sticky top-0 z-50">
-        <div class="flex items-center space-x-3">
-            <a href="/dashboard?user=${encodeURIComponent(username)}" class="text-white text-base focus:outline-none"><i class="fa-solid fa-arrow-left"></i></a>
-            <h1 class="text-base font-black tracking-wider italic text-[#00c0FF]">SONIEXCHANGE</h1>
-        </div>
-
-        <div class="flex items-center space-x-3 text-[11px]">
-            <div class="text-right">
-                <div class="text-gray-300">Balance: <span class="font-bold text-green-400" id="user-balance">${balance.toLocaleString()}</span></div>
-                <div class="text-gray-400">Exp: <span class="font-bold text-red-400" id="user-exposure">${exposure.toLocaleString()}</span></div>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SONIEXCHANGE - Sports Exchange</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <style>
+            body { background-color: #121e2b; color: #f8fafc; font-family: sans-serif; }
+            .bg-custom-navy { background-color: #16202c; }
+            .bg-custom-header { background-color: #0b1118; }
+            .active-tab { border-bottom: 2px solid #00c0FF; color: #00c0FF; }
+            
+            /* Smooth Blinking Animation for Ticker Matches */
+            @keyframes textBlink {
+                0% { opacity: 1; }
+                50% { opacity: 0.3; }
+                100% { opacity: 1; }
+            }
+            .match-blink {
+                animation: textBlink 1.5s infinite ease-in-out;
+            }
+        </style>
+    </head>
+    <body class="min-h-screen flex flex-col text-xs">
+        
+        <!-- TOP HEADER BAR -->
+        <header class="bg-custom-header border-b border-[#2b394a] px-3 py-2 flex items-center justify-between sticky top-0 z-50">
+            <div class="flex items-center space-x-3">
+                <button type="button" class="text-white text-lg focus:outline-none"><i class="fa-solid fa-bars"></i></button>
+                <h1 class="text-lg font-black tracking-wider italic text-[#00c0FF]">SONIEXCHANGE</h1>
             </div>
-            <div class="bg-[#1f2937] px-2.5 py-1 rounded border border-gray-700 font-bold text-white flex items-center space-x-1">
-                <i class="fa-solid fa-user text-[#00c0FF]"></i>
-                <span>${username}</span>
-            </div>
-        </div>
-    </header>
-
-    <!-- DYNAMIC MATCH BANNER -->
-    <div class="bg-scoreboard-dark text-white border-b border-gray-800">
-        <div class="bg-[#0b141d] px-3 py-1.5 flex justify-between items-center text-[11px] font-semibold text-gray-300 border-b border-gray-800">
-            <div class="flex items-center space-x-1.5">
-                <span class="text-white font-bold tracking-wide">${teamA.toUpperCase()} V ${teamB.toUpperCase()}</span>
-            </div>
-            <div class="text-[10px] text-gray-400 font-mono">${matchTime}</div>
-        </div>
-
-        ${matchStatus === 'SCHEDULED' ? `
-            <div class="p-4 bg-[#111c26] text-center space-y-2">
-                <div class="flex items-center justify-center space-x-1.5 text-[10px] text-gray-400">
-                    <span class="bg-blue-500/20 text-blue-400 border border-blue-500/40 px-1.5 py-0.5 rounded font-bold uppercase">Upcoming</span>
-                    <span>• ${venue}</span>
+            
+            <div class="flex items-center space-x-3 text-[11px]">
+                <div class="text-right">
+                    <div class="text-gray-300">Balance: <span class="font-bold text-green-400">${balance}</span></div>
+                    <div class="text-gray-400">Exp: <span class="font-bold text-red-400">${exposure}</span></div>
                 </div>
-                <div class="flex items-center justify-center space-x-3">
-                    ${logoHTML(d.logoA, teamA)}
-                    <span class="text-sm font-bold text-white">${teamA} vs ${teamB}</span>
-                    ${logoHTML(d.logoB, teamB)}
-                </div>
-            </div>
-        ` : `
-            <!-- SCOREBOARD VIEW (LIVE / FINISHED) -->
-            <div class="p-3 bg-[#111c26] relative">
-                <div class="text-[10px] text-gray-400 flex items-center space-x-1.5 mb-2">
-                    <span class="w-2 h-2 rounded-full ${dot}"></span>
-                    <span class="font-bold ${statusColor}">${badgeText}</span>
-                    <span>• ${venue}</span>
-                </div>
-
-                <div class="grid grid-cols-12 items-center gap-2">
-                    <div class="col-span-4 flex items-center space-x-2">
-                        ${logoHTML(d.logoA, teamA)}
-                        <div>
-                            <div class="font-black text-sm text-white flex items-center space-x-1">
-                                <span id="score-a">${scoreA}</span>
-                            </div>
-                            <div class="text-[9px] text-gray-400">${oversA}</div>
-                        </div>
-                    </div>
-
-                    <div class="col-span-4 text-center flex flex-col items-center justify-center">
-                        <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase bg-[#00c0FF]/20 border border-[#00c0FF] text-[#00c0FF] ${isLive ? 'shadow-[0_0_10px_rgba(0,192,255,0.4)] animate-pulse' : ''}">
-                            ${badgeText}
-                        </div>
-                        <div class="text-[10px] text-gray-300 font-bold">${matchStateText}</div>
-                    </div>
-
-                    <div class="col-span-4 flex items-center justify-end space-x-2 text-right">
-                        <div>
-                            <div class="font-black text-sm text-white" id="score-b">${scoreB}</div>
-                            <div class="text-[9px] text-gray-400">${oversB}</div>
-                        </div>
-                        ${logoHTML(d.logoB, teamB)}
-                    </div>
+                <div class="bg-[#1f2937] px-2.5 py-1 rounded border border-gray-700 font-bold text-white flex items-center space-x-1">
+                    <i class="fa-solid fa-user text-[#00c0FF]"></i>
+                    <span>${username}</span>
                 </div>
             </div>
-        `}
-    </div>
+        </header>
 
-    <!-- TABS BAR (tumhari original, bina badle) -->
-    <div class="bg-[#0b141d] border-b border-gray-800 flex text-center font-bold text-xs sticky top-[41px] z-40">
-        <div class="flex-1 py-2.5 border-b-2 border-[#00c0FF] text-[#00c0FF] tracking-wider uppercase">ODDS</div>
-        <div class="flex-1 py-2.5 text-gray-400 hover:text-white cursor-pointer tracking-wider uppercase">MATCHED BET (<span id="matched-bet-count">0</span>)</div>
-        <div class="px-4 py-2.5 text-gray-400 hover:text-white cursor-pointer border-l border-gray-800 flex items-center justify-center">
-            <i class="fa-solid fa-tv text-sm text-[#00c0FF]"></i>
+        <!-- TOP MATCH TICKER BAR -->
+        <div class="bg-[#111827] border-b border-[#2b394a] py-1.5 px-3 overflow-x-auto whitespace-nowrap">
+            ${tickerHTML}
         </div>
-    </div>
+
+        <!-- MAIN CATEGORY NAVIGATION BAR -->
+        <nav class="bg-custom-navy border-b border-[#2b394a] px-2 flex space-x-6 text-[11px] font-bold uppercase tracking-wider overflow-x-auto whitespace-nowrap">
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Crash</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Lottery</a>
+            <a href="#" class="py-2.5 active-tab">Sports</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Our Casino</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Live Casino</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Slots</a>
+            <a href="#" class="py-2.5 text-gray-400 hover:text-white">Fantasy</a>
+        </nav>
+
+        <!-- SPORTS SUB-NAVIGATION BAR -->
+        <div class="bg-[#0e5c75] px-3 py-2.5 flex space-x-6 text-[10px] font-bold overflow-x-auto border-b border-[#00c0FF]/40 whitespace-nowrap text-white">
+            <a href="#" class="flex flex-col items-center text-white border-b-2 border-white pb-0.5">
+                <i class="fa-solid fa-baseball-bat-ball text-sm mb-1"></i> <span>CRICKET</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-futbol text-sm mb-1"></i> <span>FOOTBALL</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-table-tennis-paddle-ball text-sm mb-1"></i> <span>TENNIS</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-table-tennis text-sm mb-1"></i> <span>TABLE TENNIS</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-horse-head text-sm mb-1"></i> <span>HORSE RACING</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-dog text-sm mb-1"></i> <span>GREYHOUND</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-basketball text-sm mb-1"></i> <span>BASKETBALL</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-user-shield text-sm mb-1"></i> <span>KABADDI</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-feather text-sm mb-1"></i> <span>BADMINTON</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-hand-fist text-sm mb-1"></i> <span>BOXING</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-flag-checkered text-sm mb-1"></i> <span>MOTOR SPORTS</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-landmark text-sm mb-1"></i> <span>POLITICS</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-bullseye text-sm mb-1"></i> <span>DARTS</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-gray-200 hover:text-white">
+                <i class="fa-solid fa-circle-dot text-sm mb-1"></i> <span>E-SOCCER</span>
+            </a>
+        </div>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 p-4 max-w-7xl mx-auto w-full flex items-center justify-center">
+            ${matchesContentHTML}
+        </main>
+
+        <footer class="bg-[#0b1118] border-t border-[#2b394a] p-3 text-center text-gray-500 text-[10px]">
+            &copy; 2026 SONIEXCHANGE. All Rights Reserved.
+        </footer>
+    </body>
+    </html>
     `;
 }
 
-module.exports = { renderMatchHeader };
+module.exports = { renderDashboardPage };
