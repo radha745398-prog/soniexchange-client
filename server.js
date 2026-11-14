@@ -13,7 +13,7 @@ app.use(express.json());
 const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
 const BASE_URL = 'https://cricket.highlightly.net';
 
-// Bulletproof string extractor (Prevents [object Object] forever)
+// Bulletproof string extractor
 const safestr = (val, fallback = '') => {
     if (val === null || val === undefined) return fallback;
     if (typeof val === 'object') {
@@ -27,7 +27,7 @@ const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
-// Safe API Fetcher with detailed debugging
+// Safe API Fetcher
 async function hl(endpoint) {
     try {
         console.log(`[API REQUEST] Fetching: ${BASE_URL}${endpoint}`);
@@ -59,71 +59,59 @@ function getMatchStatus(m) {
     return 'LIVE';
 }
 
-// Advanced Recursive Property Finder (Automatically hunts down scores/overs anywhere in JSON)
-function deepFind(obj, keywords) {
-    if (!obj || typeof obj !== 'object') return null;
-    for (const k of Object.keys(obj)) {
-        const lowerK = k.toLowerCase();
-        if (keywords.some(kw => lowerK.includes(kw))) {
-            const val = obj[k];
-            if (val !== null && val !== undefined && val !== '' && typeof val !== 'object') {
-                return val;
-            }
-            if (val && typeof val === 'object') {
-                // If it's an object with runs/score inside it
-                const subR = val.runs ?? val.score ?? val.r ?? val.value;
-                if (subR !== undefined && subR !== '') return subR;
-            }
-        }
-        if (typeof obj[k] === 'object') {
-            const found = deepFind(obj[k], keywords);
-            if (found !== null && found !== undefined && found !== '') return found;
-        }
-    }
-    return null;
-}
-
-// Smart Normalizer with Automatic Deep Score & Overs Extractor
+// Final Smart Normalizer with Innings Scanner
 function normalizeMatch(m) {
     const status = getMatchStatus(m);
     const stateText = safestr(m.status?.longName || m.status?.description || m.status?.name || m.status || m.state || 'In Progress');
 
-    // Extract Score for Home / Away using deep inspection
-    const getTeamScore = (teamObj, teamNameFallback) => {
-        if (!teamObj) return '-';
+    // Extract score from innings array if available
+    const extractFromInnings = (teamId, teamName) => {
+        if (!m.innings || !Array.isArray(m.innings)) return null;
+        const teamInnings = m.innings.filter(inn => 
+            inn.teamId === teamId || inn.team === teamName || inn.battingTeam === teamName
+        );
+        if (teamInnings.length === 0) return null;
         
-        // 1. Check direct properties
-        let runs = teamObj.runs ?? teamObj.score ?? teamObj.r ?? teamObj.totalRuns;
-        let wickets = teamObj.wickets ?? teamObj.w ?? teamObj.totalWickets;
-
-        // 2. If not found directly, use deep search inside the team object
-        if (runs === undefined || runs === null) {
-            runs = deepFind(teamObj, ['run', 'score', 'total']);
+        const latest = teamInnings[teamInnings.length - 1];
+        const r = latest.runs ?? latest.score ?? latest.r ?? '';
+        const w = latest.wickets ?? latest.w ?? '';
+        const o = latest.overs ?? latest.ov ?? '';
+        
+        if (r !== '') {
+            return {
+                score: w !== '' ? `${r}/${w}` : String(r),
+                overs: o !== '' ? String(o) : '-'
+            };
         }
-        if (wickets === undefined || wickets === null) {
-            wickets = deepFind(teamObj, ['wicket', 'wkts', 'wkt']);
-        }
-
-        if (runs !== null && runs !== undefined && runs !== '') {
-            return wickets !== null && wickets !== undefined && wickets !== '' ? `${runs}/${wickets}` : String(runs);
-        }
-        return '-';
+        return null;
     };
 
-    const getTeamOvers = (teamObj) => {
-        if (!teamObj) return '-';
-        let overs = teamObj.overs ?? teamObj.ov ?? teamObj.over;
-        if (overs === undefined || overs === null) {
-            overs = deepFind(teamObj, ['over']);
+    const getTeamScoreAndOvers = (teamObj, teamName) => {
+        if (!teamObj) return { score: '-', overs: '-' };
+        
+        const fromInn = extractFromInnings(teamObj.id, teamObj.name || teamName);
+        if (fromInn) return fromInn;
+
+        let r = teamObj.runs ?? teamObj.score?.runs ?? teamObj.score ?? teamObj.r;
+        let w = teamObj.wickets ?? teamObj.score?.wickets ?? teamObj.w;
+        let o = teamObj.overs ?? teamObj.score?.overs ?? teamObj.ov;
+
+        if (r !== undefined && r !== null && r !== '') {
+            const scoreStr = w !== undefined && w !== null && w !== '' ? `${r}/${w}` : String(r);
+            return { score: scoreStr, overs: o !== undefined && o !== null ? String(o) : '-' };
         }
-        return overs !== null && overs !== undefined && overs !== '' ? String(overs) : '-';
+
+        return { score: '-', overs: '-' };
     };
 
-    const scoreA = getTeamScore(m.homeTeam, 'Team A');
-    const scoreB = getTeamScore(m.awayTeam, 'Team B');
+    const homeRes = getTeamScoreAndOvers(m.homeTeam, 'Home');
+    const awayRes = getTeamScoreAndOvers(m.awayTeam, 'Away');
 
-    const oversA = getTeamOvers(m.homeTeam);
-    const oversB = getTeamOvers(m.awayTeam);
+    const scoreA = homeRes.score !== '-' ? homeRes.score : (m.scoreA || '-');
+    const oversA = homeRes.overs !== '-' ? homeRes.overs : (m.oversA || '-');
+
+    const scoreB = awayRes.score !== '-' ? awayRes.score : (m.scoreB || '-');
+    const oversB = awayRes.overs !== '-' ? awayRes.overs : (m.oversB || '-');
 
     return {
         id: esc(m.id),
