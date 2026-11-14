@@ -51,24 +51,31 @@ function getMatchStatus(m) {
     return 'LIVE';
 }
 
-// Normalizer
+// Smart Normalizer (Handles all possible API score/over keys)
 function normalizeMatch(m) {
     const status = getMatchStatus(m);
+    
+    // Extract scores & overs safely with multiple fallbacks
+    const sA = m.scoreA || m.homeScore || m.homeTeam?.score || m.homeTeam?.runs || m.runsA || '-';
+    const oA = m.oversA || m.homeOvers || m.homeTeam?.overs || '';
+    const sB = m.scoreB || m.awayScore || m.awayTeam?.score || m.awayTeam?.runs || m.runsB || '-';
+    const oB = m.oversB || m.awayOvers || m.awayTeam?.overs || '';
+
     return {
         id: esc(m.id),
-        tournament: esc(m.league?.name || m.tournament || 'Live Cricket'),
-        teamA: esc(m.homeTeam?.name || m.home_team || 'Team A'),
-        teamB: esc(m.awayTeam?.name || m.away_team || 'Team B'),
-        logoA: esc(m.homeTeam?.logo || ''),
-        logoB: esc(m.awayTeam?.logo || ''),
-        scoreA: esc(m.scoreA || m.homeTeam?.score || '-'),
-        oversA: esc(m.oversA || ''),
-        scoreB: esc(m.scoreB || m.awayTeam?.score || '-'),
-        oversB: esc(m.oversB || ''),
+        tournament: esc(m.league?.name || m.tournament || m.series || 'Live Cricket'),
+        teamA: esc(m.homeTeam?.name || m.home_team || m.teamA || 'Team A'),
+        teamB: esc(m.awayTeam?.name || m.away_team || m.teamB || 'Team B'),
+        logoA: esc(m.homeTeam?.logo || m.home_logo || ''),
+        logoB: esc(m.awayTeam?.logo || m.away_logo || ''),
+        scoreA: esc(sA),
+        oversA: esc(oA),
+        scoreB: esc(sB),
+        oversB: esc(oB),
         status: status,
         isLive: status === 'LIVE',
-        matchStateText: esc(m.status?.longName || m.status?.description || 'In Progress'),
-        dateTime: esc(m.dateTime || 'LIVE'),
+        matchStateText: esc(m.status?.longName || m.status?.description || m.state || 'In Progress'),
+        dateTime: esc(m.dateTime || m.time || 'LIVE'),
         venue: esc(m.venue?.name || m.venue || 'Stadium'),
         odds: { 
             teamA_back: '1.98', teamA_lay: '2.00', 
@@ -113,7 +120,7 @@ app.get('/dashboard', async (req, res) => {
     }
 });
 
-// 4. Match Detail Route (Yehin par poora data print hoga server logs mein)
+// 4. Match Detail Route
 app.get('/match/:id', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     const matchId = req.params.id;
@@ -144,9 +151,15 @@ app.get('/match/:id', async (req, res) => {
         console.log(JSON.stringify(json, null, 2));
         console.log("=====================================================");
 
-        const found = Array.isArray(json) ? json[0] : json;
+        let found = null;
+        if (json) {
+            if (Array.isArray(json)) found = json[0];
+            else if (json.data && Array.isArray(json.data)) found = json.data[0];
+            else if (json.data) found = json.data;
+            else found = json;
+        }
         
-        if (found && found.id) {
+        if (found && (found.id || found.matchId)) {
             matchData = normalizeMatch(found);
         }
     } catch (err) {
@@ -162,7 +175,7 @@ app.get('/match/:id', async (req, res) => {
     }
 });
 
-// 5. Extra Debug Route (Agar browser par hi direct dekhna ho)
+// 5. Extra Debug Route
 app.get('/match/:id/debug-json', async (req, res) => {
     const matchId = req.params.id;
     const json = await hl(`/matches/${matchId}`);
