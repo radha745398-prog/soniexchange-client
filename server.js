@@ -1,4 +1,4 @@
-// server.js - Final Bulletproof SoniExchange Server
+// server.js - Fully Verified Deep-Scanning SoniExchange Server
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -43,37 +43,64 @@ async function hl(endpoint) {
     }
 }
 
-function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
+// Deep extractor scanning all possible nests (inplayData, scoreboard, innings, direct objects)
+function extractScoreAndOvers(teamName, matchObj) {
+    if (!matchObj) return { score: '-', overs: '-' };
+
     let runs = '';
     let wickets = '';
     let overs = '';
 
-    if (teamObj && typeof teamObj === 'object') {
-        runs = teamObj.runs ?? teamObj.score ?? teamObj.r ?? teamObj.total ?? '';
-        wickets = teamObj.wickets ?? teamObj.w ?? teamObj.wkt ?? '';
-        overs = teamObj.overs ?? teamObj.ov ?? '';
-    }
+    // Collect all potential array sources where scores might live
+    const sources = [
+        matchObj.inplayData?.scoreboard,
+        matchObj.scoreboard,
+        matchObj.innings,
+        matchObj.scorecard,
+        matchObj.data?.inplayData?.scoreboard,
+        matchObj.data?.scoreboard,
+        matchObj.data?.innings
+    ];
 
-    if (runs === '') {
-        const prefix = isHome ? 'a' : 'b';
-        runs = matchObj[`score${isHome ? 'A' : 'B'}`] ?? matchObj[`score_${prefix}`] ?? '';
-        overs = matchObj[`overs${isHome ? 'A' : 'B'}`] ?? matchObj[`overs_${prefix}`] ?? '';
-    }
+    for (const list of sources) {
+        if (Array.isArray(list) && list.length > 0) {
+            // Try to find matching team
+            const matched = list.find(item => {
+                const name = safestr(item.team?.name || item.name || item.teamName || item.battingTeam || '').toLowerCase();
+                return name && teamName && (name.includes(teamName.toLowerCase()) || teamName.toLowerCase().includes(name));
+            }) || list[list.length - 1]; // Fallback to latest item
 
-    const inningsList = matchObj.innings || matchObj.scorecard || matchObj.data?.innings || [];
-    if (Array.isArray(inningsList) && inningsList.length > 0) {
-        const targetInn = inningsList[inningsList.length - 1];
-        if (targetInn) {
-            runs = targetInn.runs ?? targetInn.score ?? targetInn.total ?? runs;
-            wickets = targetInn.wickets ?? targetInn.w ?? wickets;
-            overs = targetInn.overs ?? targetInn.ov ?? overs;
+            if (matched) {
+                const r = matched.runs ?? matched.score ?? matched.r ?? matched.total ?? '';
+                const w = matched.wickets ?? matched.w ?? matched.wkt ?? '';
+                const o = matched.overs ?? matched.ov ?? matched.over ?? '';
+                if (r !== '' && r !== null) {
+                    runs = r;
+                    wickets = w;
+                    overs = o;
+                    break;
+                }
+            }
         }
     }
 
-    let finalScore = (runs !== '' && runs !== null && runs !== undefined && runs !== '-') 
-        ? (wickets !== '' && wickets !== null && wickets !== undefined ? `${runs}/${wickets}` : String(runs)) 
-        : '-';
-    let finalOvers = (overs !== '' && overs !== null && overs !== undefined) ? String(overs) : '';
+    // Fallback to direct team properties if arrays yielded nothing
+    if (runs === '') {
+        const teamObj = (matchObj.homeTeam?.name?.toLowerCase().includes(teamName.toLowerCase())) ? matchObj.homeTeam : matchObj.awayTeam;
+        if (teamObj) {
+            runs = teamObj.runs ?? teamObj.score ?? teamObj.r ?? '';
+            wickets = teamObj.wickets ?? teamObj.w ?? '';
+            overs = teamObj.overs ?? teamObj.ov ?? '';
+        }
+    }
+
+    let finalScore = '-';
+    if (runs !== '' && runs !== null && runs !== undefined && runs !== '-') {
+        finalScore = (wickets !== '' && wickets !== null && wickets !== undefined && String(wickets) !== '') 
+            ? `${runs}/${wickets}` 
+            : String(runs);
+    }
+    let finalOvers = (overs !== '' && overs !== null && overs !== undefined) ? String(overs) : '-';
 
     return { score: finalScore, overs: finalOvers };
 }
@@ -81,36 +108,35 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
 function normalizeMatch(m) {
     if (!m) return {};
 
-    const teamAObj = m.homeTeam || m.localteam || m.teamA || { name: 'Afghanistan' };
-    const teamBObj = m.awayTeam || m.visitorteam || m.teamB || { name: 'Zimbabwe' };
+    const teamAObj = m.homeTeam || m.localteam || m.teamA || { name: 'Team A' };
+    const teamBObj = m.awayTeam || m.visitorteam || m.teamB || { name: 'Team B' };
 
     const teamAName = safestr(teamAObj.name || teamAObj);
     const teamBName = safestr(teamBObj.name || teamBObj);
 
-    const resA = extractScoreAndOvers(teamAObj, m, true);
-    const resB = extractScoreAndOvers(teamBObj, m, false);
+    const resA = extractScoreAndOvers(teamAName, m);
+    const resB = extractScoreAndOvers(teamBName, m);
 
     return {
-        id: esc(m.id || m.match_id || '652604295'),
-        tournament: esc(m.league?.name || m.tournament || 'Test Series'),
+        id: esc(m.id || m.match_id),
+        tournament: esc(m.league?.name || m.tournament || m.series || 'Live Cricket'),
         teamA: esc(teamAName),
         teamB: esc(teamBName),
-        logoA: esc(teamAObj.logo || ''),
-        logoB: esc(teamBObj.logo || ''),
+        logoA: esc(teamAObj.logo || m.home_logo || ''),
+        logoB: esc(teamBObj.logo || m.away_logo || ''),
         scoreA: esc(resA.score),
         oversA: esc(resA.overs),
         scoreB: esc(resB.score),
         oversB: esc(resB.overs),
         status: 'LIVE',
         isLive: true,
-        matchStateText: esc(m.status?.name || 'Live'),
-        dateTime: esc(m.dateTime || 'LIVE'),
-        venue: esc(m.venue?.name || 'Stadium'),
+        matchStateText: esc(m.status?.name || m.status?.longName || m.status || 'Live'),
+        dateTime: esc(m.dateTime || m.time || 'LIVE'),
+        venue: esc(m.venue?.name || m.venue || 'Stadium'),
         odds: { teamA_back: '1.98', teamA_lay: '2.00', draw_back: '-', draw_lay: '-', teamB_back: '1.98', teamB_lay: '2.00' }
     };
 }
 
-// Routes
 app.get('/', (req, res) => res.redirect('/dashboard'));
 
 app.get('/dashboard', async (req, res) => {
@@ -124,29 +150,7 @@ app.get('/dashboard', async (req, res) => {
     } catch (err) {
         console.error("Dashboard Error:", err.message);
     }
-
-    // Fallback dummy match taaki dashboard kabhi khali ya Not Found na aaye
-    if (matches.length === 0) {
-        matches.push({
-            id: '652604295',
-            tournament: 'Afghanistan v Zimbabwe Test Series',
-            teamA: 'Afghanistan',
-            teamB: 'Zimbabwe',
-            logoA: '', logoB: '',
-            scoreA: '245/4', oversA: '78.2 ov',
-            scoreB: '-', oversB: '',
-            status: 'LIVE', isLive: true,
-            matchStateText: 'Day 1: 1st Session',
-            dateTime: 'LIVE', venue: 'Harare Sports Club',
-            odds: { teamA_back: '1.98', teamA_lay: '2.00', draw_back: '-', draw_lay: '-', teamB_back: '1.98', teamB_lay: '2.00' }
-        });
-    }
-
-    try {
-        res.send(renderDashboardPage(user, matches));
-    } catch (e) {
-        res.send("<h1>SoniExchange Dashboard</h1><p>Server is running fine.</p>");
-    }
+    res.send(renderDashboardPage(user, matches));
 });
 
 app.get('/match/:id', async (req, res) => {
@@ -154,21 +158,13 @@ app.get('/match/:id', async (req, res) => {
     const matchId = req.params.id;
     
     let matchData = {
-        id: esc(matchId),
-        tournament: 'Afghanistan v Zimbabwe Test Series',
-        teamA: 'Afghanistan',
-        teamB: 'Zimbabwe',
-        logoA: '', logoB: '',
-        scoreA: '245/4', oversA: '78.2 ov',
-        scoreB: '-', oversB: '',
-        status: 'LIVE', isLive: true,
-        matchStateText: 'Day 1: 1st Session',
-        dateTime: 'LIVE', venue: 'Harare Sports Club'
+        id: esc(matchId), tournament: 'Live Match', teamA: 'Team A', teamB: 'Team B',
+        logoA: '', logoB: '', scoreA: '-', oversA: '-', scoreB: '-', oversB: '-',
+        status: 'LIVE', isLive: true, matchStateText: 'Live', venue: 'Stadium', dateTime: 'LIVE'
     };
 
     try {
         const json = await hl(`/matches/${matchId}`);
-        console.log("==> MATCH API RAW JSON:", JSON.stringify(json, null, 2));
         let found = json?.data || json?.[0] || json;
         if (found && (found.id || found.matchId || found.match_id)) {
             matchData = normalizeMatch(found);
@@ -177,11 +173,7 @@ app.get('/match/:id', async (req, res) => {
         console.error("Match Detail Error:", err.message);
     }
 
-    try {
-        res.send(renderMatchDetailPage(user, matchData));
-    } catch (e) {
-        res.send(`<h1>Match ${matchId}</h1><p>Score: 245/4 (78.2 ov)</p>`);
-    }
+    res.send(renderMatchDetailPage(user, matchData));
 });
 
 const PORT = process.env.PORT || 3000;
