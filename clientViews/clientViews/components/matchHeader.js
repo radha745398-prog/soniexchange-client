@@ -1,5 +1,4 @@
 // clientViews/components/matchHeader.js
-// Note: matchData ke saare text server.js mein pehle hi escape ho chuke ہیں۔
 
 function logoHTML(src, name) {
     if (src) {
@@ -55,7 +54,7 @@ function renderMatchHeader(user, matchData) {
         </div>
     </header>
 
-    <!-- DYNAMIC MATCH BANNER (Always showing scoreboard structure for live experience) -->
+    <!-- DYNAMIC MATCH BANNER (Always active structure) -->
     <div class="bg-scoreboard-dark text-white border-b border-gray-800">
         <div class="bg-[#0b141d] px-3 py-1.5 flex justify-between items-center text-[11px] font-semibold text-gray-300 border-b border-gray-800">
             <div class="flex items-center space-x-1.5">
