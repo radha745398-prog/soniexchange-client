@@ -1,4 +1,4 @@
-// server.js - Final Clean SoniExchange Server (Pure API Real Matches)
+// server.js - Ultimate Bulletproof Version
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -36,68 +36,62 @@ async function hl(endpoint) {
             console.error('API Error Response:', text.slice(0, 300));
             return null;
         }
-        return JSON.parse(text);
+        const json = JSON.parse(text);
+        return json;
     } catch (e) {
         console.error('Fetch Exception:', e.message);
         return null;
     }
 }
 
-// Extract scores and overs from API response structure (inplayData.scoreboard or innings)
-function extractScoreAndOvers(teamName, matchObj) {
-    if (!matchObj) return { score: '-', overs: '-' };
-
+// Ultimate Deep Extractor to scan any object or innings array for score & overs
+function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
     let runs = '';
     let wickets = '';
     let overs = '';
 
-    const sources = [
-        matchObj.inplayData?.scoreboard,
-        matchObj.scoreboard,
-        matchObj.innings,
-        matchObj.scorecard,
-        matchObj.data?.inplayData?.scoreboard,
-        matchObj.data?.scoreboard,
-        matchObj.data?.innings
-    ];
-
-    for (const list of sources) {
-        if (Array.isArray(list) && list.length > 0) {
-            const matched = list.find(item => {
-                const name = safestr(item.team?.name || item.name || item.teamName || item.battingTeam || '').toLowerCase();
-                return name && teamName && (name.includes(teamName.toLowerCase()) || teamName.toLowerCase().includes(name));
-            }) || list[list.length - 1];
-
-            if (matched) {
-                const r = matched.runs ?? matched.score ?? matched.r ?? matched.total ?? '';
-                const w = matched.wickets ?? matched.w ?? matched.wkt ?? '';
-                const o = matched.overs ?? matched.ov ?? matched.over ?? '';
-                if (r !== '' && r !== null) {
-                    runs = r;
-                    wickets = w;
-                    overs = o;
-                    break;
-                }
-            }
-        }
+    // 1. Check direct team object properties
+    if (teamObj && typeof teamObj === 'object') {
+        runs = teamObj.runs ?? teamObj.score ?? teamObj.r ?? teamObj.total ?? teamObj.runs_scored ?? '';
+        wickets = teamObj.wickets ?? teamObj.w ?? teamObj.wkt ?? '';
+        overs = teamObj.overs ?? teamObj.ov ?? teamObj.over ?? '';
     }
 
+    // 2. Check matchObj direct properties (e.g. scoreA, score_a, oversA, etc.)
     if (runs === '') {
-        const teamObj = (matchObj.homeTeam?.name?.toLowerCase().includes(teamName.toLowerCase())) ? matchObj.homeTeam : matchObj.awayTeam;
-        if (teamObj) {
-            runs = teamObj.runs ?? teamObj.score ?? teamObj.r ?? '';
-            wickets = teamObj.wickets ?? teamObj.w ?? '';
-            overs = teamObj.overs ?? teamObj.ov ?? '';
+        const prefix = isHome ? 'a' : 'b';
+        runs = matchObj[`score${isHome ? 'A' : 'B'}`] ?? matchObj[`score_${prefix}`] ?? matchObj[`runs_${prefix}`] ?? '';
+        overs = matchObj[`overs${isHome ? 'A' : 'B'}`] ?? matchObj[`overs_${prefix}`] ?? matchObj[`ovr_${prefix}`] ?? '';
+    }
+
+    // 3. Check innings array deeply
+    const inningsList = matchObj.innings || matchObj.scorecard || matchObj.runs_array || matchObj.data?.innings || [];
+    if (Array.isArray(inningsList) && inningsList.length > 0) {
+        const teamName = safestr(teamObj?.name || (isHome ? matchObj.teamA : matchObj.teamB)).toLowerCase();
+        const matchedInnings = inningsList.filter(inn => {
+            const tName = safestr(inn.team?.name || inn.team || inn.battingTeam || '').toLowerCase();
+            return tName && teamName && (tName.includes(teamName) || teamName.includes(tName));
+        });
+
+        const targetInn = matchedInnings.length > 0 ? matchedInnings[matchedInnings.length - 1] : (isHome ? inningsList[0] : inningsList[1] || inningsList[inningsList.length - 1]);
+        
+        if (targetInn) {
+            const iRuns = targetInn.runs ?? targetInn.score ?? targetInn.total ?? targetInn.r ?? '';
+            const iWickets = targetInn.wickets ?? targetInn.w ?? targetInn.wkt ?? '';
+            const iOvers = targetInn.overs ?? targetInn.ov ?? targetInn.over ?? '';
+            if (iRuns !== '') {
+                runs = iRuns;
+                wickets = iWickets;
+                overs = iOvers;
+            }
         }
     }
 
     let finalScore = '-';
     if (runs !== '' && runs !== null && runs !== undefined && runs !== '-') {
-        finalScore = (wickets !== '' && wickets !== null && wickets !== undefined && String(wickets) !== '') 
-            ? `${runs}/${wickets}` 
-            : String(runs);
+        finalScore = (wickets !== '' && wickets !== null && wickets !== undefined) ? `${runs}/${wickets}` : String(runs);
     }
-    let finalOvers = (overs !== '' && overs !== null && overs !== undefined) ? String(overs) : '-';
+    let finalOvers = (overs !== '' && overs !== null && overs !== undefined) ? String(overs) : '';
 
     return { score: finalScore, overs: finalOvers };
 }
@@ -105,47 +99,50 @@ function extractScoreAndOvers(teamName, matchObj) {
 function normalizeMatch(m) {
     if (!m) return {};
 
-    const teamAObj = m.homeTeam || m.localteam || m.teamA || m.home_team || {};
-    const teamBObj = m.awayTeam || m.visitorteam || m.teamB || m.away_team || {};
+    const teamAObj = m.homeTeam || m.localteam || m.teamA || m.team_a || { name: m.teamA || 'Team A', logo: m.logoA };
+    const teamBObj = m.awayTeam || m.visitorteam || m.teamB || m.team_b || { name: m.teamB || 'Team B', logo: m.logoB };
 
-    const teamAName = safestr(teamAObj.name || teamAObj.longName || teamAObj.shortName || m.teamA || m.home_team || 'Team A');
-    const teamBName = safestr(teamBObj.name || teamBObj.longName || teamBObj.shortName || m.teamB || m.away_team || 'Team B');
+    const teamAName = safestr(teamAObj.name || teamAObj.longName || teamAObj);
+    const teamBName = safestr(teamBObj.name || teamBObj.longName || teamBObj);
+    const logoA = safestr(teamAObj.logo || teamAObj.image || '');
+    const logoB = safestr(teamBObj.logo || teamBObj.image || '');
 
-    const resA = extractScoreAndOvers(teamAName, m);
-    const resB = extractScoreAndOvers(teamBName, m);
+    const resA = extractScoreAndOvers(teamAObj, m, true);
+    const resB = extractScoreAndOvers(teamBObj, m, false);
+
+    const rawStatus = safestr(m.status?.shortName || m.status?.name || m.status || m.state || '').toUpperCase();
+    let status = 'LIVE';
+    if (/FIN|COMP|RESULT|WON|ABANDON|CANCEL/.test(rawStatus)) status = 'FINISHED';
+    else if (/SCHED|UPCOMING|NOT|YET/.test(rawStatus) && resA.score === '-' && resB.score === '-') status = 'SCHEDULED';
+
+    const stateText = safestr(m.status?.longName || m.status?.description || m.status?.name || m.status || m.state || rawStatus || 'Live');
 
     return {
         id: esc(m.id || m.match_id),
         tournament: esc(m.league?.name || m.tournament || m.series || 'Live Cricket'),
         teamA: esc(teamAName),
         teamB: esc(teamBName),
-        logoA: esc(teamAObj.logo || m.home_logo || ''),
-        logoB: esc(teamBObj.logo || m.away_logo || ''),
+        logoA: esc(logoA),
+        logoB: esc(logoB),
         scoreA: esc(resA.score),
         oversA: esc(resA.overs),
         scoreB: esc(resB.score),
         oversB: esc(resB.overs),
-        status: 'LIVE',
-        isLive: true,
-        matchStateText: esc(m.status?.name || m.status?.longName || m.status || 'Live'),
-        dateTime: esc(m.dateTime || m.time || 'LIVE'),
+        status: status,
+        isLive: status === 'LIVE' || resA.score !== '-' || resB.score !== '-',
+        matchStateText: esc(stateText),
+        dateTime: esc(m.dateTime || m.time || m.starting_at || 'LIVE'),
         venue: esc(m.venue?.name || m.venue || 'Stadium'),
-        odds: { teamA_back: '1.98', teamA_lay: '2.00', draw_back: '-', draw_lay: '-', teamB_back: '1.98', teamB_lay: '2.00' }
+        odds: { 
+            teamA_back: '1.98', teamA_lay: '2.00', 
+            draw_back: '-', draw_lay: '-', 
+            teamB_back: '1.98', teamB_lay: '2.00' 
+        }
     };
 }
 
-// 1. Login / Landing Page Route
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-// 2. Client Switch Route
-app.get('/switch-to-client', (req, res) => {
-    const targetUser = req.query.user || 'Client';
-    res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}`);
-});
-
-// 3. Dashboard Route (Fetching live matches from API for today)
 app.get('/dashboard', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     let matches = [];
@@ -157,24 +154,27 @@ app.get('/dashboard', async (req, res) => {
     } catch (err) {
         console.error("Dashboard Error:", err.message);
     }
-
     res.send(renderDashboardPage(user, matches));
 });
 
-// 4. Match Detail Route
 app.get('/match/:id', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     const matchId = req.params.id;
-    
     let matchData = {
         id: esc(matchId), tournament: 'Live Match', teamA: 'Team A', teamB: 'Team B',
-        logoA: '', logoB: '', scoreA: '-', oversA: '-', scoreB: '-', oversB: '-',
+        logoA: '', logoB: '', scoreA: '-', oversA: '', scoreB: '-', oversB: '',
         status: 'LIVE', isLive: true, matchStateText: 'Live', venue: 'Stadium', dateTime: 'LIVE'
     };
 
     try {
         const json = await hl(`/matches/${matchId}`);
-        let found = json?.data || json?.[0] || json;
+        let found = null;
+        if (json) {
+            if (Array.isArray(json)) found = json[0];
+            else if (json.data && Array.isArray(json.data)) found = json.data[0];
+            else if (json.data) found = json.data;
+            else found = json;
+        }
         if (found && (found.id || found.matchId || found.match_id)) {
             matchData = normalizeMatch(found);
         }
