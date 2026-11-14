@@ -11,7 +11,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
-const BASE_URL = 'https://cricket.highlightly.net';
+// Updated BASE_URL with /cricket as per API dashboard logs
+const BASE_URL = 'https://cricket.highlightly.net/cricket';
 
 // Bulletproof string extractor (Prevents [object Object] forever)
 const safestr = (val, fallback = '') => {
@@ -146,7 +147,7 @@ app.get('/dashboard', async (req, res) => {
     }
 });
 
-// 4. Match Detail Route (Clean & Direct)
+// 4. Match Detail Route
 app.get('/match/:id', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     const matchId = req.params.id;
@@ -172,11 +173,6 @@ app.get('/match/:id', async (req, res) => {
     try {
         const json = await hl(`/matches/${matchId}`);
         
-        // --- DEBUG PRINT ---
-        console.log("================ RAW MATCH API DATA ================");
-        console.log(JSON.stringify(json, null, 2));
-        console.log("=====================================================");
-
         let found = null;
         if (json) {
             if (Array.isArray(json)) found = json[0];
@@ -197,7 +193,7 @@ app.get('/match/:id', async (req, res) => {
         res.send(html);
     } catch (renderErr) {
         console.error("Match Detail View Crash:", renderErr.message);
-        res.status(500).send("Dashboard View Crash: " + renderErr.message);
+        res.status(500).send("Match Detail View Crash: " + renderErr.message);
     }
 });
 
