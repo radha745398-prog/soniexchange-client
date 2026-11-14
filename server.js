@@ -1,4 +1,4 @@
-// server.js
+// server.js - Final Robust Match Normalizer & Score Extractor
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -222,7 +222,7 @@ app.get('/match/:id', async (req, res) => {
     }
 });
 
-// 5. Extra Debug Route
+// 5. Debug JSON Route
 app.get('/match/:id/debug-json', async (req, res) => {
     const matchId = req.params.id;
     const json = await hl(`/matches/${matchId}`);
