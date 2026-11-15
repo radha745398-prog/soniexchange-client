@@ -35,9 +35,17 @@ const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => (
 
 async function hl(endpoint) {
     try {
-        console.log(`[API REQUEST] Fetching: ${BASE_URL}${endpoint}`);
-        const r = await fetch(`${BASE_URL}${endpoint}`, {
-            headers: { 'x-rapidapi-key': HIGHLIGHTLY_KEY }
+        // Cache-busting timestamp to completely bypass server-side/network caching
+        const separator = endpoint.includes('?') ? '&' : '?';
+        const freshUrl = `${BASE_URL}${endpoint}${separator}_t=${Date.now()}`;
+
+        console.log(`[API REQUEST] Fetching: ${freshUrl}`);
+        const r = await fetch(freshUrl, {
+            headers: { 
+                'x-rapidapi-key': HIGHLIGHTLY_KEY,
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
         });
         const text = await r.text();
         if (!r.ok) {
@@ -164,7 +172,7 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, matches));
 });
 
-// NEW: Lightweight JSON API endpoint for real-time frontend polling (No page reload needed)
+// Lightweight JSON API endpoint for real-time frontend polling (No page reload needed)
 app.get('/api/match/:id', async (req, res) => {
     const matchId = req.params.id;
     try {
