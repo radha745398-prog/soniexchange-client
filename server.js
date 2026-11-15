@@ -1,4 +1,4 @@
-// server.js - Final Accurate Score Extractor with No-Cache & Live JSON API for SoniExchange
+// server.js - Final Accurate Score Extractor for SoniExchange
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -33,14 +33,13 @@ const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
+// Clean API Fetch function without illegal query parameters
 async function hl(endpoint) {
     try {
-        // Cache-busting timestamp to completely bypass server-side/network caching
-        const separator = endpoint.includes('?') ? '&' : '?';
-        const freshUrl = `${BASE_URL}${endpoint}${separator}_t=${Date.now()}`;
-
-        console.log(`[API REQUEST] Fetching: ${freshUrl}`);
-        const r = await fetch(freshUrl, {
+        const cleanUrl = `${BASE_URL}${endpoint}`;
+        console.log(`[API REQUEST] Fetching: ${cleanUrl}`);
+        
+        const r = await fetch(cleanUrl, {
             headers: { 
                 'x-rapidapi-key': HIGHLIGHTLY_KEY,
                 'Cache-Control': 'no-cache',
@@ -162,7 +161,7 @@ app.get('/dashboard', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     let matches = [];
     try {
-        // Fetching directly from /matches without restrictive date query parameters to prevent 400 errors
+        // Direct clean call to /matches without any invalid parameters
         const json = await hl(`/matches`);
         const list = Array.isArray(json) ? json : (json?.data || json?.matches || []);
         matches = list.filter(m => m && (m.id || m.match_id)).map(normalizeMatch);
