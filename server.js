@@ -2,7 +2,6 @@
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
-const session = require('express-session');
 const app = express();
 
 const { renderDashboardPage } = require('./clientViews/dashboardView');
@@ -10,13 +9,6 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
-app.use(session({
-  secret: 'soniexchange_secure_key_2026',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false }
-}));
 
 const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
 const BASE_URL = 'https://cricket.highlightly.net';
@@ -58,13 +50,12 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
     let wickets = '';
     let overs = '';
 
-    // 1. Direct check from match.state.teams (Confirmed from API logs)
     const teamsState = matchObj.state?.teams || matchObj.inplayData?.state?.teams;
     if (teamsState) {
         const teamKey = isHome ? 'home' : 'away';
         const tState = teamsState[teamKey] || teamsState[isHome ? 'localteam' : 'visitorteam'];
         if (tState) {
-            const rawScore = safestr(tState.score); // e.g. "68/3"
+            const rawScore = safestr(tState.score);
             if (rawScore && rawScore !== 'null' && rawScore !== '') {
                 if (rawScore.includes('/')) {
                     const parts = rawScore.split('/');
@@ -74,14 +65,13 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
                     runs = rawScore;
                 }
             }
-            const rawInfo = safestr(tState.info); // e.g. "14.0/50 ov"
+            const rawInfo = safestr(tState.info);
             if (rawInfo && rawInfo !== 'null' && rawInfo !== '') {
                 overs = rawInfo;
             }
         }
     }
 
-    // 2. Fallback to inplayData.scoreboard
     if (runs === '') {
         const teamName = safestr(teamObj?.name || teamObj).toLowerCase();
         const scoreboard = matchObj.inplayData?.scoreboard || matchObj.scoreboard || [];
@@ -99,7 +89,6 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
         }
     }
 
-    // 3. Fallback to direct team object properties
     if (runs === '' && teamObj && typeof teamObj === 'object') {
         runs = teamObj.runs ?? teamObj.score ?? teamObj.r ?? teamObj.total ?? '';
         wickets = teamObj.wickets ?? teamObj.w ?? '';
@@ -155,14 +144,12 @@ app.get('/dashboard', async (req, res) => {
     const adminToken = req.query.admin_token;
     const targetUser = req.query.user || 'Client';
 
-    // VIP Bypass Check for Super Admin
-    if (adminToken === MASTER_ADMIN_KEY) {
-        req.session.user = { username: targetUser, role: 'client' };
+    // Agar Super Admin bypass token match ho jaye, ya normal user aaye
+    if (adminToken !== MASTER_ADMIN_KEY && !targetUser) {
+        return res.redirect('/');
     }
 
-    const username = req.session?.user?.username || targetUser;
-    const user = { username: esc(username), points: 50000, exposure: 1200 };
-    
+    const user = { username: esc(targetUser), points: 50000, exposure: 1200 };
     let matches = [];
     try {
         const today = new Date().toISOString().slice(0, 10);
