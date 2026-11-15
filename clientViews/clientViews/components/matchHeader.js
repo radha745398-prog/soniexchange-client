@@ -35,6 +35,16 @@ function renderMatchHeader(user, matchData) {
     const statusColor = isLive ? 'text-green-400' : 'text-gray-400';
     const badgeText = isLive ? 'LIVE' : (isFinished ? 'FINISHED' : 'UPCOMING');
 
+    // Initial check for badge display on server render
+    let initialBadgeText = "BOWLER RUNNING IN";
+    let initialBadgeClass = "bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse";
+    
+    const upperState = String(matchStateText).toUpperCase();
+    if (upperState.includes('BREAK') || upperState.includes('LUNCH') || upperState.includes('TEA') || upperState.includes('STUMPS') || upperState.includes('INNINGS') || upperState.includes('DRINKS')) {
+        initialBadgeText = upperState;
+        initialBadgeClass = "bg-orange-500/30 border-orange-400 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.4)]";
+    }
+
     return `
     <!-- TOP HEADER BAR -->
     <header class="bg-custom-header border-b border-[#2b394a] px-3 py-2 flex items-center justify-between sticky top-0 z-50">
@@ -55,7 +65,7 @@ function renderMatchHeader(user, matchData) {
         </div>
     </header>
 
-    <!-- DYNAMIC MATCH BANNER (Always active structure) -->
+    <!-- DYNAMIC MATCH BANNER -->
     <div class="bg-scoreboard-dark text-white border-b border-gray-800">
         <div class="bg-[#0b141d] px-3 py-1.5 flex justify-between items-center text-[11px] font-semibold text-gray-300 border-b border-gray-800">
             <div class="flex items-center space-x-1.5">
@@ -83,8 +93,8 @@ function renderMatchHeader(user, matchData) {
                 </div>
 
                 <div class="col-span-4 text-center flex flex-col items-center justify-center">
-                    <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase bg-amber-500/20 border border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse">
-                        Bowler Running In
+                    <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase border ${initialBadgeClass}">
+                        ${initialBadgeText}
                     </div>
                     <div class="text-[10px] text-gray-300 font-bold" id="match-state-text">${matchStateText}</div>
                 </div>
@@ -109,7 +119,7 @@ function renderMatchHeader(user, matchData) {
         </div>
     </div>
 
-    <!-- REAL-TIME LIVE POLLING, BREAKS & DYNAMIC EVENT POPUP SCRIPT -->
+    <!-- REAL-TIME LIVE POLLING, BREAKS WITH TIMER & EVENT POPUP SCRIPT -->
     <script>
         (function() {
             const matchId = "${matchId}";
@@ -119,6 +129,8 @@ function renderMatchHeader(user, matchData) {
             let lastScoreB = "${scoreB}";
             let lastOvers = "${oversA}" || "${oversB}";
             let popupTimer = null;
+            let breakTimerSeconds = 0;
+            let breakInterval = null;
 
             function setBadgeState(text, colorClass, animate = true) {
                 const badge = document.getElementById('match-event-badge');
@@ -127,7 +139,29 @@ function renderMatchHeader(user, matchData) {
                 badge.className = "mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase border " + colorClass + (animate ? " shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse" : "");
             }
 
+            function startBreakTimer(seconds = 900) { // Default 15 mins (15:00) if no timer provided
+                if (breakInterval) clearInterval(breakInterval);
+                breakTimerSeconds = seconds;
+
+                const badge = document.getElementById('match-event-badge');
+                if (!badge) return;
+
+                breakInterval = setInterval(() => {
+                    if (breakTimerSeconds > 0) {
+                        breakTimerSeconds--;
+                        let mins = Math.floor(breakTimerSeconds / 60);
+                        let secs = breakTimerSeconds % 60;
+                        let timeStr = (mins < 10 ? "0" : "") + mins + ":" + (secs < 10 ? "0" : "") + secs;
+                        
+                        // Keep current break name and append countdown timer
+                        let currentText = badge.innerText.split(' - ')[0];
+                        badge.innerText = currentText + " - " + timeStr;
+                    }
+                }, 1000);
+            }
+
             function triggerPopup(text, colorClass) {
+                if (breakInterval) clearInterval(breakInterval); // Stop break timer if live action starts
                 const badge = document.getElementById('match-event-badge');
                 if (!badge) return;
                 
@@ -136,15 +170,19 @@ function renderMatchHeader(user, matchData) {
 
                 if (popupTimer) clearTimeout(popupTimer);
 
-                // Show event (4, 6, Wicket, Run) for 3 seconds, then return to Bowler Running In
                 popupTimer = setTimeout(() => {
-                    setBadgeState("Bowler Running In", "bg-amber-500/20 border-amber-400 text-amber-300", true);
+                    setBadgeState("BOWLER RUNNING IN", "bg-amber-500/20 border-amber-400 text-amber-300", true);
                 }, 3000);
             }
 
             setInterval(async () => {
                 try {
-                    const res = await fetch('/api/match/' + matchId, { headers: { 'Cache-Control': 'no-cache' } });
+                    const res = await fetch('/api/match/' + matchId + '?_t=' + Date.now(), { 
+                        headers: { 
+                            'Cache-Control': 'no-store, no-cache, must-revalidate',
+                            'Pragma': 'no-cache'
+                        } 
+                    });
                     const data = await res.json();
                     
                     if (data && data.success && data.match) {
@@ -158,13 +196,24 @@ function renderMatchHeader(user, matchData) {
 
                         let currentScoreA = m.scoreA || '-';
                         let currentOvers = m.oversA || m.oversB || '';
-                        let stateText = (m.matchStateText || '').toLowerCase();
+                        let stateText = String(m.matchStateText || '').toUpperCase();
 
                         // Check if match is currently in a Break (Drinks, Lunch, Tea, Innings Break, Stumps)
-                        if (stateText.includes('drinks') || stateText.includes('lunch') || stateText.includes('tea') || stateText.includes('break') || stateText.includes('stumps') || stateText.includes('innings')) {
+                        if (stateText.includes('BREAK') || stateText.includes('LUNCH') || stateText.includes('TEA') || stateText.includes('STUMPS') || stateText.includes('INNINGS') || stateText.includes('DRINKS')) {
                             let breakName = m.matchStateText.toUpperCase();
-                            setBadgeState(breakName, "bg-blue-600/30 border-blue-400 text-blue-200", false);
+                            
+                            // Check if timer already running or needs initialization
+                            const badge = document.getElementById('match-event-badge');
+                            if (badge && !badge.innerText.includes(':')) {
+                                setBadgeState(breakName + " - 15:00", "bg-orange-500/30 border-orange-400 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.4)]", false);
+                                startBreakTimer(900); // Start 15 min countdown timer
+                            }
                         } else {
+                            if (breakInterval) {
+                                clearInterval(breakInterval);
+                                breakInterval = null;
+                            }
+
                             // Normal Live Play - Check if score/overs changed for ball events
                             if (currentScoreA !== lastScoreA || currentOvers !== lastOvers) {
                                 let diffText = "SCORE UPDATED";
