@@ -1,4 +1,4 @@
-// server.js - Final Accurate Score Extractor for SoniExchange
+// server.js - Final Accurate Score Extractor matching Highlightly API JSON
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -9,14 +9,6 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
-// Prevent Caching globally across all responses
-app.use((req, res, next) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    next();
-});
 
 const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
 const BASE_URL = 'https://cricket.highlightly.net';
@@ -33,18 +25,11 @@ const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
-// Clean API Fetch function without illegal query parameters
 async function hl(endpoint) {
     try {
-        const cleanUrl = `${BASE_URL}${endpoint}`;
-        console.log(`[API REQUEST] Fetching: ${cleanUrl}`);
-        
-        const r = await fetch(cleanUrl, {
-            headers: { 
-                'x-rapidapi-key': HIGHLIGHTLY_KEY,
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-            }
+        console.log(`[API REQUEST] Fetching: ${BASE_URL}${endpoint}`);
+        const r = await fetch(`${BASE_URL}${endpoint}`, {
+            headers: { 'x-rapidapi-key': HIGHLIGHTLY_KEY }
         });
         const text = await r.text();
         if (!r.ok) {
@@ -161,30 +146,14 @@ app.get('/dashboard', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     let matches = [];
     try {
-        // Direct clean call to /matches without any invalid parameters
-        const json = await hl(`/matches`);
+        const today = new Date().toISOString().slice(0, 10);
+        const json = await hl(`/matches?date=${today}`);
         const list = Array.isArray(json) ? json : (json?.data || json?.matches || []);
         matches = list.filter(m => m && (m.id || m.match_id)).map(normalizeMatch);
     } catch (err) {
         console.error("Dashboard Error:", err.message);
     }
     res.send(renderDashboardPage(user, matches));
-});
-
-// Lightweight JSON API endpoint for real-time frontend polling (No page reload needed)
-app.get('/api/match/:id', async (req, res) => {
-    const matchId = req.params.id;
-    try {
-        const json = await hl(`/matches/${matchId}`);
-        let found = json?.data || json?.[0] || json;
-        if (found && (found.id || found.matchId || found.match_id)) {
-            const normalized = normalizeMatch(found);
-            return res.json({ success: true, match: normalized });
-        }
-    } catch (err) {
-        console.error("API Match Error:", err.message);
-    }
-    res.status(404).json({ success: false, message: 'Match not found' });
 });
 
 app.get('/match/:id', async (req, res) => {
