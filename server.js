@@ -162,8 +162,8 @@ app.get('/dashboard', async (req, res) => {
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     let matches = [];
     try {
-        const today = new Date().toISOString().slice(0, 10);
-        const json = await hl(`/matches?date=${today}`);
+        // Fetching directly from /matches without restrictive date query parameters to prevent 400 errors
+        const json = await hl(`/matches`);
         const list = Array.isArray(json) ? json : (json?.data || json?.matches || []);
         matches = list.filter(m => m && (m.id || m.match_id)).map(normalizeMatch);
     } catch (err) {
