@@ -140,11 +140,17 @@ function normalizeMatch(m) {
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
+// Safe Redirect Route to prevent "Cannot GET /switch-to-client" error on client domain
+app.get('/switch-to-client', (req, res) => {
+    const targetUser = req.query.user || 'Client';
+    const adminToken = req.query.admin_token || MASTER_ADMIN_KEY;
+    res.redirect(`/dashboard?user=${encodeURIComponent(targetUser)}&admin_token=${adminToken}`);
+});
+
 app.get('/dashboard', async (req, res) => {
     const adminToken = req.query.admin_token;
     const targetUser = req.query.user || 'Client';
 
-    // Agar Super Admin bypass token match ho jaye, ya normal user aaye
     if (adminToken !== MASTER_ADMIN_KEY && !targetUser) {
         return res.redirect('/');
     }
