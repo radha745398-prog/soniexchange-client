@@ -2,6 +2,7 @@
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
+const session = require('express-session');
 const app = express();
 
 const { renderDashboardPage } = require('./clientViews/dashboardView');
@@ -10,8 +11,16 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+app.use(session({
+  secret: 'soniexchange_secure_key_2026',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false }
+}));
+
 const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
 const BASE_URL = 'https://cricket.highlightly.net';
+const MASTER_ADMIN_KEY = 'soni_super_admin_secret_key_2026';
 
 const safestr = (val, fallback = '') => {
     if (val === null || val === undefined) return fallback;
@@ -143,7 +152,17 @@ function normalizeMatch(m) {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 app.get('/dashboard', async (req, res) => {
-    const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
+    const adminToken = req.query.admin_token;
+    const targetUser = req.query.user || 'Client';
+
+    // VIP Bypass Check for Super Admin
+    if (adminToken === MASTER_ADMIN_KEY) {
+        req.session.user = { username: targetUser, role: 'client' };
+    }
+
+    const username = req.session?.user?.username || targetUser;
+    const user = { username: esc(username), points: 50000, exposure: 1200 };
+    
     let matches = [];
     try {
         const today = new Date().toISOString().slice(0, 10);
