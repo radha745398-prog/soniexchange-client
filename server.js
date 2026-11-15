@@ -1,4 +1,4 @@
-// server.js - Final Accurate Score Extractor matching Highlightly API JSON
+// server.js - Final Accurate Score Extractor with No-Cache & Live JSON API for SoniExchange
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -9,6 +9,14 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// Prevent Caching globally across all responses
+app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+});
 
 const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
 const BASE_URL = 'https://cricket.highlightly.net';
@@ -154,6 +162,22 @@ app.get('/dashboard', async (req, res) => {
         console.error("Dashboard Error:", err.message);
     }
     res.send(renderDashboardPage(user, matches));
+});
+
+// NEW: Lightweight JSON API endpoint for real-time frontend polling (No page reload needed)
+app.get('/api/match/:id', async (req, res) => {
+    const matchId = req.params.id;
+    try {
+        const json = await hl(`/matches/${matchId}`);
+        let found = json?.data || json?.[0] || json;
+        if (found && (found.id || found.matchId || found.match_id)) {
+            const normalized = normalizeMatch(found);
+            return res.json({ success: true, match: normalized });
+        }
+    } catch (err) {
+        console.error("API Match Error:", err.message);
+    }
+    res.status(404).json({ success: false, message: 'Match not found' });
 });
 
 app.get('/match/:id', async (req, res) => {
