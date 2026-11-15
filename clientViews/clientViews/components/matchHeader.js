@@ -14,6 +14,7 @@ function renderMatchHeader(user, matchData) {
     const exposure = Number(user ? user.exposure || 0 : 0);
 
     const d = matchData || {};
+    const matchId = d.id || '';
     const teamA = d.teamA || 'Team A';
     const teamB = d.teamB || 'Team B';
     const venue = d.venue || 'Stadium';
@@ -66,7 +67,7 @@ function renderMatchHeader(user, matchData) {
         <div class="p-3 bg-[#111c26] relative">
             <div class="text-[10px] text-gray-400 flex items-center space-x-1.5 mb-2">
                 <span class="w-2 h-2 rounded-full ${dot}"></span>
-                <span class="font-bold ${statusColor}">${badgeText}</span>
+                <span class="font-bold ${statusColor}" id="match-status-badge">${badgeText}</span>
                 <span>• ${venue}</span>
             </div>
 
@@ -82,8 +83,8 @@ function renderMatchHeader(user, matchData) {
                 </div>
 
                 <div class="col-span-4 text-center flex flex-col items-center justify-center">
-                    <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase bg-[#00c0FF]/20 border border-[#00c0FF] text-[#00c0FF] ${isLive ? 'shadow-[0_0_10px_rgba(0,192,255,0.4)] animate-pulse' : ''}">
-                        ${badgeText}
+                    <div id="match-event-badge" class="mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase bg-amber-500/20 border border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse">
+                        Bowler Running In
                     </div>
                     <div class="text-[10px] text-gray-300 font-bold" id="match-state-text">${matchStateText}</div>
                 </div>
@@ -107,6 +108,110 @@ function renderMatchHeader(user, matchData) {
             <i class="fa-solid fa-tv text-sm text-[#00c0FF]"></i>
         </div>
     </div>
+
+    <!-- REAL-TIME LIVE POLLING, BREAKS & DYNAMIC EVENT POPUP SCRIPT -->
+    <script>
+        (function() {
+            const matchId = "${matchId}";
+            if (!matchId) return;
+
+            let lastScoreA = "${scoreA}";
+            let lastScoreB = "${scoreB}";
+            let lastOvers = "${oversA}" || "${oversB}";
+            let popupTimer = null;
+
+            function setBadgeState(text, colorClass, animate = true) {
+                const badge = document.getElementById('match-event-badge');
+                if (!badge) return;
+                badge.innerText = text;
+                badge.className = "mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase border " + colorClass + (animate ? " shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse" : "");
+            }
+
+            function triggerPopup(text, colorClass) {
+                const badge = document.getElementById('match-event-badge');
+                if (!badge) return;
+                
+                badge.innerText = text;
+                badge.className = "mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase border shadow-[0_0_15px_rgba(255,255,255,0.6)] animate-bounce " + colorClass;
+
+                if (popupTimer) clearTimeout(popupTimer);
+
+                // Show event (4, 6, Wicket, Run) for 3 seconds, then return to Bowler Running In
+                popupTimer = setTimeout(() => {
+                    setBadgeState("Bowler Running In", "bg-amber-500/20 border-amber-400 text-amber-300", true);
+                }, 3000);
+            }
+
+            setInterval(async () => {
+                try {
+                    const res = await fetch('/api/match/' + matchId, { headers: { 'Cache-Control': 'no-cache' } });
+                    const data = await res.json();
+                    
+                    if (data && data.success && data.match) {
+                        const m = data.match;
+                        
+                        const elScoreA = document.getElementById('score-a');
+                        const elOversA = document.getElementById('overs-a');
+                        const elOversB = document.getElementById('overs-b');
+                        const elScoreB = document.getElementById('score-b');
+                        const elStateText = document.getElementById('match-state-text');
+
+                        let currentScoreA = m.scoreA || '-';
+                        let currentOvers = m.oversA || m.oversB || '';
+                        let stateText = (m.matchStateText || '').toLowerCase();
+
+                        // Check if match is currently in a Break (Drinks, Lunch, Tea, Innings Break, Stumps)
+                        if (stateText.includes('drinks') || stateText.includes('lunch') || stateText.includes('tea') || stateText.includes('break') || stateText.includes('stumps') || stateText.includes('innings')) {
+                            let breakName = m.matchStateText.toUpperCase();
+                            setBadgeState(breakName, "bg-blue-600/30 border-blue-400 text-blue-200", false);
+                        } else {
+                            // Normal Live Play - Check if score/overs changed for ball events
+                            if (currentScoreA !== lastScoreA || currentOvers !== lastOvers) {
+                                let diffText = "SCORE UPDATED";
+                                let color = "bg-yellow-500/20 border-yellow-400 text-yellow-300";
+
+                                if (currentScoreA.includes('/') && lastScoreA.includes('/')) {
+                                    let oldParts = lastScoreA.split('/');
+                                    let newParts = currentScoreA.split('/');
+                                    let runDiff = parseInt(newParts[0]) - parseInt(oldParts[0]);
+                                    let wktDiff = parseInt(newParts[1]) - parseInt(oldParts[1]);
+
+                                    if (wktDiff > 0) {
+                                        diffText = "WICKET!";
+                                        color = "bg-red-500/30 border-red-500 text-red-400";
+                                    } else if (runDiff === 4) {
+                                        diffText = "FOUR (4)";
+                                        color = "bg-blue-500/30 border-blue-400 text-blue-300";
+                                    } else if (runDiff === 6) {
+                                        diffText = "SIX (6)";
+                                        color = "bg-purple-500/30 border-purple-400 text-purple-300";
+                                    } else if (runDiff === 0) {
+                                        diffText = "DOT BALL";
+                                        color = "bg-gray-500/30 border-gray-400 text-gray-300";
+                                    } else if (runDiff > 0) {
+                                        diffText = runDiff + " RUN" + (runDiff > 1 ? "S" : "");
+                                        color = "bg-green-500/30 border-green-400 text-green-300";
+                                    }
+                                }
+
+                                triggerPopup(diffText, color);
+                                lastScoreA = currentScoreA;
+                                lastOvers = currentOvers;
+                            }
+                        }
+
+                        if (elScoreA) elScoreA.innerText = m.scoreA;
+                        if (elOversA && m.oversA !== undefined) elOversA.innerText = m.oversA;
+                        if (elScoreB) elScoreB.innerText = m.scoreB;
+                        if (elOversB && m.oversB !== undefined) elOversB.innerText = m.oversB;
+                        if (elStateText && m.matchStateText) elStateText.innerText = m.matchStateText;
+                    }
+                } catch (e) {
+                    console.error("Live Polling Error:", e);
+                }
+            }, 2500);
+        })();
+    </script>
     `;
 }
 
