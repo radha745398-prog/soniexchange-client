@@ -1,4 +1,4 @@
-// clientViews/components/matchHeader.js - Updated with Smart Match States, Countdowns & Score Popups
+// clientViews/components/matchHeader.js - Final Updated with All States, Countdowns & Event Popups
 function logoHTML(src, name) {
     if (src) {
         return `<img src="${src}" alt="${name}" class="w-6 h-6 rounded-full object-contain bg-white/10 border border-white/20">`;
@@ -134,8 +134,6 @@ function renderMatchHeader(user, matchData) {
             let lastScoreB = "${scoreB}";
             let lastOvers = "${oversA}" || "${oversB}";
             let popupTimer = null;
-            let breakTimerSeconds = 0;
-            let breakInterval = null;
             
             let targetTimestamp = ${countdownTimestamp ? countdownTimestamp : 'null'};
             let stateLabel = "${matchStateText}";
@@ -144,7 +142,6 @@ function renderMatchHeader(user, matchData) {
             function updateCountdown() {
                 const badge = document.getElementById('match-event-badge');
                 if (!badge) return;
-
                 if (!targetTimestamp) return;
 
                 const now = new Date().getTime();
@@ -182,7 +179,6 @@ function renderMatchHeader(user, matchData) {
             }
 
             function triggerPopup(text, colorClass) {
-                if (breakInterval) clearInterval(breakInterval);
                 const badge = document.getElementById('match-event-badge');
                 if (!badge) return;
                 
@@ -218,15 +214,26 @@ function renderMatchHeader(user, matchData) {
                         let currentScoreA = m.scoreA || '-';
                         let currentOvers = m.oversA || m.oversB || '';
                         let stateText = String(m.matchStateText || '').toUpperCase();
+                        let wicketText = String(m.wicketText || m.howOut || '').toUpperCase();
 
-                        // 1. Handle Breaks & Countdowns from Server
                         if (m.countdownTimestamp) {
                             targetTimestamp = m.countdownTimestamp;
                             stateLabel = m.matchStateText || stateText;
                         }
 
-                        // 2. Handle Active Live Play Score Popups
-                        if (!stateText.includes('BREAK') && !stateText.includes('LUNCH') && !stateText.includes('TEA') && !stateText.includes('STUMPS') && !stateText.includes('UPCOMING')) {
+                        // 1. Comprehensive Breaks & Special States Check
+                        if (stateText.includes('LUNCH') || stateText.includes('TEA') || stateText.includes('STUMPS') || stateText.includes('BREAK')) {
+                            setBadgeState(stateText, "bg-orange-500/30 border-orange-400 text-orange-300", true);
+                        } else if (stateText.includes('DRINKS')) {
+                            setBadgeState("DRINKS BREAK", "bg-yellow-500/30 border-yellow-400 text-yellow-300", true);
+                        } else if (stateText.includes('INNINGS') || stateText.includes('INN BREAK')) {
+                            setBadgeState("INNINGS BREAK", "bg-blue-500/30 border-blue-400 text-blue-300", true);
+                        } else if (stateText.includes('UPCOMING') || stateText.includes('SCHEDULED')) {
+                            setBadgeState("UPCOMING", "bg-blue-500/20 border-blue-400 text-blue-300", false);
+                        } else if (stateText.includes('FINISHED') || stateText.includes('COMPLETED')) {
+                            setBadgeState("FINISHED", "bg-gray-500/20 border-gray-400 text-gray-300", false);
+                        } else {
+                            // 2. Live Play & Score Event Popups (4, 6, Wickets, 1,2,3 Runs, Dot Ball)
                             if (currentScoreA !== lastScoreA || currentOvers !== lastOvers) {
                                 let diffText = "SCORE UPDATED";
                                 let color = "bg-yellow-500/20 border-yellow-400 text-yellow-300";
@@ -238,20 +245,34 @@ function renderMatchHeader(user, matchData) {
                                     let wktDiff = parseInt(newParts[1]) - parseInt(oldParts[1]);
 
                                     if (wktDiff > 0) {
-                                        diffText = "WICKET!";
-                                        color = "bg-red-500/30 border-red-500 text-red-400";
-                                    } else if (runDiff === 4) {
-                                        diffText = "FOUR (4)";
-                                        color = "bg-blue-500/30 border-blue-400 text-blue-300";
+                                        if (wicketText.includes('STUMP')) {
+                                            diffText = "STUMP OUT!";
+                                        } else if (wicketText.includes('RUN OUT')) {
+                                            diffText = "RUN OUT!";
+                                        } else if (wicketText.includes('CAUGHT') || wicketText.includes('CATCH')) {
+                                            diffText = "CAUGHT OUT!";
+                                        } else {
+                                            diffText = "WICKET FALLEN!";
+                                        }
+                                        color = "bg-red-600/40 border-red-500 text-red-300";
                                     } else if (runDiff === 6) {
-                                        diffText = "SIX (6)";
-                                        color = "bg-purple-500/30 border-purple-400 text-purple-300";
+                                        diffText = "SIX (6) 🚀";
+                                        color = "bg-purple-600/40 border-purple-400 text-purple-200";
+                                    } else if (runDiff === 4) {
+                                        diffText = "FOUR (4) 🏏";
+                                        color = "bg-blue-600/40 border-blue-400 text-blue-200";
+                                    } else if (runDiff === 3) {
+                                        diffText = "3 RUNS";
+                                        color = "bg-green-500/30 border-green-400 text-green-300";
+                                    } else if (runDiff === 2) {
+                                        diffText = "2 RUNS";
+                                        color = "bg-green-500/30 border-green-400 text-green-300";
+                                    } else if (runDiff === 1) {
+                                        diffText = "1 RUN";
+                                        color = "bg-green-500/30 border-green-400 text-green-300";
                                     } else if (runDiff === 0) {
                                         diffText = "DOT BALL";
-                                        color = "bg-gray-500/30 border-gray-400 text-gray-300";
-                                    } else if (runDiff > 0) {
-                                        diffText = runDiff + " RUN" + (runDiff > 1 ? "S" : "");
-                                        color = "bg-green-500/30 border-green-400 text-green-300";
+                                        color = "bg-gray-600/30 border-gray-400 text-gray-300";
                                     }
                                 }
 
@@ -273,7 +294,7 @@ function renderMatchHeader(user, matchData) {
             }, 1500);
         })();
     </script>
-   `;
+    `;
 }
 
 module.exports = { renderMatchHeader };
