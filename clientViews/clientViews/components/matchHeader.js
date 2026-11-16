@@ -1,4 +1,4 @@
-// clientViews/components/matchHeader.js - Updated with Smart Match States & Countdowns
+// clientViews/components/matchHeader.js - Updated with Smart Match States, Countdowns & Score Popups
 function logoHTML(src, name) {
     if (src) {
         return `<img src="${src}" alt="${name}" class="w-6 h-6 rounded-full object-contain bg-white/10 border border-white/20">`;
@@ -25,6 +25,7 @@ function renderMatchHeader(user, matchData) {
     const scoreB = d.scoreB || '-';
     const oversB = d.oversB || '';
     const matchStateText = d.matchStateText || matchStatus;
+    const countdownTimestamp = d.countdownTimestamp || null;
 
     const hasScore = (scoreA !== '-' || scoreB !== '-' || scoreA === 'Yet to bat' || scoreB === 'Yet to bat');
     const isLive = matchStatus === 'LIVE' || hasScore;
@@ -41,8 +42,8 @@ function renderMatchHeader(user, matchData) {
     const upperState = String(matchStateText).toUpperCase();
     if (upperState.includes('BREAK') || upperState.includes('LUNCH') || upperState.includes('TEA') || upperState.includes('STUMPS') || upperState.includes('INNINGS') || upperState.includes('DRINKS')) {
         initialBadgeClass = "bg-orange-500/30 border-orange-400 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.4)]";
-    } else if (upperState.includes('NOT STARTED') || upperState.includes('SCHEDULED') || upperState.includes('STARTS')) {
-        initialBadgeText = `STARTS: ${matchTime}`;
+    } else if (upperState.includes('NOT STARTED') || upperState.includes('SCHEDULED') || upperState.includes('UPCOMING')) {
+        initialBadgeText = 'UPCOMING';
         initialBadgeClass = "bg-blue-500/20 border-blue-400 text-blue-300";
     } else if (isLive && !upperState.includes('BOWLER')) {
         initialBadgeText = "BOWLER RUNNING IN";
@@ -123,7 +124,7 @@ function renderMatchHeader(user, matchData) {
         </div>
     </div>
 
-    <!-- SMART REAL-TIME POLLING & MATCH STATE SCRIPT -->
+    <!-- SMART REAL-TIME POLLING, COUNTDOWN & MATCH STATE SCRIPT -->
     <script>
         (function() {
             const matchId = "${matchId}";
@@ -135,32 +136,49 @@ function renderMatchHeader(user, matchData) {
             let popupTimer = null;
             let breakTimerSeconds = 0;
             let breakInterval = null;
+            
+            let targetTimestamp = ${countdownTimestamp ? countdownTimestamp : 'null'};
+            let stateLabel = "${matchStateText}";
+
+            // Professional Countdown Ticker
+            function updateCountdown() {
+                const badge = document.getElementById('match-event-badge');
+                if (!badge) return;
+
+                if (!targetTimestamp) return;
+
+                const now = new Date().getTime();
+                const distance = targetTimestamp - now;
+
+                if (distance <= 0) {
+                    badge.innerText = stateLabel !== 'UPCOMING' ? stateLabel : 'MATCH STARTING SOON';
+                    return;
+                }
+
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                let timeStr = '';
+                if (days > 0) timeStr += days + 'd ';
+                timeStr += (hours < 10 ? '0' : '') + hours + ':' + 
+                           (minutes < 10 ? '0' : '') + minutes + ':' + 
+                           (seconds < 10 ? '0' : '') + seconds;
+
+                badge.innerText = stateLabel + ' - ' + timeStr;
+            }
+
+            if (targetTimestamp) {
+                updateCountdown();
+                setInterval(updateCountdown, 1000);
+            }
 
             function setBadgeState(text, colorClass, animate = true) {
                 const badge = document.getElementById('match-event-badge');
                 if (!badge) return;
                 badge.innerText = text;
                 badge.className = "mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase border " + colorClass + (animate ? " shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse" : "");
-            }
-
-            function startBreakTimer(seconds = 900) {
-                if (breakInterval) clearInterval(breakInterval);
-                breakTimerSeconds = seconds;
-
-                const badge = document.getElementById('match-event-badge');
-                if (!badge) return;
-
-                breakInterval = setInterval(() => {
-                    if (breakTimerSeconds > 0) {
-                        breakTimerSeconds--;
-                        let mins = Math.floor(breakTimerSeconds / 60);
-                        let secs = breakTimerSeconds % 60;
-                        let timeStr = (mins < 10 ? "0" : "") + mins + ":" + (secs < 10 ? "0" : "") + secs;
-                        
-                        let currentText = badge.innerText.split(' - ')[0];
-                        badge.innerText = currentText + " - " + timeStr;
-                    }
-                }, 1000);
             }
 
             function triggerPopup(text, colorClass) {
@@ -201,27 +219,14 @@ function renderMatchHeader(user, matchData) {
                         let currentOvers = m.oversA || m.oversB || '';
                         let stateText = String(m.matchStateText || '').toUpperCase();
 
-                        // 1. Handle Breaks (Stumps, Lunch, Tea, etc.)
-                        if (stateText.includes('BREAK') || stateText.includes('LUNCH') || stateText.includes('TEA') || stateText.includes('STUMPS') || stateText.includes('INNINGS') || stateText.includes('DRINKS')) {
-                            let breakName = m.matchStateText.toUpperCase();
-                            const badge = document.getElementById('match-event-badge');
-                            if (badge && !badge.innerText.includes(':')) {
-                                setBadgeState(breakName + " - 15:00", "bg-orange-500/30 border-orange-400 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.4)]", false);
-                                startBreakTimer(900);
-                            }
-                        } 
-                        // 2. Handle Upcoming / Not Started Matches
-                        else if (stateText.includes('NOT STARTED') || stateText.includes('SCHEDULED') || !m.isLive) {
-                            if (breakInterval) { clearInterval(breakInterval); breakInterval = null; }
-                            setBadgeState("STARTS: " + (m.dateTime || 'Soon'), "bg-blue-500/20 border-blue-400 text-blue-300", false);
-                        } 
-                        // 3. Handle Active Live Play
-                        else {
-                            if (breakInterval) {
-                                clearInterval(breakInterval);
-                                breakInterval = null;
-                            }
+                        // 1. Handle Breaks & Countdowns from Server
+                        if (m.countdownTimestamp) {
+                            targetTimestamp = m.countdownTimestamp;
+                            stateLabel = m.matchStateText || stateText;
+                        }
 
+                        // 2. Handle Active Live Play Score Popups
+                        if (!stateText.includes('BREAK') && !stateText.includes('LUNCH') && !stateText.includes('TEA') && !stateText.includes('STUMPS') && !stateText.includes('UPCOMING')) {
                             if (currentScoreA !== lastScoreA || currentOvers !== lastOvers) {
                                 let diffText = "SCORE UPDATED";
                                 let color = "bg-yellow-500/20 border-yellow-400 text-yellow-300";
