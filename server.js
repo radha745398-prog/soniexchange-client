@@ -33,7 +33,7 @@ async function hl(endpoint) {
             headers: { 'x-rapidapi-key': HIGHLIGHTLY_KEY }
         });
         const text = await r.text();
-                console.log(`[API RESPONSE DEBUG for ${endpoint}]:`, text.slice(0, 600));
+        console.log(`[API RESPONSE DEBUG for ${endpoint}]:`, text.slice(0, 600));
      
         if (!r.ok) {
             console.error('API Error Response:', text.slice(0, 300));
@@ -113,17 +113,14 @@ function getMatchStateText(m) {
     const statusName = safestr(statusObj.name || statusObj.longName || m.matchState || '').toLowerCase();
     const startTime = m.dateTime || m.time || m.starting_at || 'Soon';
 
-    // 1. If match hasn't started yet
     if (statusName.includes('not started') || statusName.includes('scheduled') || !m.isLive) {
         return `Starts: ${startTime}`;
     }
 
-    // 2. If there is a break (Stumps, Lunch, Tea, Innings Break)
     if (statusName.includes('stumps') || statusName.includes('lunch') || statusName.includes('tea') || statusName.includes('break')) {
         return safestr(statusObj.name || statusObj.longName || 'Break');
     }
 
-    // 3. Default active live play state
     return 'Bowler Running In';
 }
 
@@ -161,11 +158,9 @@ function normalizeMatch(m) {
     };
 }
 
-// Helper to inject Auto-Refresh Script into HTML views automatically
 function sendWithAutoRefresh(res, htmlContent) {
     const autoRefreshScript = `
     <script>
-        // Auto-refresh background polling every 15 seconds without logout
         setInterval(() => {
             fetch(window.location.href)
                 .then(response => response.text())
@@ -218,7 +213,7 @@ app.get('/match/:id', async (req, res) => {
     const matchId = req.params.id;
     let matchData = {
         id: esc(matchId), tournament: 'Live Match', teamA: 'Team A', teamB: 'Team B',
-        logoA: '', logoB: '', scoreA: '-', oversA: '', scoreB: '-', oversB: '',
+        logoA: '', logoB: '', scoreA: '-', oversA: '-', scoreB: '-', oversB: '-',
         status: 'LIVE', isLive: true, matchStateText: 'Live', venue: 'Stadium', dateTime: 'LIVE'
     };
 
@@ -242,8 +237,6 @@ app.get('/match/:id', async (req, res) => {
                 matchData.matchStateText = 'LIVE';
                 matchData.countdownTimestamp = null;
             }
-        }
-
         }
     } catch (err) {
         console.error("Match Detail Error:", err.message);
