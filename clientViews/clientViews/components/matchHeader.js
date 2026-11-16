@@ -273,6 +273,7 @@ function renderMatchHeader(user, matchData) {
             }, 1500);
         })();
     </script>
+   `;
 }
 
 module.exports = { renderMatchHeader };
