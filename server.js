@@ -227,6 +227,23 @@ app.get('/match/:id', async (req, res) => {
         let found = json?.data || json?.[0] || json;
         if (found && (found.id || found.matchId || found.match_id)) {
             matchData = normalizeMatch(found);
+            
+            // --- Universal Countdown & Status Logic ---
+            const startingAt = found.starting_at || found.startingAt;
+            const currentState = safestr(found.state || found.status || matchData.status).toLowerCase();
+            
+            if (currentState.includes('upcoming') || currentState.includes('not started') || (!matchData.scoreA && startingAt)) {
+                matchData.matchStateText = 'UPCOMING';
+                matchData.countdownTimestamp = startingAt ? new Date(startingAt).getTime() : null;
+            } else if (currentState.includes('stumps') || currentState.includes('lunch') || currentState.includes('tea') || currentState.includes('break')) {
+                matchData.matchStateText = currentState.toUpperCase();
+                matchData.countdownTimestamp = found.resumes_at ? new Date(found.resumes_at).getTime() : (startingAt ? new Date(startingAt).getTime() : null);
+            } else {
+                matchData.matchStateText = 'LIVE';
+                matchData.countdownTimestamp = null;
+            }
+        }
+
         }
     } catch (err) {
         console.error("Match Detail Error:", err.message);
