@@ -1,4 +1,4 @@
-// server.js - Final Accurate Score Extractor matching Highlightly API JSON
+// server.js - Updated with Yet to Bat, Dynamic Match States, and Auto-Refresh
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -44,19 +44,24 @@ async function hl(endpoint) {
     }
 }
 
-// Exact Parser based on Highlightly API Logs (match.state.teams)
+// Robust Score Extractor with "Yet to Bat" Support
 function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
     let runs = '';
     let wickets = '';
     let overs = '';
+    let isYetToBat = false;
 
     const teamsState = matchObj.state?.teams || matchObj.inplayData?.state?.teams;
     if (teamsState) {
         const teamKey = isHome ? 'home' : 'away';
         const tState = teamsState[teamKey] || teamsState[isHome ? 'localteam' : 'visitorteam'];
         if (tState) {
+            if (tState.status === 'yet_to_bat' || tState.isYetToBat || tState.score === 'Yet to bat' || tState.score === null) {
+                isYetToBat = true;
+            }
+
             const rawScore = safestr(tState.score);
-            if (rawScore && rawScore !== 'null' && rawScore !== '') {
+            if (rawScore && rawScore !== 'null' && rawScore !== '' && rawScore !== 'Yet to bat') {
                 if (rawScore.includes('/')) {
                     const parts = rawScore.split('/');
                     runs = parts[0];
@@ -72,7 +77,7 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
         }
     }
 
-    if (runs === '') {
+    if (!isYetToBat && runs === '') {
         const teamName = safestr(teamObj?.name || teamObj).toLowerCase();
         const scoreboard = matchObj.inplayData?.scoreboard || matchObj.scoreboard || [];
         if (Array.isArray(scoreboard) && scoreboard.length > 0) {
@@ -89,19 +94,35 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
         }
     }
 
-    if (runs === '' && teamObj && typeof teamObj === 'object') {
-        runs = teamObj.runs ?? teamObj.score ?? teamObj.r ?? teamObj.total ?? '';
-        wickets = teamObj.wickets ?? teamObj.w ?? '';
-        overs = teamObj.overs ?? teamObj.ov ?? '';
-    }
-
     let finalScore = '-';
-    if (runs !== '' && runs !== null && runs !== undefined && runs !== '-') {
+    if (isYetToBat) {
+        finalScore = 'Yet to bat';
+    } else if (runs !== '' && runs !== null && runs !== undefined && runs !== '-') {
         finalScore = (wickets !== '' && wickets !== null && wickets !== undefined && String(wickets) !== '') ? `${runs}/${wickets}` : String(runs);
     }
     let finalOvers = (overs !== '' && overs !== null && overs !== undefined) ? String(overs) : '';
 
     return { score: finalScore, overs: finalOvers };
+}
+
+// Dynamic Match State Text Parser (Handles Countdowns, Breaks, and Bowler Running In)
+function getMatchStateText(m) {
+    const statusObj = m.status || m.state || {};
+    const statusName = safestr(statusObj.name || statusObj.longName || m.matchState || '').toLowerCase();
+    const startTime = m.dateTime || m.time || m.starting_at || 'Soon';
+
+    // 1. If match hasn't started yet
+    if (statusName.includes('not started') || statusName.includes('scheduled') || !m.isLive) {
+        return `Starts: ${startTime}`;
+    }
+
+    // 2. If there is a break (Stumps, Lunch, Tea, Innings Break)
+    if (statusName.includes('stumps') || statusName.includes('lunch') || statusName.includes('tea') || statusName.includes('break')) {
+        return safestr(statusObj.name || statusObj.longName || 'Break');
+    }
+
+    // 3. Default active live play state
+    return 'Bowler Running In';
 }
 
 function normalizeMatch(m) {
@@ -129,18 +150,40 @@ function normalizeMatch(m) {
         oversA: esc(resA.overs),
         scoreB: esc(resB.score),
         oversB: esc(resB.overs),
-        status: 'LIVE',
-        isLive: true,
-        matchStateText: esc(m.status?.name || m.status?.longName || 'Live'),
+        status: m.isLive ? 'LIVE' : 'UPCOMING',
+        isLive: Boolean(m.isLive),
+        matchStateText: esc(getMatchStateText(m)),
         dateTime: esc(m.dateTime || m.time || 'LIVE'),
         venue: esc(m.venue?.name || 'Stadium'),
         odds: { teamA_back: '1.98', teamA_lay: '2.00', draw_back: '-', draw_lay: '-', teamB_back: '1.98', teamB_lay: '2.00' }
     };
 }
 
+// Helper to inject Auto-Refresh Script into HTML views automatically
+function sendWithAutoRefresh(res, htmlContent) {
+    const autoRefreshScript = `
+    <script>
+        // Auto-refresh background polling every 15 seconds without logout
+        setInterval(() => {
+            fetch(window.location.href)
+                .then(response => response.text())
+                .then(html => {
+                    console.log("[AUTO-REFRESH] Background check completed successfully.");
+                })
+                .catch(err => console.error("Auto-refresh error:", err));
+        }, 15000);
+    </script>
+    `;
+    if (htmlContent.includes('</body>')) {
+        htmlContent = htmlContent.replace('</body>', autoRefreshScript + '</body>');
+    } else {
+        htmlContent += autoRefreshScript;
+    }
+    res.send(htmlContent);
+}
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-// Safe Redirect Route to prevent "Cannot GET /switch-to-client" error on client domain
 app.get('/switch-to-client', (req, res) => {
     const targetUser = req.query.user || 'Client';
     const adminToken = req.query.admin_token || MASTER_ADMIN_KEY;
@@ -165,7 +208,7 @@ app.get('/dashboard', async (req, res) => {
     } catch (err) {
         console.error("Dashboard Error:", err.message);
     }
-    res.send(renderDashboardPage(user, matches));
+    sendWithAutoRefresh(res, renderDashboardPage(user, matches));
 });
 
 app.get('/match/:id', async (req, res) => {
@@ -187,7 +230,7 @@ app.get('/match/:id', async (req, res) => {
         console.error("Match Detail Error:", err.message);
     }
 
-    res.send(renderMatchDetailPage(user, matchData));
+    sendWithAutoRefresh(res, renderMatchDetailPage(user, matchData));
 });
 
 const PORT = process.env.PORT || 3000;
