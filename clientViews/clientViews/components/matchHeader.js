@@ -1,5 +1,4 @@
-// clientViews/components/matchHeader.js
-
+// clientViews/components/matchHeader.js - Updated with Smart Match States & Countdowns
 function logoHTML(src, name) {
     if (src) {
         return `<img src="${src}" alt="${name}" class="w-6 h-6 rounded-full object-contain bg-white/10 border border-white/20">`;
@@ -27,7 +26,7 @@ function renderMatchHeader(user, matchData) {
     const oversB = d.oversB || '';
     const matchStateText = d.matchStateText || matchStatus;
 
-    const hasScore = (scoreA !== '-' || scoreB !== '-');
+    const hasScore = (scoreA !== '-' || scoreB !== '-' || scoreA === 'Yet to bat' || scoreB === 'Yet to bat');
     const isLive = matchStatus === 'LIVE' || hasScore;
     const isFinished = matchStatus === 'FINISHED';
 
@@ -35,14 +34,19 @@ function renderMatchHeader(user, matchData) {
     const statusColor = isLive ? 'text-green-400' : 'text-gray-400';
     const badgeText = isLive ? 'LIVE' : (isFinished ? 'FINISHED' : 'UPCOMING');
 
-    // Initial check for badge display on server render
-    let initialBadgeText = "BOWLER RUNNING IN";
-    let initialBadgeClass = "bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse";
+    // Smart Initial Badge determination
+    let initialBadgeText = matchStateText;
+    let initialBadgeClass = "bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.4)]";
     
     const upperState = String(matchStateText).toUpperCase();
     if (upperState.includes('BREAK') || upperState.includes('LUNCH') || upperState.includes('TEA') || upperState.includes('STUMPS') || upperState.includes('INNINGS') || upperState.includes('DRINKS')) {
-        initialBadgeText = upperState;
         initialBadgeClass = "bg-orange-500/30 border-orange-400 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.4)]";
+    } else if (upperState.includes('NOT STARTED') || upperState.includes('SCHEDULED') || upperState.includes('STARTS')) {
+        initialBadgeText = `STARTS: ${matchTime}`;
+        initialBadgeClass = "bg-blue-500/20 border-blue-400 text-blue-300";
+    } else if (isLive && !upperState.includes('BOWLER')) {
+        initialBadgeText = "BOWLER RUNNING IN";
+        initialBadgeClass = "bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse";
     }
 
     return `
@@ -119,7 +123,7 @@ function renderMatchHeader(user, matchData) {
         </div>
     </div>
 
-    <!-- REAL-TIME LIVE POLLING, BREAKS WITH TIMER & EVENT POPUP SCRIPT -->
+    <!-- SMART REAL-TIME POLLING & MATCH STATE SCRIPT -->
     <script>
         (function() {
             const matchId = "${matchId}";
@@ -139,7 +143,7 @@ function renderMatchHeader(user, matchData) {
                 badge.className = "mb-1 px-3 py-0.5 rounded-full font-black text-[11px] tracking-wider uppercase border " + colorClass + (animate ? " shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse" : "");
             }
 
-            function startBreakTimer(seconds = 900) { // Default 15 mins (15:00) if no timer provided
+            function startBreakTimer(seconds = 900) {
                 if (breakInterval) clearInterval(breakInterval);
                 breakTimerSeconds = seconds;
 
@@ -153,7 +157,6 @@ function renderMatchHeader(user, matchData) {
                         let secs = breakTimerSeconds % 60;
                         let timeStr = (mins < 10 ? "0" : "") + mins + ":" + (secs < 10 ? "0" : "") + secs;
                         
-                        // Keep current break name and append countdown timer
                         let currentText = badge.innerText.split(' - ')[0];
                         badge.innerText = currentText + " - " + timeStr;
                     }
@@ -161,7 +164,7 @@ function renderMatchHeader(user, matchData) {
             }
 
             function triggerPopup(text, colorClass) {
-                if (breakInterval) clearInterval(breakInterval); // Stop break timer if live action starts
+                if (breakInterval) clearInterval(breakInterval);
                 const badge = document.getElementById('match-event-badge');
                 if (!badge) return;
                 
@@ -198,23 +201,27 @@ function renderMatchHeader(user, matchData) {
                         let currentOvers = m.oversA || m.oversB || '';
                         let stateText = String(m.matchStateText || '').toUpperCase();
 
-                        // Check if match is currently in a Break (Drinks, Lunch, Tea, Innings Break, Stumps)
+                        // 1. Handle Breaks (Stumps, Lunch, Tea, etc.)
                         if (stateText.includes('BREAK') || stateText.includes('LUNCH') || stateText.includes('TEA') || stateText.includes('STUMPS') || stateText.includes('INNINGS') || stateText.includes('DRINKS')) {
                             let breakName = m.matchStateText.toUpperCase();
-                            
-                            // Check if timer already running or needs initialization
                             const badge = document.getElementById('match-event-badge');
                             if (badge && !badge.innerText.includes(':')) {
                                 setBadgeState(breakName + " - 15:00", "bg-orange-500/30 border-orange-400 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.4)]", false);
-                                startBreakTimer(900); // Start 15 min countdown timer
+                                startBreakTimer(900);
                             }
-                        } else {
+                        } 
+                        // 2. Handle Upcoming / Not Started Matches
+                        else if (stateText.includes('NOT STARTED') || stateText.includes('SCHEDULED') || !m.isLive) {
+                            if (breakInterval) { clearInterval(breakInterval); breakInterval = null; }
+                            setBadgeState("STARTS: " + (m.dateTime || 'Soon'), "bg-blue-500/20 border-blue-400 text-blue-300", false);
+                        } 
+                        // 3. Handle Active Live Play
+                        else {
                             if (breakInterval) {
                                 clearInterval(breakInterval);
                                 breakInterval = null;
                             }
 
-                            // Normal Live Play - Check if score/overs changed for ball events
                             if (currentScoreA !== lastScoreA || currentOvers !== lastOvers) {
                                 let diffText = "SCORE UPDATED";
                                 let color = "bg-yellow-500/20 border-yellow-400 text-yellow-300";
