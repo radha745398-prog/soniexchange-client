@@ -33,6 +33,8 @@ async function hl(endpoint) {
             headers: { 'x-rapidapi-key': HIGHLIGHTLY_KEY }
         });
         const text = await r.text();
+                console.log(`[API RESPONSE DEBUG for ${endpoint}]:`, text.slice(0, 600));
+     
         if (!r.ok) {
             console.error('API Error Response:', text.slice(0, 300));
             return null;
