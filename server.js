@@ -10,7 +10,7 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
+const HIGHLIGHTLY_KEY = 'e7ccca3a-5ace-489b-b5b3-1b459dc11f14';
 const BASE_URL = 'https://cricket.highlightly.net';
 const MASTER_ADMIN_KEY = 'soni_super_admin_secret_key_2026';
 
