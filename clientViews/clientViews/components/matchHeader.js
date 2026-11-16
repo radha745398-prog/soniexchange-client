@@ -270,10 +270,9 @@ function renderMatchHeader(user, matchData) {
                 } catch (e) {
                     console.error("Live Polling Error:", e);
                 }
-            }, 2500);
+            }, 1500);
         })();
     </script>
-    `;
 }
 
 module.exports = { renderMatchHeader };
