@@ -209,6 +209,10 @@ app.get('/dashboard', async (req, res) => {
 });
 
 app.get('/match/:id', async (req, res) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+ 
     const user = { username: esc(req.query.user || 'Client'), points: 50000, exposure: 1200 };
     const matchId = req.params.id;
     let matchData = {
