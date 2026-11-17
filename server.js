@@ -1,5 +1,5 @@
+// server.js - Final Countdown and Live Match Fix
 
-// server.js - Countdown Fix + Existing Features Preserved
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -11,7 +11,7 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// HIGHLIGHTLY API KEY
+// API Key successfully configured
 const HIGHLIGHTLY_KEY = '9dbd25b8-570b-458e-be8e-65128cc3edb2';
 
 const BASE_URL = 'https://cricket.highlightly.net';
@@ -19,15 +19,23 @@ const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
 const safestr = (val, fallback = '') => {
     if (val === null || val === undefined) return fallback;
+
     if (typeof val === 'object') {
         return val.name || val.longName || val.description ||
             val.shortName || val.text || val.runs || val.score || fallback;
     }
+
     return String(val);
 };
 
 const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[c]
 ));
 
 function getRawMatch(json) {
@@ -36,6 +44,20 @@ function getRawMatch(json) {
     if (json?.data && typeof json.data === 'object') return json.data;
     if (Array.isArray(json?.matches)) return json.matches[0] || null;
     return json || null;
+}
+
+function parseTimestamp(value) {
+    if (!value) return null;
+
+    let timestamp;
+
+    if (typeof value === 'number') {
+        timestamp = value < 1000000000000 ? value * 1000 : value;
+    } else {
+        timestamp = new Date(value).getTime();
+    }
+
+    return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function getStartTimestamp(match) {
@@ -51,16 +73,20 @@ function getStartTimestamp(match) {
     ];
 
     for (const value of possibleTimes) {
-        if (!value) continue;
-        const timestamp = new Date(value).getTime();
-        if (Number.isFinite(timestamp)) return timestamp;
+        const timestamp = parseTimestamp(value);
+        if (timestamp) return timestamp;
     }
 
     return null;
 }
 
 function getStateName(match) {
-    const state = match?.state || match?.status || {};
+    const state = match?.state ?? match?.status ?? {};
+
+    if (typeof state === 'string') {
+        return state.toLowerCase();
+    }
+
     return String(
         state.description ||
         state.name ||
@@ -79,76 +105,88 @@ function getMatchStatus(match) {
         stateName.includes('completed') ||
         stateName.includes('result') ||
         stateName.includes('abandoned')
-    ) return 'FINISHED';
+    ) {
+        return 'FINISHED';
+    }
 
     if (
         stateName.includes('stumps') ||
         stateName.includes('lunch') ||
         stateName.includes('tea') ||
         stateName.includes('drinks') ||
-        stateName.includes('break') ||
-        stateName.includes('innings break')
-    ) return 'BREAK';
+        stateName.includes('break')
+    ) {
+        return 'BREAK';
+    }
 
     if (
         stateName.includes('scheduled') ||
         stateName.includes('not started') ||
         stateName.includes('upcoming') ||
         stateName.includes('yet to begin')
-    ) return 'UPCOMING';
-
-    if (match?.isLive === true) return 'LIVE';
+    ) {
+        return 'UPCOMING';
+    }
 
     if (
+        match?.isLive === true ||
         stateName.includes('live') ||
         stateName.includes('in progress') ||
         stateName.includes('inplay') ||
         stateName.includes('in play')
-    ) return 'LIVE';
+    ) {
+        return 'LIVE';
+    }
 
-    return match?.isLive ? 'LIVE' : 'UPCOMING';
+    return 'UPCOMING';
 }
 
 async function hl(endpoint) {
     try {
-        if (!HIGHLIGHTLY_KEY) {
-            console.error('HIGHLIGHTLY_KEY is missing.');
+        if (!HIGHLIGHTLY_KEY.trim()) {
+            console.error('HIGHLIGHTLY_KEY is missing. Add your API key in server.js.');
             return null;
         }
 
-        console.log(`[API REQUEST] Fetching: ${BASE_URL}${endpoint}`);
+        console.log(`[API REQUEST] ${BASE_URL}${endpoint}`);
 
         const r = await fetch(`${BASE_URL}${endpoint}`, {
-            headers: { 'x-rapidapi-key': HIGHLIGHTLY_KEY }
+            headers: {
+                'x-rapidapi-key': HIGHLIGHTLY_KEY.trim()
+            }
         });
 
-        const text = await r.text();
+        const responseText = await r.text();
 
         console.log(`[API RESPONSE] ${endpoint} - HTTP ${r.status}`);
 
         if (!r.ok) {
-            console.error('API Error Response:', text.slice(0, 300));
+            console.error('API Error:', responseText.slice(0, 300));
             return null;
         }
 
-        return JSON.parse(text);
+        return JSON.parse(responseText);
+
     } catch (e) {
         console.error('Fetch Exception:', e.message);
         return null;
     }
 }
 
-// Robust Score Extractor with "Yet to Bat" Support
+// SCORE EXTRACTOR
 function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
     let runs = '';
     let wickets = '';
     let overs = '';
     let isYetToBat = false;
 
-    const teamsState = matchObj.state?.teams || matchObj.inplayData?.state?.teams;
+    const teamsState =
+        matchObj.state?.teams ||
+        matchObj.inplayData?.state?.teams;
 
     if (teamsState) {
         const teamKey = isHome ? 'home' : 'away';
+
         const tState = teamsState[teamKey] ||
             teamsState[isHome ? 'localteam' : 'visitorteam'];
 
@@ -167,7 +205,6 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
             if (
                 rawScore &&
                 rawScore !== 'null' &&
-                rawScore !== '' &&
                 rawScore !== 'Yet to bat'
             ) {
                 if (rawScore.includes('/')) {
@@ -180,7 +217,8 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
             }
 
             const rawInfo = safestr(tState.info);
-            if (rawInfo && rawInfo !== 'null' && rawInfo !== '') {
+
+            if (rawInfo && rawInfo !== 'null') {
                 overs = rawInfo;
             }
         }
@@ -188,8 +226,11 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
 
     if (!isYetToBat && runs === '') {
         const teamName = safestr(teamObj?.name || teamObj).toLowerCase();
-        const scoreboard = matchObj.inplayData?.scoreboard ||
-            matchObj.scoreboard || [];
+
+        const scoreboard =
+            matchObj.inplayData?.scoreboard ||
+            matchObj.scoreboard ||
+            [];
 
         if (Array.isArray(scoreboard) && scoreboard.length > 0) {
             const matched = scoreboard.find(s => {
@@ -199,12 +240,16 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
 
                 return sName && teamName &&
                     (sName.includes(teamName) || teamName.includes(sName));
-            }) || (isHome ? scoreboard[0] :
-                scoreboard[1] || scoreboard[scoreboard.length - 1]);
+            }) || (
+                isHome
+                    ? scoreboard[0]
+                    : scoreboard[1] || scoreboard[scoreboard.length - 1]
+            );
 
             if (matched) {
                 runs = matched.runs ?? matched.score ??
                     matched.r ?? matched.total ?? '';
+
                 wickets = matched.wickets ?? matched.w ?? matched.wkt ?? '';
                 overs = matched.overs ?? matched.ov ?? matched.over ?? '';
             }
@@ -229,31 +274,37 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
         ) ? `${runs}/${wickets}` : String(runs);
     }
 
-    const finalOvers = (
-        overs !== '' && overs !== null && overs !== undefined
-    ) ? String(overs) : '';
-
-    return { score: finalScore, overs: finalOvers };
+    return {
+        score: finalScore,
+        overs: overs !== null && overs !== undefined ? String(overs) : ''
+    };
 }
 
-// Dynamic Match State Text Parser
-function getMatchStateText(m) {
-    const status = getMatchStatus(m);
-    const stateObj = m.state || m.status || {};
+// MATCH STATE TEXT
+function getMatchStateText(match) {
+    const status = getMatchStatus(match);
+    const stateObj = match.state || match.status || {};
 
     if (status === 'UPCOMING') return 'UPCOMING';
 
     if (status === 'FINISHED') {
-        return safestr(stateObj.description || stateObj.name, 'FINISHED').toUpperCase();
+        return safestr(
+            stateObj.description || stateObj.name || stateObj,
+            'FINISHED'
+        ).toUpperCase();
     }
 
     if (status === 'BREAK') {
-        return safestr(stateObj.description || stateObj.name, 'BREAK').toUpperCase();
+        return safestr(
+            stateObj.description || stateObj.name || stateObj,
+            'BREAK'
+        ).toUpperCase();
     }
 
     return 'BOWLER RUNNING IN';
 }
 
+// NORMALIZE MATCH
 function normalizeMatch(m) {
     if (!m) return {};
 
@@ -263,8 +314,13 @@ function normalizeMatch(m) {
     const teamBObj = m.awayTeam || m.visitorteam || m.teamB ||
         m.team_b || { name: m.teamB || 'Team B' };
 
-    const teamAName = safestr(teamAObj.name || teamAObj.longName || teamAObj);
-    const teamBName = safestr(teamBObj.name || teamBObj.longName || teamBObj);
+    const teamAName = safestr(
+        teamAObj.name || teamAObj.longName || teamAObj
+    );
+
+    const teamBName = safestr(
+        teamBObj.name || teamBObj.longName || teamBObj
+    );
 
     const logoA = safestr(teamAObj.logo || teamAObj.image || '');
     const logoB = safestr(teamBObj.logo || teamBObj.image || '');
@@ -275,35 +331,53 @@ function normalizeMatch(m) {
     const matchStatus = getMatchStatus(m);
     const startTimestamp = getStartTimestamp(m);
 
-    const countdownTimestamp = matchStatus === 'UPCOMING'
-        ? startTimestamp
-        : (matchStatus === 'BREAK' && m.resumes_at
-            ? new Date(m.resumes_at).getTime()
-            : null);
+    // Countdown only for scheduled/upcoming matches
+    const countdownTimestamp =
+        matchStatus === 'UPCOMING' ? startTimestamp : null;
 
-    const startTimeValue = m.startTime || m.starting_at ||
-        m.startingAt || m.dateTime || m.time || '';
+    const startTimeValue =
+        m.startTime ||
+        m.starting_at ||
+        m.startingAt ||
+        m.dateTime ||
+        m.time ||
+        '';
 
     return {
-        id: esc(m.id || m.match_id),
-        tournament: esc(m.league?.name || m.tournament || m.series || 'Live Cricket'),
+        id: esc(m.id || m.matchId || m.match_id),
+
+        tournament: esc(
+            m.league?.name ||
+            m.tournament ||
+            m.series ||
+            'Live Cricket'
+        ),
+
         teamA: esc(teamAName),
         teamB: esc(teamBName),
+
         logoA: esc(logoA),
         logoB: esc(logoB),
+
         scoreA: esc(resA.score),
         oversA: esc(resA.overs),
+
         scoreB: esc(resB.score),
         oversB: esc(resB.overs),
 
         status: matchStatus,
         isLive: matchStatus === 'LIVE',
+
         matchStateText: esc(getMatchStateText(m)),
 
-        dateTime: esc(startTimeValue || (matchStatus === 'LIVE' ? 'LIVE' : '')),
-        countdownTimestamp: countdownTimestamp,
+        dateTime: esc(
+            startTimeValue ||
+            (matchStatus === 'LIVE' ? 'LIVE' : '')
+        ),
 
-        venue: esc(m.venue?.name || 'Stadium'),
+        countdownTimestamp,
+
+        venue: esc(m.venue?.name || m.venue || 'Stadium'),
 
         odds: {
             teamA_back: '1.98',
@@ -320,18 +394,17 @@ function sendWithAutoRefresh(res, htmlContent) {
     const autoRefreshScript = `
     <script>
         setInterval(() => {
-            fetch(window.location.href)
-                .then(response => response.text())
-                .then(html => {
-                    console.log("[AUTO-REFRESH] Background check completed successfully.");
-                })
+            fetch(window.location.href, { cache: 'no-store' })
                 .catch(err => console.error("Auto-refresh error:", err));
         }, 15000);
     </script>
     `;
 
     if (htmlContent.includes('</body>')) {
-        htmlContent = htmlContent.replace('</body>', autoRefreshScript + '</body>');
+        htmlContent = htmlContent.replace(
+            '</body>',
+            autoRefreshScript + '</body>'
+        );
     } else {
         htmlContent += autoRefreshScript;
     }
@@ -356,12 +429,7 @@ app.get('/switch-to-client', (req, res) => {
 
 // DASHBOARD
 app.get('/dashboard', async (req, res) => {
-    const adminToken = req.query.admin_token;
     const targetUser = req.query.user || 'Client';
-
-    if (adminToken !== MASTER_ADMIN_KEY && !targetUser) {
-        return res.redirect('/');
-    }
 
     const user = {
         username: esc(targetUser),
@@ -377,10 +445,18 @@ app.get('/dashboard', async (req, res) => {
 
         const list = Array.isArray(json)
             ? json
-            : (json?.data || json?.matches || []);
+            : (
+                Array.isArray(json?.data)
+                    ? json.data
+                    : (
+                        Array.isArray(json?.matches)
+                            ? json.matches
+                            : []
+                    )
+            );
 
         matches = list
-            .filter(m => m && (m.id || m.match_id))
+            .filter(m => m && (m.id || m.matchId || m.match_id))
             .map(normalizeMatch);
 
     } catch (err) {
@@ -390,9 +466,12 @@ app.get('/dashboard', async (req, res) => {
     sendWithAutoRefresh(res, renderDashboardPage(user, matches));
 });
 
-// Shared match data loader
+// SHARED MATCH DATA LOADER
 async function loadMatchData(matchId) {
-    const json = await hl(`/matches/${encodeURIComponent(matchId)}`);
+    const json = await hl(
+        `/matches/${encodeURIComponent(matchId)}`
+    );
+
     const found = getRawMatch(json);
 
     if (!found || !(found.id || found.matchId || found.match_id)) {
@@ -402,9 +481,13 @@ async function loadMatchData(matchId) {
     return normalizeMatch(found);
 }
 
-// LIVE MATCH DATA API - Required by matchHeader.js polling
+// LIVE MATCH DATA API
 app.get('/api/match/:id', async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader(
+        'Cache-Control',
+        'no-store, no-cache, must-revalidate, proxy-revalidate'
+    );
+
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
@@ -435,7 +518,11 @@ app.get('/api/match/:id', async (req, res) => {
 
 // MATCH DETAIL PAGE
 app.get('/match/:id', async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader(
+        'Cache-Control',
+        'no-store, no-cache, must-revalidate, proxy-revalidate'
+    );
+
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
@@ -449,20 +536,20 @@ app.get('/match/:id', async (req, res) => {
 
     let matchData = {
         id: esc(matchId),
-        tournament: 'Live Match',
+        tournament: 'Cricket Match',
         teamA: 'Team A',
         teamB: 'Team B',
         logoA: '',
         logoB: '',
         scoreA: '-',
-        oversA: '-',
+        oversA: '',
         scoreB: '-',
-        oversB: '-',
-        status: 'LIVE',
-        isLive: true,
-        matchStateText: 'Live',
+        oversB: '',
+        status: 'UPCOMING',
+        isLive: false,
+        matchStateText: 'UPCOMING',
         venue: 'Stadium',
-        dateTime: 'LIVE',
+        dateTime: '',
         countdownTimestamp: null
     };
 
@@ -477,7 +564,10 @@ app.get('/match/:id', async (req, res) => {
         console.error('Match Detail Error:', err.message);
     }
 
-    sendWithAutoRefresh(res, renderMatchDetailPage(user, matchData));
+    sendWithAutoRefresh(
+        res,
+        renderMatchDetailPage(user, matchData)
+    );
 });
 
 const PORT = process.env.PORT || 3000;
