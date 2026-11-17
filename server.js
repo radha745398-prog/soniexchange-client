@@ -11,7 +11,9 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const HIGHLIGHTLY_KEY = process.env.HIGHLIGHTLY_KEY || '';
+// HIGHLIGHTLY API KEY
+const HIGHLIGHTLY_KEY = '9dbd25b8-570b-458e-be8e-65128cc3edb2';
+
 const BASE_URL = 'https://cricket.highlightly.net';
 const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
@@ -110,7 +112,7 @@ function getMatchStatus(match) {
 async function hl(endpoint) {
     try {
         if (!HIGHLIGHTLY_KEY) {
-            console.error('HIGHLIGHTLY_KEY environment variable is missing.');
+            console.error('HIGHLIGHTLY_KEY is missing.');
             return null;
         }
 
@@ -122,7 +124,6 @@ async function hl(endpoint) {
 
         const text = await r.text();
 
-        // Response logging kept short to avoid exposing unnecessary API data.
         console.log(`[API RESPONSE] ${endpoint} - HTTP ${r.status}`);
 
         if (!r.ok) {
