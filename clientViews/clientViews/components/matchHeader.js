@@ -1,47 +1,9 @@
 // clientViews/components/matchHeader.js
 // Final Countdown + Live Score + Event Popup + Live Transition Fix
 
-const COUNTRY_BADGE_MAP = {
-    INDIA: { flag: '🇮🇳', code: 'IND' },
-    PAKISTAN: { flag: '🇵🇰', code: 'PAK' },
-    AUSTRALIA: { flag: '🇦🇺', code: 'AUS' },
-    ENGLAND: { flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', code: 'ENG' },
-    'SOUTH AFRICA': { flag: '🇿🇦', code: 'SA' },
-    'NEW ZEALAND': { flag: '🇳🇿', code: 'NZ' },
-    'SRI LANKA': { flag: '🇱🇰', code: 'SL' },
-    BANGLADESH: { flag: '🇧🇩', code: 'BAN' },
-    AFGHANISTAN: { flag: '🇦🇫', code: 'AFG' },
-    'WEST INDIES': { flag: '🌴', code: 'WI' },
-    UAE: { flag: '🇦🇪', code: 'UAE' },
-    'UNITED ARAB EMIRATES': { flag: '🇦🇪', code: 'UAE' },
-    IRELAND: { flag: '🇮🇪', code: 'IRE' },
-    ZIMBABWE: { flag: '🇿🇼', code: 'ZIM' },
-    SCOTLAND: { flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', code: 'SCO' },
-    NETHERLANDS: { flag: '🇳🇱', code: 'NED' },
-    USA: { flag: '🇺🇸', code: 'USA' },
-    'YAS LIONS': { flag: '🦁', code: 'YL' },
-    LIONS: { flag: '🦁', code: 'LNS' }
-};
-
-function flagOrLogoHTML(src, name, flagSrc) {
-    const imgUrl = src || flagSrc || '';
-
-    if (imgUrl) {
-        return `<img src="${imgUrl}" alt="${name}" class="w-7 h-7 rounded-full object-cover bg-white/10 border border-white/30 shrink-0">`;
-    }
-
-    const upperName = String(name || '').trim().toUpperCase();
-    let matchedCountry = null;
-
-    for (const key of Object.keys(COUNTRY_BADGE_MAP)) {
-        if (upperName.includes(key)) {
-            matchedCountry = COUNTRY_BADGE_MAP[key];
-            break;
-        }
-    }
-
-    if (matchedCountry) {
-        return `<div class="w-7 h-7 rounded-full bg-[#1e293b] border border-white/30 flex items-center justify-center text-sm shrink-0 shadow" title="${name}">${matchedCountry.flag}</div>`;
+function flagOrLogoHTML(src, name) {
+    if (src) {
+        return `<img src="${src}" alt="${name}" class="w-7 h-7 rounded-full object-cover bg-white/10 border border-white/30 shrink-0">`;
     }
 
     const initials = String(name || '?').trim().slice(0, 2).toUpperCase();
@@ -214,7 +176,7 @@ function renderMatchHeader(user, matchData) {
 
                 <div class="col-span-4 flex items-center space-x-2">
 
-                    ${flagOrLogoHTML(d.logoA, teamA, d.flagA)}
+                    ${flagOrLogoHTML(d.logoA, teamA)}
 
                     <div>
                         <div class="font-black text-sm text-white flex items-center space-x-1">
@@ -252,7 +214,7 @@ function renderMatchHeader(user, matchData) {
                         </div>
                     </div>
 
-                    ${flagOrLogoHTML(d.logoB, teamB, d.flagB)}
+                    ${flagOrLogoHTML(d.logoB, teamB)}
                 </div>
             </div>
         </div>
