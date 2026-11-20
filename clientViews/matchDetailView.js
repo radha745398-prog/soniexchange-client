@@ -20,8 +20,10 @@ function renderMatchDetailPage(user, matchData) {
     const initialOversA = matchData ? (matchData.oversA || '') : '';
     const initialOversB = matchData ? (matchData.oversB || '') : '';
     const initialScoreA = matchData ? (matchData.scoreA || '-') : '-';
+    const initialOversList = matchData && Array.isArray(matchData.oversList) ? matchData.oversList : [];
     const safeInitialOvers = JSON.stringify(String(initialOversA || initialOversB || ''));
     const safeInitialScoreA = JSON.stringify(String(initialScoreA));
+    const safeInitialOversList = JSON.stringify(initialOversList);
 
     return `
     <!DOCTYPE html>
@@ -86,7 +88,6 @@ function renderMatchDetailPage(user, matchData) {
                 cursor: pointer;
             }
 
-            /* Market Suspended State */
             .market-suspended {
                 background-color: #2a2e33 !important;
                 color: #71767a !important;
@@ -104,12 +105,10 @@ function renderMatchDetailPage(user, matchData) {
                 background-color: #ef4444;
             }
 
-            /* Modal Overlay */
             .modal-overlay {
                 background: rgba(0, 0, 0, 0.6);
             }
 
-            /* Custom Horizontal Scrollbar */
             .no-scrollbar::-webkit-scrollbar {
                 display: none;
             }
@@ -129,30 +128,29 @@ function renderMatchDetailPage(user, matchData) {
         <!-- MAIN CONTENT MARKETS -->
         <main class="flex-1 p-2 space-y-3 max-w-7xl mx-auto w-full">
 
-            <!-- SLIDEABLE OVERS & COLORED BALLS STRIP (ABOVE MATCH ODDS) -->
+            <!-- OVER-BY-OVER SLIDEABLE BALL HISTORY LINE -->
             <section id="overs-balls-strip-box"
                      class="bg-[#0f172a] text-white rounded border border-gray-800 overflow-hidden shadow">
                 <div class="bg-[#0b141d] px-3 py-1.5 flex items-center justify-between border-b border-gray-800 text-[11px]">
                     <div class="font-bold tracking-wider uppercase text-[#00c0FF] flex items-center space-x-1.5">
                         <i class="fa-solid fa-baseball-bat-ball"></i>
-                        <span>OVERS & BALLS</span>
+                        <span>OVER HISTORY (SLIDE)</span>
                     </div>
-                    <div class="flex items-center space-x-1.5 text-[10px] font-bold">
+                    <div class="flex items-center space-x-1 text-[10px] font-bold">
                         <span class="px-1.5 py-0.5 rounded bg-red-600 text-white">W</span>
                         <span class="px-1.5 py-0.5 rounded bg-purple-600 text-white">6</span>
                         <span class="px-1.5 py-0.5 rounded bg-blue-600 text-white">4</span>
-                        <span class="px-1.5 py-0.5 rounded bg-green-600 text-white">1-3</span>
-                        <span class="px-1.5 py-0.5 rounded bg-slate-600 text-white">•</span>
+                        <span class="px-1.5 py-0.5 rounded bg-emerald-600 text-white">3</span>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-600 text-white">2</span>
+                        <span class="px-1.5 py-0.5 rounded bg-green-600 text-white">1</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-600 text-white">DOT</span>
                     </div>
                 </div>
 
                 <div id="overs-slider-track"
-                     class="flex items-stretch space-x-2 p-2 overflow-x-auto no-scrollbar">
-                    <div class="shrink-0 bg-[#1e293b] border border-gray-700 rounded px-2.5 py-1.5 min-w-[130px]">
-                        <div class="text-[10px] font-bold text-gray-300">Waiting for balls...</div>
-                        <div class="flex items-center space-x-1 mt-1 text-[10px] text-gray-400">
-                            <span>Slide left/right to view overs</span>
-                        </div>
+                     class="flex items-center space-x-2 px-2.5 py-2 overflow-x-auto no-scrollbar whitespace-nowrap">
+                    <div class="inline-flex items-center space-x-2 bg-[#1e293b] border border-gray-700 rounded px-3 py-1.5 text-[10px] text-gray-300">
+                        <span>Over 1 se aage ke overs yahan slide hokar aayenge</span>
                     </div>
                 </div>
             </section>
@@ -250,7 +248,6 @@ function renderMatchDetailPage(user, matchData) {
                                oninput="calculateProfit()">
                     </div>
 
-                    <!-- Quick Stake Buttons -->
                     <div class="grid grid-cols-4 gap-1.5">
 
                         <button onclick="addStake(1000)"
@@ -313,88 +310,90 @@ function renderMatchDetailPage(user, matchData) {
             </div>
         </div>
 
-        <!-- JAVASCRIPT FOR BETTING, POINTS & SLIDEABLE OVERS LOGIC -->
+        <!-- JAVASCRIPT FOR SLIDEABLE OVER-BY-OVER BALL HISTORY & BETTING -->
         <script>
             (function() {
                 const oversMap = new Map();
 
-                function getBallColorClass(ball) {
-                    const val = String(ball || '').trim().toUpperCase();
+                function normalizeBall(rawBall) {
+                    const s = String(rawBall ?? '').trim().toUpperCase();
+                    if (!s || s === '0' || s === 'DOT' || s === '.') return 'DOT';
+                    if (s === 'W' || s.includes('WICKET') || s.includes('OUT')) return 'W';
+                    if (['6', '4', '3', '2', '1'].includes(s)) return s;
+                    return s.slice(0, 4);
+                }
 
-                    if (val === 'W' || val.includes('WKT') || val.includes('OUT')) {
-                        return 'bg-red-600 text-white border-red-400';
-                    }
-                    if (val === '6') {
-                        return 'bg-purple-600 text-white border-purple-400';
-                    }
-                    if (val === '4') {
-                        return 'bg-blue-600 text-white border-blue-400';
-                    }
-                    if (val === '3') {
-                        return 'bg-emerald-600 text-white border-emerald-400';
-                    }
-                    if (val === '2') {
-                        return 'bg-indigo-600 text-white border-indigo-400';
-                    }
-                    if (val === '1') {
-                        return 'bg-green-600 text-white border-green-400';
-                    }
-
+                function getBallBadgeStyle(ball) {
+                    const code = normalizeBall(ball);
+                    if (code === 'W') return 'bg-red-600 text-white border-red-400';
+                    if (code === '6') return 'bg-purple-600 text-white border-purple-400';
+                    if (code === '4') return 'bg-blue-600 text-white border-blue-400';
+                    if (code === '3') return 'bg-emerald-600 text-white border-emerald-400';
+                    if (code === '2') return 'bg-indigo-600 text-white border-indigo-400';
+                    if (code === '1') return 'bg-green-600 text-white border-green-400';
                     return 'bg-slate-600 text-white border-slate-400';
                 }
 
-                function normalizeBallLabel(rawBall) {
-                    const s = String(rawBall ?? '').trim().toUpperCase();
-                    if (!s || s === '0' || s === 'DOT' || s === '.') return '•';
-                    if (s === 'W' || s.includes('WICKET') || s.includes('OUT')) return 'W';
-                    if (['1', '2', '3', '4', '6'].includes(s)) return s;
-                    return s.slice(0, 2);
-                }
-
-                function extractOverNumber(oversText) {
+                function parseOverNumberFromText(oversText) {
                     const match = String(oversText || '').match(/(\d+)/);
                     if (!match) return 1;
                     const num = parseInt(match[1], 10);
                     return Number.isFinite(num) && num >= 0 ? num + 1 : 1;
                 }
 
-                function renderOversStrip() {
+                function ensureOversUpTo(maxOver) {
+                    const limit = Math.max(1, Number(maxOver) || 1);
+                    for (let ov = 1; ov <= limit; ov++) {
+                        if (!oversMap.has(ov)) {
+                            oversMap.set(ov, { balls: [], score: '' });
+                        }
+                    }
+                }
+
+                function renderOverHistoryLine() {
                     const track = document.getElementById('overs-slider-track');
                     if (!track) return;
 
-                    const entries = Array.from(oversMap.entries())
+                    const sortedOvers = Array.from(oversMap.entries())
                         .sort((a, b) => a[0] - b[0]);
 
-                    if (entries.length === 0) {
+                    if (sortedOvers.length === 0) {
                         track.innerHTML = \`
-                            <div class="shrink-0 bg-[#1e293b] border border-gray-700 rounded px-2.5 py-1.5 min-w-[140px]">
-                                <div class="text-[10px] font-bold text-gray-300">No balls recorded yet</div>
-                                <div class="text-[10px] text-gray-400 mt-0.5">Live balls (1, 2, 3, 4, 6, •, W) will appear here</div>
+                            <div class="inline-flex items-center space-x-2 bg-[#1e293b] border border-gray-700 rounded px-3 py-1.5 text-[10px] text-gray-300">
+                                <span>Over 1 se aage ke overs yahan slide hokar aayenge</span>
                             </div>
                         \`;
                         return;
                     }
 
-                    track.innerHTML = entries.map(([overNum, info]) => {
-                        const ballsHtml = (info.balls || []).map(b => {
-                            const label = normalizeBallLabel(b);
-                            const colorCls = getBallColorClass(label);
-                            return \`<span class="w-5 h-5 rounded-full border text-[10px] font-black flex items-center justify-center shrink-0 \${colorCls}">\${label}</span>\`;
-                        }).join('');
+                    track.innerHTML = sortedOvers.map(([overNum, info]) => {
+                        const ballsList = Array.isArray(info.balls) ? info.balls : [];
+                        const ballsChips = ballsList.length > 0
+                            ? ballsList.map((b, idx) => {
+                                const label = normalizeBall(b);
+                                const cls = getBallBadgeStyle(label);
+                                return \`
+                                    <span title="Over \${overNum}, Ball \${idx + 1}: \${label}"
+                                          class="px-1.5 h-5 min-w-[22px] rounded-full border text-[10px] font-black inline-flex items-center justify-center shrink-0 \${cls}">
+                                        \${label}
+                                    </span>
+                                \`;
+                            }).join('')
+                            : \`<span class="text-[10px] text-gray-400 px-1">No balls</span>\`;
 
-                        const scoreBadge = info.score
-                            ? \`<span class="text-[10px] text-amber-300 font-mono">\${info.score}</span>\`
+                        const scoreTag = info.score
+                            ? \`<span class="text-[10px] font-mono text-amber-300 ml-1.5">\${info.score}</span>\`
                             : '';
 
                         return \`
-                            <div class="shrink-0 bg-[#1e293b] border border-gray-700 rounded-md px-2.5 py-1.5 min-w-[145px]">
-                                <div class="flex items-center justify-between space-x-2 mb-1.5">
-                                    <span class="text-[10px] font-black uppercase text-[#00c0FF]">Over \${overNum}</span>
-                                    \${scoreBadge}
+                            <div class="inline-flex items-center bg-[#1e293b] border border-gray-700 rounded-full px-2.5 py-1 shrink-0 space-x-1.5">
+                                <span class="text-[10px] font-black uppercase text-[#00c0FF] pr-1 border-r border-gray-700">
+                                    Over \${overNum}
+                                </span>
+                                <div class="inline-flex items-center space-x-1">
+                                    \${ballsChips}
                                 </div>
-                                <div class="flex items-center space-x-1 overflow-x-auto no-scrollbar">
-                                    \${ballsHtml || '<span class="text-[10px] text-gray-400">-</span>'}
-                                </div>
+                                \${scoreTag}
                             </div>
                         \`;
                     }).join('');
@@ -403,68 +402,89 @@ function renderMatchDetailPage(user, matchData) {
                 }
 
                 window.recordLiveOverBall = function(oversText, ballSymbol, scoreText) {
-                    const overNum = extractOverNumber(oversText);
-                    const existing = oversMap.get(overNum) || { balls: [], score: '' };
-                    const cleanSymbol = normalizeBallLabel(ballSymbol);
-
-                    existing.balls.push(cleanSymbol);
-                    if (existing.balls.length > 8) {
-                        existing.balls = existing.balls.slice(-8);
-                    }
+                    const overNum = parseOverNumberFromText(oversText);
+                    ensureOversUpTo(overNum);
+                    const entry = oversMap.get(overNum);
+                    entry.balls.push(normalizeBall(ballSymbol));
                     if (scoreText && scoreText !== '-') {
-                        existing.score = scoreText;
+                        entry.score = scoreText;
                     }
-
-                    oversMap.set(overNum, existing);
-                    renderOversStrip();
+                    oversMap.set(overNum, entry);
+                    renderOverHistoryLine();
                 };
 
                 window.syncOversStrip = function(matchObj) {
                     if (!matchObj) return;
 
-                    const rawOversList =
+                    const rawList =
                         Array.isArray(matchObj.oversList) ? matchObj.oversList :
                         Array.isArray(matchObj.overs) ? matchObj.overs :
                         Array.isArray(matchObj.recentOvers) ? matchObj.recentOvers :
                         null;
 
-                    if (rawOversList && rawOversList.length > 0) {
+                    if (rawList && rawList.length > 0) {
                         oversMap.clear();
-                        rawOversList.forEach((item, idx) => {
-                            const overNum = Number(item.overNumber ?? item.over ?? item.number ?? (idx + 1));
-                            const ballsArr = Array.isArray(item.balls)
-                                ? item.balls.map(b => normalizeBallLabel(b?.ball ?? b?.runs ?? b?.symbol ?? b?.value ?? b))
-                                : [];
-                            const scoreVal = item.score || item.runs || '';
-                            oversMap.set(Number.isFinite(overNum) && overNum > 0 ? overNum : (idx + 1), {
-                                balls: ballsArr,
-                                score: scoreVal ? String(scoreVal) : ''
+                        let maxOv = 1;
+
+                        rawList.forEach((item, idx) => {
+                            const ovNum = Number(item.overNumber ?? item.over ?? item.number ?? (idx + 1));
+                            const cleanOv = Number.isFinite(ovNum) && ovNum > 0 ? ovNum : (idx + 1);
+                            if (cleanOv > maxOv) maxOv = cleanOv;
+
+                            const rawBalls = Array.isArray(item.balls)
+                                ? item.balls
+                                : (Array.isArray(item.deliveries) ? item.deliveries : []);
+
+                            const balls = rawBalls.map(b =>
+                                normalizeBall(b?.ball ?? b?.runs ?? b?.symbol ?? b?.value ?? b?.event ?? b)
+                            );
+
+                            oversMap.set(cleanOv, {
+                                balls,
+                                score: item.score ? String(item.score) : ''
                             });
                         });
-                        renderOversStrip();
+
+                        ensureOversUpTo(maxOv);
+                        renderOverHistoryLine();
                         return;
                     }
 
-                    const currentOv = matchObj.oversA || matchObj.oversB || '';
-                    if (currentOv && oversMap.size === 0) {
-                        const overNum = extractOverNumber(currentOv);
-                        oversMap.set(overNum, {
-                            balls: [],
-                            score: matchObj.scoreA && matchObj.scoreA !== '-' ? matchObj.scoreA : (matchObj.scoreB || '')
-                        });
-                        renderOversStrip();
+                    const currentOvText = matchObj.oversA || matchObj.oversB || '';
+                    if (currentOvText) {
+                        const ovNum = parseOverNumberFromText(currentOvText);
+                        ensureOversUpTo(ovNum);
+                        const existing = oversMap.get(ovNum);
+                        if (matchObj.scoreA && matchObj.scoreA !== '-') {
+                            existing.score = matchObj.scoreA;
+                        }
+                        renderOverHistoryLine();
                     }
                 };
 
-                const initOv = ${safeInitialOvers};
-                const initSc = ${safeInitialScoreA};
-                if (initOv) {
-                    oversMap.set(extractOverNumber(initOv), {
-                        balls: [],
-                        score: initSc && initSc !== '-' ? initSc : ''
+                const initList = ${safeInitialOversList};
+                if (Array.isArray(initList) && initList.length > 0) {
+                    let maxOv = 1;
+                    initList.forEach((item, idx) => {
+                        const ovNum = Number(item.overNumber ?? (idx + 1));
+                        const cleanOv = Number.isFinite(ovNum) && ovNum > 0 ? ovNum : (idx + 1);
+                        if (cleanOv > maxOv) maxOv = cleanOv;
+                        oversMap.set(cleanOv, {
+                            balls: Array.isArray(item.balls) ? item.balls.map(normalizeBall) : [],
+                            score: item.score ? String(item.score) : ''
+                        });
                     });
+                    ensureOversUpTo(maxOv);
+                } else {
+                    const initOv = ${safeInitialOvers};
+                    const initSc = ${safeInitialScoreA};
+                    const startOver = initOv ? parseOverNumberFromText(initOv) : 1;
+                    ensureOversUpTo(startOver);
+                    if (initSc && initSc !== '-') {
+                        oversMap.get(startOver).score = initSc;
+                    }
                 }
-                renderOversStrip();
+                renderOverHistoryLine();
             })();
 
             let currentBet = {
