@@ -744,8 +744,9 @@ function renderMatchHeader(user, matchData) {
                                     color = 'bg-slate-600/30 border-slate-400 text-slate-300';
                                 }
                             } else if (runStatDiff > 0) {
-                                ballSymbol = String(Math.min(runStatDiff, 6));
-                                diffText = `${runStatDiff} RUN${runStatDiff > 1 ? 'S' : ''}`;
+                                const rNum = Math.min(runStatDiff, 6);
+                                ballSymbol = String(rNum);
+                                diffText = rNum + (rNum > 1 ? ' RUNS' : ' RUN');
                                 color = 'bg-green-500/30 border-green-400 text-green-300';
                             } else if (ballStatDiff > 0) {
                                 ballSymbol = 'DOT';
