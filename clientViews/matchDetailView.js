@@ -17,6 +17,11 @@ function renderMatchDetailPage(user, matchData) {
     const teamA = matchData ? matchData.teamA : 'Pakistan';
     const teamB = matchData ? matchData.teamB : 'Sri Lanka';
     const matchId = matchData ? matchData.id : '556727281';
+    const initialOversA = matchData ? (matchData.oversA || '') : '';
+    const initialOversB = matchData ? (matchData.oversB || '') : '';
+    const initialScoreA = matchData ? (matchData.scoreA || '-') : '-';
+    const safeInitialOvers = JSON.stringify(String(initialOversA || initialOversB || ''));
+    const safeInitialScoreA = JSON.stringify(String(initialScoreA));
 
     return `
     <!DOCTYPE html>
@@ -123,6 +128,34 @@ function renderMatchDetailPage(user, matchData) {
 
         <!-- MAIN CONTENT MARKETS -->
         <main class="flex-1 p-2 space-y-3 max-w-7xl mx-auto w-full">
+
+            <!-- SLIDEABLE OVERS & COLORED BALLS STRIP (ABOVE MATCH ODDS) -->
+            <section id="overs-balls-strip-box"
+                     class="bg-[#0f172a] text-white rounded border border-gray-800 overflow-hidden shadow">
+                <div class="bg-[#0b141d] px-3 py-1.5 flex items-center justify-between border-b border-gray-800 text-[11px]">
+                    <div class="font-bold tracking-wider uppercase text-[#00c0FF] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-baseball-bat-ball"></i>
+                        <span>OVERS & BALLS</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5 text-[10px] font-bold">
+                        <span class="px-1.5 py-0.5 rounded bg-red-600 text-white">W</span>
+                        <span class="px-1.5 py-0.5 rounded bg-purple-600 text-white">6</span>
+                        <span class="px-1.5 py-0.5 rounded bg-blue-600 text-white">4</span>
+                        <span class="px-1.5 py-0.5 rounded bg-green-600 text-white">1-3</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-600 text-white">•</span>
+                    </div>
+                </div>
+
+                <div id="overs-slider-track"
+                     class="flex items-stretch space-x-2 p-2 overflow-x-auto no-scrollbar">
+                    <div class="shrink-0 bg-[#1e293b] border border-gray-700 rounded px-2.5 py-1.5 min-w-[130px]">
+                        <div class="text-[10px] font-bold text-gray-300">Waiting for balls...</div>
+                        <div class="flex items-center space-x-1 mt-1 text-[10px] text-gray-400">
+                            <span>Slide left/right to view overs</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
             <!-- 2. MATCH ODDS -->
             ${renderMatchOdds(matchData)}
@@ -280,8 +313,160 @@ function renderMatchDetailPage(user, matchData) {
             </div>
         </div>
 
-        <!-- JAVASCRIPT FOR BETTING & POINTS LOGIC -->
+        <!-- JAVASCRIPT FOR BETTING, POINTS & SLIDEABLE OVERS LOGIC -->
         <script>
+            (function() {
+                const oversMap = new Map();
+
+                function getBallColorClass(ball) {
+                    const val = String(ball || '').trim().toUpperCase();
+
+                    if (val === 'W' || val.includes('WKT') || val.includes('OUT')) {
+                        return 'bg-red-600 text-white border-red-400';
+                    }
+                    if (val === '6') {
+                        return 'bg-purple-600 text-white border-purple-400';
+                    }
+                    if (val === '4') {
+                        return 'bg-blue-600 text-white border-blue-400';
+                    }
+                    if (val === '3') {
+                        return 'bg-emerald-600 text-white border-emerald-400';
+                    }
+                    if (val === '2') {
+                        return 'bg-indigo-600 text-white border-indigo-400';
+                    }
+                    if (val === '1') {
+                        return 'bg-green-600 text-white border-green-400';
+                    }
+
+                    return 'bg-slate-600 text-white border-slate-400';
+                }
+
+                function normalizeBallLabel(rawBall) {
+                    const s = String(rawBall ?? '').trim().toUpperCase();
+                    if (!s || s === '0' || s === 'DOT' || s === '.') return '•';
+                    if (s === 'W' || s.includes('WICKET') || s.includes('OUT')) return 'W';
+                    if (['1', '2', '3', '4', '6'].includes(s)) return s;
+                    return s.slice(0, 2);
+                }
+
+                function extractOverNumber(oversText) {
+                    const match = String(oversText || '').match(/(\d+)/);
+                    if (!match) return 1;
+                    const num = parseInt(match[1], 10);
+                    return Number.isFinite(num) && num >= 0 ? num + 1 : 1;
+                }
+
+                function renderOversStrip() {
+                    const track = document.getElementById('overs-slider-track');
+                    if (!track) return;
+
+                    const entries = Array.from(oversMap.entries())
+                        .sort((a, b) => a[0] - b[0]);
+
+                    if (entries.length === 0) {
+                        track.innerHTML = \`
+                            <div class="shrink-0 bg-[#1e293b] border border-gray-700 rounded px-2.5 py-1.5 min-w-[140px]">
+                                <div class="text-[10px] font-bold text-gray-300">No balls recorded yet</div>
+                                <div class="text-[10px] text-gray-400 mt-0.5">Live balls (1, 2, 3, 4, 6, •, W) will appear here</div>
+                            </div>
+                        \`;
+                        return;
+                    }
+
+                    track.innerHTML = entries.map(([overNum, info]) => {
+                        const ballsHtml = (info.balls || []).map(b => {
+                            const label = normalizeBallLabel(b);
+                            const colorCls = getBallColorClass(label);
+                            return \`<span class="w-5 h-5 rounded-full border text-[10px] font-black flex items-center justify-center shrink-0 \${colorCls}">\${label}</span>\`;
+                        }).join('');
+
+                        const scoreBadge = info.score
+                            ? \`<span class="text-[10px] text-amber-300 font-mono">\${info.score}</span>\`
+                            : '';
+
+                        return \`
+                            <div class="shrink-0 bg-[#1e293b] border border-gray-700 rounded-md px-2.5 py-1.5 min-w-[145px]">
+                                <div class="flex items-center justify-between space-x-2 mb-1.5">
+                                    <span class="text-[10px] font-black uppercase text-[#00c0FF]">Over \${overNum}</span>
+                                    \${scoreBadge}
+                                </div>
+                                <div class="flex items-center space-x-1 overflow-x-auto no-scrollbar">
+                                    \${ballsHtml || '<span class="text-[10px] text-gray-400">-</span>'}
+                                </div>
+                            </div>
+                        \`;
+                    }).join('');
+
+                    track.scrollLeft = track.scrollWidth;
+                }
+
+                window.recordLiveOverBall = function(oversText, ballSymbol, scoreText) {
+                    const overNum = extractOverNumber(oversText);
+                    const existing = oversMap.get(overNum) || { balls: [], score: '' };
+                    const cleanSymbol = normalizeBallLabel(ballSymbol);
+
+                    existing.balls.push(cleanSymbol);
+                    if (existing.balls.length > 8) {
+                        existing.balls = existing.balls.slice(-8);
+                    }
+                    if (scoreText && scoreText !== '-') {
+                        existing.score = scoreText;
+                    }
+
+                    oversMap.set(overNum, existing);
+                    renderOversStrip();
+                };
+
+                window.syncOversStrip = function(matchObj) {
+                    if (!matchObj) return;
+
+                    const rawOversList =
+                        Array.isArray(matchObj.oversList) ? matchObj.oversList :
+                        Array.isArray(matchObj.overs) ? matchObj.overs :
+                        Array.isArray(matchObj.recentOvers) ? matchObj.recentOvers :
+                        null;
+
+                    if (rawOversList && rawOversList.length > 0) {
+                        oversMap.clear();
+                        rawOversList.forEach((item, idx) => {
+                            const overNum = Number(item.overNumber ?? item.over ?? item.number ?? (idx + 1));
+                            const ballsArr = Array.isArray(item.balls)
+                                ? item.balls.map(b => normalizeBallLabel(b?.ball ?? b?.runs ?? b?.symbol ?? b?.value ?? b))
+                                : [];
+                            const scoreVal = item.score || item.runs || '';
+                            oversMap.set(Number.isFinite(overNum) && overNum > 0 ? overNum : (idx + 1), {
+                                balls: ballsArr,
+                                score: scoreVal ? String(scoreVal) : ''
+                            });
+                        });
+                        renderOversStrip();
+                        return;
+                    }
+
+                    const currentOv = matchObj.oversA || matchObj.oversB || '';
+                    if (currentOv && oversMap.size === 0) {
+                        const overNum = extractOverNumber(currentOv);
+                        oversMap.set(overNum, {
+                            balls: [],
+                            score: matchObj.scoreA && matchObj.scoreA !== '-' ? matchObj.scoreA : (matchObj.scoreB || '')
+                        });
+                        renderOversStrip();
+                    }
+                };
+
+                const initOv = ${safeInitialOvers};
+                const initSc = ${safeInitialScoreA};
+                if (initOv) {
+                    oversMap.set(extractOverNumber(initOv), {
+                        balls: [],
+                        score: initSc && initSc !== '-' ? initSc : ''
+                    });
+                }
+                renderOversStrip();
+            })();
+
             let currentBet = {
                 title: '',
                 odds: 0,
