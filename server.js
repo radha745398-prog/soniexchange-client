@@ -17,6 +17,10 @@ const HIGHLIGHTLY_KEY = 'e7ccca3a-5ace-489b-b5b3-1b459dc11f14';
 const BASE_URL = 'https://cricket.highlightly.net';
 const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
+// Short-lived server cache to protect API rate limits while keeping data fresh
+const apiCache = new Map();
+const API_CACHE_TTL_MS = 3500;
+
 const safestr = (val, fallback = '') => {
     if (val === null || val === undefined) return fallback;
 
@@ -148,11 +152,18 @@ async function hl(endpoint) {
             return null;
         }
 
+        const now = Date.now();
+        const cached = apiCache.get(endpoint);
+        if (cached && (now - cached.timestamp) < API_CACHE_TTL_MS) {
+            return cached.data;
+        }
+
         console.log(`[API REQUEST] ${BASE_URL}${endpoint}`);
 
         const r = await fetch(`${BASE_URL}${endpoint}`, {
             headers: {
-                'x-rapidapi-key': HIGHLIGHTLY_KEY.trim()
+                'x-rapidapi-key': HIGHLIGHTLY_KEY.trim(),
+                'Cache-Control': 'no-cache'
             }
         });
 
@@ -162,14 +173,21 @@ async function hl(endpoint) {
 
         if (!r.ok) {
             console.error('API Error:', responseText.slice(0, 300));
-            return null;
+            return cached ? cached.data : null;
         }
 
-        return JSON.parse(responseText);
+        const parsed = JSON.parse(responseText);
+        apiCache.set(endpoint, {
+            data: parsed,
+            timestamp: now
+        });
+
+        return parsed;
 
     } catch (e) {
         console.error('Fetch Exception:', e.message);
-        return null;
+        const cached = apiCache.get(endpoint);
+        return cached ? cached.data : null;
     }
 }
 
@@ -301,6 +319,25 @@ function getMatchStateText(match) {
         ).toUpperCase();
     }
 
+    const rawLiveText = safestr(
+        match.lastBall ||
+        match.currentBall ||
+        match.ballEvent ||
+        match.statusText ||
+        match.matchState ||
+        (typeof stateObj === 'object' ? (stateObj.description || stateObj.statusText || stateObj.note || '') : '')
+    ).trim();
+
+    if (
+        rawLiveText &&
+        rawLiveText.toLowerCase() !== 'live' &&
+        rawLiveText.toLowerCase() !== 'in play' &&
+        rawLiveText.toLowerCase() !== 'inprogress' &&
+        rawLiveText.toLowerCase() !== 'in progress'
+    ) {
+        return rawLiveText.toUpperCase();
+    }
+
     return 'BOWLER RUNNING IN';
 }
 
@@ -391,24 +428,6 @@ function normalizeMatch(m) {
 }
 
 function sendWithAutoRefresh(res, htmlContent) {
-    const autoRefreshScript = `
-    <script>
-        setInterval(() => {
-            fetch(window.location.href, { cache: 'no-store' })
-                .catch(err => console.error("Auto-refresh error:", err));
-        }, 15000);
-    </script>
-    `;
-
-    if (htmlContent.includes('</body>')) {
-        htmlContent = htmlContent.replace(
-            '</body>',
-            autoRefreshScript + '</body>'
-        );
-    } else {
-        htmlContent += autoRefreshScript;
-    }
-
     res.send(htmlContent);
 }
 
@@ -429,6 +448,13 @@ app.get('/switch-to-client', (req, res) => {
 
 // DASHBOARD
 app.get('/dashboard', async (req, res) => {
+    res.setHeader(
+        'Cache-Control',
+        'no-store, no-cache, must-revalidate, proxy-revalidate'
+    );
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const targetUser = req.query.user || 'Client';
 
     const user = {
