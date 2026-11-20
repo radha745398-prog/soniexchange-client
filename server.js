@@ -298,6 +298,82 @@ function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
     };
 }
 
+// REAL OVERS & BALLS EXTRACTOR (FROM API RESPONSE ONLY)
+function extractRealOversAndBalls(matchObj) {
+    const rawList =
+        (Array.isArray(matchObj?.oversList) && matchObj.oversList) ||
+        (Array.isArray(matchObj?.overs) && matchObj.overs) ||
+        (Array.isArray(matchObj?.recentOvers) && matchObj.recentOvers) ||
+        (Array.isArray(matchObj?.inplayData?.overs) && matchObj.inplayData.overs) ||
+        (Array.isArray(matchObj?.inplayData?.recentOvers) && matchObj.inplayData.recentOvers) ||
+        null;
+
+    if (rawList && rawList.length > 0) {
+        return rawList.map((item, idx) => {
+            const overNumber = Number(
+                item?.overNumber ?? item?.over ?? item?.number ?? (idx + 1)
+            );
+            const ballsRaw = Array.isArray(item?.balls)
+                ? item.balls
+                : (Array.isArray(item?.deliveries) ? item.deliveries : []);
+
+            const balls = ballsRaw.map(b => {
+                if (typeof b === 'string' || typeof b === 'number') {
+                    return String(b);
+                }
+                if (b?.isWicket || b?.wicket) return 'W';
+                const val = b?.ball ?? b?.runs ?? b?.symbol ?? b?.value ?? b?.event ?? '';
+                return safestr(val);
+            }).filter(Boolean);
+
+            const scoreVal = item?.score ?? item?.runs ?? item?.total ?? '';
+
+            return {
+                overNumber: Number.isFinite(overNumber) && overNumber > 0 ? overNumber : (idx + 1),
+                balls,
+                score: scoreVal !== null && scoreVal !== undefined ? String(scoreVal) : ''
+            };
+        });
+    }
+
+    const flatBalls =
+        (Array.isArray(matchObj?.balls) && matchObj.balls) ||
+        (Array.isArray(matchObj?.inplayData?.balls) && matchObj.inplayData.balls) ||
+        null;
+
+    if (flatBalls && flatBalls.length > 0) {
+        const grouped = new Map();
+
+        flatBalls.forEach((b, idx) => {
+            const ovNumRaw = Number(b?.overNumber ?? b?.over ?? (Math.floor(idx / 6) + 1));
+            const ovNum = Number.isFinite(ovNumRaw) && ovNumRaw > 0 ? ovNumRaw : (Math.floor(idx / 6) + 1);
+            const current = grouped.get(ovNum) || { overNumber: ovNum, balls: [], score: '' };
+
+            let symbol = '';
+            if (typeof b === 'string' || typeof b === 'number') {
+                symbol = String(b);
+            } else if (b?.isWicket || b?.wicket) {
+                symbol = 'W';
+            } else {
+                symbol = safestr(b?.ball ?? b?.runs ?? b?.symbol ?? b?.value ?? b?.event ?? '');
+            }
+
+            if (symbol) {
+                current.balls.push(symbol);
+            }
+            if (b?.score || b?.totalScore) {
+                current.score = String(b.score || b.totalScore);
+            }
+
+            grouped.set(ovNum, current);
+        });
+
+        return Array.from(grouped.values());
+    }
+
+    return [];
+}
+
 // MATCH STATE TEXT
 function getMatchStateText(match) {
     const status = getMatchStatus(match);
@@ -361,6 +437,8 @@ function normalizeMatch(m) {
 
     const logoA = safestr(teamAObj.logo || teamAObj.image || '');
     const logoB = safestr(teamBObj.logo || teamBObj.image || '');
+    const flagA = safestr(teamAObj.flag || teamAObj.countryFlag || '');
+    const flagB = safestr(teamBObj.flag || teamBObj.countryFlag || '');
 
     const resA = extractScoreAndOvers(teamAObj, m, true);
     const resB = extractScoreAndOvers(teamBObj, m, false);
@@ -380,6 +458,8 @@ function normalizeMatch(m) {
         m.time ||
         '';
 
+    const oversList = extractRealOversAndBalls(m);
+
     return {
         id: esc(m.id || m.matchId || m.match_id),
 
@@ -396,11 +476,16 @@ function normalizeMatch(m) {
         logoA: esc(logoA),
         logoB: esc(logoB),
 
+        flagA: esc(flagA),
+        flagB: esc(flagB),
+
         scoreA: esc(resA.score),
         oversA: esc(resA.overs),
 
         scoreB: esc(resB.score),
         oversB: esc(resB.overs),
+
+        oversList,
 
         status: matchStatus,
         isLive: matchStatus === 'LIVE',
@@ -504,6 +589,19 @@ async function loadMatchData(matchId) {
         return null;
     }
 
+    console.log('RAW MATCH KEYS:', Object.keys(found || {}));
+    console.log(
+        'RAW BALL/OVER FIELDS:',
+        JSON.stringify({
+            state: found?.state,
+            lastBall: found?.lastBall,
+            currentBall: found?.currentBall,
+            balls: found?.balls,
+            overs: found?.overs,
+            inplayData: found?.inplayData
+        }).slice(0, 1200)
+    );
+
     return normalizeMatch(found);
 }
 
@@ -567,10 +665,13 @@ app.get('/match/:id', async (req, res) => {
         teamB: 'Team B',
         logoA: '',
         logoB: '',
+        flagA: '',
+        flagB: '',
         scoreA: '-',
         oversA: '',
         scoreB: '-',
         oversB: '',
+        oversList: [],
         status: 'UPCOMING',
         isLive: false,
         matchStateText: 'UPCOMING',
