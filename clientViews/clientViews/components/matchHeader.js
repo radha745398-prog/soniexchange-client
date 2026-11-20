@@ -1,6 +1,5 @@
-
 // clientViews/components/matchHeader.js
-// Final Countdown + Live Score + Event Popup Fix
+// Final Countdown + Live Score + Event Popup + Live Transition Fix
 
 function logoHTML(src, name) {
     if (src) {
@@ -474,7 +473,8 @@ function renderMatchHeader(user, matchData) {
                         encodeURIComponent(matchId) +
                         '?_t=' + Date.now(),
                         {
-                            cache: 'no-store',
+                            method: 'GET',
+                            cache: 'reload',
                             headers: {
                                 'Cache-Control': 'no-store, no-cache, must-revalidate',
                                 'Pragma': 'no-cache'
@@ -522,6 +522,19 @@ function renderMatchHeader(user, matchData) {
                     const wicketText =
                         String(m.wicketText || m.howOut || '')
                         .toUpperCase();
+
+                    const prevStatus = currentStatus;
+                    const reloadKey = 'live_reloaded_' + matchId + '_' + newStatus;
+
+                    if (
+                        prevStatus === 'UPCOMING' &&
+                        (newStatus === 'LIVE' || newStatus === 'BREAK') &&
+                        !sessionStorage.getItem(reloadKey)
+                    ) {
+                        sessionStorage.setItem(reloadKey, '1');
+                        window.location.reload();
+                        return;
+                    }
 
                     // UPDATE CURRENT MATCH STATE
                     currentStatus = newStatus;
@@ -738,9 +751,9 @@ function renderMatchHeader(user, matchData) {
                 }
             }
 
-            // First refresh after page load, then every 1.5 seconds.
+            // First refresh after page load, then every 5 seconds.
             pollMatch();
-            setInterval(pollMatch, 1500);
+            setInterval(pollMatch, 5000);
 
         })();
     </script>
