@@ -1,14 +1,16 @@
 // clientViews/components/matchHeader.js
 // Final Countdown + Live Score + Event Popup + Live Transition Fix
 
-function logoHTML(src, name) {
-    if (src) {
-        return `<img src="${src}" alt="${name}" class="w-6 h-6 rounded-full object-contain bg-white/10 border border-white/20">`;
+function flagOrLogoHTML(src, name, flagSrc) {
+    const imgUrl = src || flagSrc || '';
+
+    if (imgUrl) {
+        return `<img src="${imgUrl}" alt="${name}" class="w-7 h-7 rounded-full object-cover bg-white/10 border border-white/30 shrink-0">`;
     }
 
     const initials = String(name || '?').trim().slice(0, 2).toUpperCase();
 
-    return `<div class="w-6 h-6 rounded-full bg-[#1f2937] border border-white/20 flex items-center justify-center text-[8px] font-bold text-gray-300">${initials}</div>`;
+    return `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-[#1e3a8a] to-[#0f172a] border border-white/25 flex items-center justify-center text-[9px] font-black text-white shrink-0 shadow">${initials}</div>`;
 }
 
 function renderMatchHeader(user, matchData) {
@@ -174,14 +176,14 @@ function renderMatchHeader(user, matchData) {
 
                 <div class="col-span-4 flex items-center space-x-2">
 
-                    ${logoHTML(d.logoA, teamA)}
+                    ${flagOrLogoHTML(d.logoA, teamA, d.flagA)}
 
                     <div>
                         <div class="font-black text-sm text-white flex items-center space-x-1">
                             <span id="score-a">${scoreA}</span>
                         </div>
 
-                        <div class="text-[9px] text-gray-400" id="overs-a">
+                        <div class="text-xs font-bold text-white tracking-wide mt-0.5" id="overs-a">
                             ${oversA}
                         </div>
                     </div>
@@ -207,12 +209,12 @@ function renderMatchHeader(user, matchData) {
                             ${scoreB}
                         </div>
 
-                        <div class="text-[9px] text-gray-400" id="overs-b">
+                        <div class="text-xs font-bold text-white tracking-wide mt-0.5" id="overs-b">
                             ${oversB}
                         </div>
                     </div>
 
-                    ${logoHTML(d.logoB, teamB)}
+                    ${flagOrLogoHTML(d.logoB, teamB, d.flagB)}
                 </div>
             </div>
         </div>
@@ -640,6 +642,8 @@ function renderMatchHeader(user, matchData) {
                             let color =
                                 'bg-yellow-500/20 border-yellow-400 text-yellow-300';
 
+                            let ballSymbol = null;
+
                             const oldScore = parseScore(lastScoreA);
                             const newScore = parseScore(currentScoreA);
 
@@ -651,6 +655,8 @@ function renderMatchHeader(user, matchData) {
                                     newScore.wickets - oldScore.wickets;
 
                                 if (wktDiff > 0) {
+                                    ballSymbol = 'W';
+
                                     if (wicketText.includes('STUMP')) {
                                         diffText = 'STUMP OUT!';
 
@@ -671,30 +677,35 @@ function renderMatchHeader(user, matchData) {
                                         'bg-red-600/40 border-red-500 text-red-300';
 
                                 } else if (runDiff === 6) {
+                                    ballSymbol = '6';
                                     diffText = 'SIX (6) 🚀';
 
                                     color =
                                         'bg-purple-600/40 border-purple-400 text-purple-200';
 
                                 } else if (runDiff === 4) {
+                                    ballSymbol = '4';
                                     diffText = 'FOUR (4) 🏏';
 
                                     color =
                                         'bg-blue-600/40 border-blue-400 text-blue-200';
 
                                 } else if (runDiff === 3) {
+                                    ballSymbol = '3';
                                     diffText = '3 RUNS';
 
                                     color =
-                                        'bg-green-500/30 border-green-400 text-green-300';
+                                        'bg-emerald-500/30 border-emerald-400 text-emerald-300';
 
                                 } else if (runDiff === 2) {
+                                    ballSymbol = '2';
                                     diffText = '2 RUNS';
 
                                     color =
-                                        'bg-green-500/30 border-green-400 text-green-300';
+                                        'bg-indigo-500/30 border-indigo-400 text-indigo-300';
 
                                 } else if (runDiff === 1) {
+                                    ballSymbol = '1';
                                     diffText = '1 RUN';
 
                                     color =
@@ -704,14 +715,26 @@ function renderMatchHeader(user, matchData) {
                                     runDiff === 0 &&
                                     currentOvers !== lastOvers
                                 ) {
+                                    ballSymbol = '•';
                                     diffText = 'DOT BALL';
 
                                     color =
-                                        'bg-gray-600/30 border-gray-400 text-gray-300';
+                                        'bg-slate-600/30 border-slate-400 text-slate-300';
                                 }
 
                             } else if (currentScoreB !== lastScoreB) {
                                 diffText = 'SCORE UPDATED';
+                            }
+
+                            if (
+                                ballSymbol &&
+                                typeof window.recordLiveOverBall === 'function'
+                            ) {
+                                window.recordLiveOverBall(
+                                    currentOvers,
+                                    ballSymbol,
+                                    currentScoreA
+                                );
                             }
 
                             triggerPopup(diffText, color);
@@ -744,6 +767,12 @@ function renderMatchHeader(user, matchData) {
 
                     if (elOversB && m.oversB !== undefined) {
                         elOversB.innerText = m.oversB;
+                    }
+
+                    if (
+                        typeof window.syncOversStrip === 'function'
+                    ) {
+                        window.syncOversStrip(m);
                     }
 
                 } catch (e) {
