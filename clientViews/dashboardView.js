@@ -1,37 +1,40 @@
 // clientViews/dashboardView.js
 
-function renderDashboardPage(user, liveMatches) {
+function renderDashboardPage(user, liveMatches = [], upcomingMatches = []) {
     const username = user.username || 'Client';
     const balance = Number(user.points || 0).toLocaleString();
     const exposure = Number(user.exposure || 0).toLocaleString();
 
-    // Dynamically map live matches coming from server.js (Cricbuzz API)
     let tickerHTML = '';
-    let matchesContentHTML = '';
+    let liveMatchesHTML = '';
+    let upcomingMatchesHTML = '';
 
-    if (liveMatches && liveMatches.length > 0) {
-        // 1. Ticker HTML generation for ALL live matches
+    if (Array.isArray(liveMatches) && liveMatches.length > 0) {
+        // 1. Ticker HTML for all live matches
         tickerHTML = liveMatches.map(m => `
-            <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="bg-[#1f2937] px-4 py-1.5 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-bold hover:border-white transition whitespace-nowrap match-blink inline-block mr-3 text-xs">
+            <a href="/match/${encodeURIComponent(m.id)}?user=${encodeURIComponent(username)}" class="bg-[#1f2937] px-4 py-1.5 rounded border border-[#00c0FF]/40 text-[#00c0FF] font-bold hover:border-white transition whitespace-nowrap match-blink inline-block mr-3 text-xs">
                 <span>${m.teamA} v ${m.teamB}</span>
             </a>
         `).join('');
 
-        // 2. Main content cards for live matches so they appear nicely on the dashboard too
-        matchesContentHTML = `
+        // 2. Main Live Matches Cards
+        liveMatchesHTML = `
             <div class="w-full space-y-3">
                 <h2 class="text-sm font-bold text-[#00c0FF] uppercase tracking-wider mb-2">Live Matches (${liveMatches.length})</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     ${liveMatches.map(m => `
-                        <a href="/match/${m.id}?user=${encodeURIComponent(username)}" class="block bg-custom-navy p-4 rounded border border-[#2b394a] hover:border-[#00c0FF] transition">
-                            <div class="text-[10px] text-gray-400 mb-1">${m.tournament}</div>
+                        <a href="/match/${encodeURIComponent(m.id)}?user=${encodeURIComponent(username)}" class="block bg-custom-navy p-4 rounded border border-[#2b394a] hover:border-[#00c0FF] transition">
+                            <div class="text-[10px] text-gray-400 mb-1">${m.tournament || ''}</div>
                             <div class="flex justify-between items-center font-bold text-sm mb-2">
                                 <span>${m.teamA} vs ${m.teamB}</span>
                                 <span class="text-red-400 text-[10px] animate-pulse px-2 py-0.5 bg-red-950 rounded border border-red-800">LIVE</span>
                             </div>
+                            <div class="text-[11px] text-gray-200 mb-1.5">
+                                ${m.scoreSummary || ''}
+                            </div>
                             <div class="text-[11px] text-gray-300 flex justify-between items-center">
-                                <span>Status: ${m.dateTime}</span>
-                                <span class="text-[#00c0FF] underline">Click to View Match & Odds &rarr;</span>
+                                <span>${m.dateTime || m.status || ''}</span>
+                                <span class="text-[#00c0FF] underline">View Match &rarr;</span>
                             </div>
                         </a>
                     `).join('')}
@@ -39,11 +42,33 @@ function renderDashboardPage(user, liveMatches) {
             </div>
         `;
     } else {
-        // Fallback if no live matches are currently returned by API
         tickerHTML = `<span class="text-gray-400 text-xs px-2">No live matches currently available.</span>`;
-        matchesContentHTML = `
-            <div class="text-gray-400 text-xs italic bg-[#16202c] px-6 py-4 rounded border border-[#2b394a]">
+        liveMatchesHTML = `
+            <div class="w-full text-gray-400 text-xs italic bg-[#16202c] px-6 py-4 rounded border border-[#2b394a]">
                 No live matches running right now. Please check back later or check ticker when matches are live.
+            </div>
+        `;
+    }
+
+    // Optional Upcoming Matches / Series Section
+    if (Array.isArray(upcomingMatches) && upcomingMatches.length > 0) {
+        upcomingMatchesHTML = `
+            <div class="w-full space-y-3 mt-6">
+                <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-2">Upcoming (${upcomingMatches.length})</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    ${upcomingMatches.map(u => `
+                        <div class="bg-custom-navy p-4 rounded border border-[#2b394a]">
+                            <div class="text-[10px] text-gray-400 mb-1">${u.tournament || 'Upcoming'}</div>
+                            <div class="flex justify-between items-center font-bold text-sm mb-1">
+                                <span>${u.title || `${u.teamA || ''} vs ${u.teamB || ''}`}</span>
+                                <span class="text-amber-300 text-[10px] px-2 py-0.5 bg-amber-950/60 rounded border border-amber-700/60">UPCOMING</span>
+                            </div>
+                            <div class="text-[11px] text-gray-300">
+                                ${u.dateTime || ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
             </div>
         `;
     }
@@ -62,8 +87,7 @@ function renderDashboardPage(user, liveMatches) {
             .bg-custom-navy { background-color: #16202c; }
             .bg-custom-header { background-color: #0b1118; }
             .active-tab { border-bottom: 2px solid #00c0FF; color: #00c0FF; }
-            
-            /* Smooth Blinking Animation for Ticker Matches */
+
             @keyframes textBlink {
                 0% { opacity: 1; }
                 50% { opacity: 0.3; }
@@ -75,14 +99,14 @@ function renderDashboardPage(user, liveMatches) {
         </style>
     </head>
     <body class="min-h-screen flex flex-col text-xs">
-        
+
         <!-- TOP HEADER BAR -->
         <header class="bg-custom-header border-b border-[#2b394a] px-3 py-2 flex items-center justify-between sticky top-0 z-50">
             <div class="flex items-center space-x-3">
                 <button type="button" class="text-white text-lg focus:outline-none"><i class="fa-solid fa-bars"></i></button>
                 <h1 class="text-lg font-black tracking-wider italic text-[#00c0FF]">SONIEXCHANGE</h1>
             </div>
-            
+
             <div class="flex items-center space-x-3 text-[11px]">
                 <div class="text-right">
                     <div class="text-gray-300">Balance: <span class="font-bold text-green-400">${balance}</span></div>
@@ -158,8 +182,9 @@ function renderDashboardPage(user, liveMatches) {
         </div>
 
         <!-- MAIN CONTENT AREA -->
-        <main class="flex-1 p-4 max-w-7xl mx-auto w-full flex items-center justify-center">
-            ${matchesContentHTML}
+        <main class="flex-1 p-4 max-w-7xl mx-auto w-full flex flex-col items-start justify-start">
+            ${liveMatchesHTML}
+            ${upcomingMatchesHTML}
         </main>
 
         <footer class="bg-[#0b1118] border-t border-[#2b394a] p-3 text-center text-gray-500 text-[10px]">
