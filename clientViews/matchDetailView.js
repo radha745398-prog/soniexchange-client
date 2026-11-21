@@ -120,23 +120,23 @@ function renderMatchDetailPage(user, matchData) {
         </style>
     </head>
 
-    <body class="min-h-screen flex flex-col text-xs relative">
+    <body class="min-h-screen flex flex-col text-xs sm:text-sm relative">
 
         <!-- 1. MATCH HEADER & LIVE SCOREBOARD -->
         ${renderMatchHeader(user, matchData)}
 
         <!-- MAIN CONTENT MARKETS -->
-        <main class="flex-1 p-2 space-y-3 max-w-7xl mx-auto w-full">
+        <main class="flex-1 p-2 sm:p-3 space-y-3 max-w-7xl mx-auto w-full">
 
             <!-- OVER-BY-OVER SLIDEABLE BALL HISTORY LINE -->
             <section id="overs-balls-strip-box"
                      class="bg-[#0f172a] text-white rounded border border-gray-800 overflow-hidden shadow">
-                <div class="bg-[#0b141d] px-3 py-1.5 flex items-center justify-between border-b border-gray-800 text-[11px]">
+                <div class="bg-[#0b141d] px-3 py-2 flex items-center justify-between border-b border-gray-800 text-xs">
                     <div class="font-bold tracking-wider uppercase text-[#00c0FF] flex items-center space-x-1.5">
                         <i class="fa-solid fa-baseball-bat-ball"></i>
                         <span>OVER HISTORY (SLIDE)</span>
                     </div>
-                    <div class="flex items-center space-x-1 text-[10px] font-bold">
+                    <div class="flex items-center space-x-1 text-[11px] font-bold">
                         <span class="px-1.5 py-0.5 rounded bg-red-600 text-white">W</span>
                         <span class="px-1.5 py-0.5 rounded bg-purple-600 text-white">6</span>
                         <span class="px-1.5 py-0.5 rounded bg-blue-600 text-white">4</span>
@@ -148,8 +148,8 @@ function renderMatchDetailPage(user, matchData) {
                 </div>
 
                 <div id="overs-slider-track"
-                     class="flex items-center space-x-2 px-2.5 py-2 overflow-x-auto no-scrollbar whitespace-nowrap">
-                    <div class="inline-flex items-center space-x-2 bg-[#1e293b] border border-gray-700 rounded px-3 py-1.5 text-[10px] text-gray-300">
+                     class="flex items-center space-x-2 px-3 py-2.5 overflow-x-auto no-scrollbar whitespace-nowrap">
+                    <div class="inline-flex items-center space-x-2 bg-[#1e293b] border border-gray-700 rounded px-3 py-1.5 text-xs text-gray-300">
                         <span>Over 1 se aage ke overs yahan slide hokar aayenge</span>
                     </div>
                 </div>
@@ -335,14 +335,17 @@ function renderMatchDetailPage(user, matchData) {
                 }
 
                 function parseOverNumberFromText(oversText) {
-                    const match = String(oversText || '').match(/(\d+)/);
+                    const match = String(oversText || '').match(/(\\d+(?:\\.\\d+)?)/);
                     if (!match) return 1;
-                    const num = parseInt(match[1], 10);
-                    return Number.isFinite(num) && num >= 0 ? num + 1 : 1;
+                    const val = parseFloat(match[1]);
+                    if (!Number.isFinite(val) || val < 0) return 1;
+                    const completed = Math.floor(val);
+                    const ballsPart = Math.round((val - completed) * 10);
+                    return ballsPart > 0 ? completed + 1 : Math.max(1, completed);
                 }
 
                 function ensureOversUpTo(maxOver) {
-                    const limit = Math.max(1, Number(maxOver) || 1);
+                    const limit = Math.max(1, Math.min(100, Number(maxOver) || 1));
                     for (let ov = 1; ov <= limit; ov++) {
                         if (!oversMap.has(ov)) {
                             oversMap.set(ov, { balls: [], score: '' });
@@ -358,11 +361,10 @@ function renderMatchDetailPage(user, matchData) {
                         .sort((a, b) => a[0] - b[0]);
 
                     if (sortedOvers.length === 0) {
-                        track.innerHTML = \`
-                            <div class="inline-flex items-center space-x-2 bg-[#1e293b] border border-gray-700 rounded px-3 py-1.5 text-[10px] text-gray-300">
-                                <span>Over 1 se aage ke overs yahan slide hokar aayenge</span>
-                            </div>
-                        \`;
+                        track.innerHTML =
+                            '<div class="inline-flex items-center space-x-2 bg-[#1e293b] border border-gray-700 rounded px-3 py-1.5 text-xs text-gray-300">' +
+                            '<span>Over 1 se aage ke overs yahan slide hokar aayenge</span>' +
+                            '</div>';
                         return;
                     }
 
@@ -372,30 +374,26 @@ function renderMatchDetailPage(user, matchData) {
                             ? ballsList.map((b, idx) => {
                                 const label = normalizeBall(b);
                                 const cls = getBallBadgeStyle(label);
-                                return \`
-                                    <span title="Over \${overNum}, Ball \${idx + 1}: \${label}"
-                                          class="px-1.5 h-5 min-w-[22px] rounded-full border text-[10px] font-black inline-flex items-center justify-center shrink-0 \${cls}">
-                                        \${label}
-                                    </span>
-                                \`;
+                                return '<span title="Over ' + overNum + ', Ball ' + (idx + 1) + ': ' + label + '" ' +
+                                    'class="px-2 h-6 min-w-[26px] rounded-full border text-xs font-black inline-flex items-center justify-center shrink-0 ' + cls + '">' +
+                                    label +
+                                    '</span>';
                             }).join('')
-                            : \`<span class="text-[10px] text-gray-400 px-1">No balls</span>\`;
+                            : '<span class="text-xs text-gray-400 px-1">Slide</span>';
 
                         const scoreTag = info.score
-                            ? \`<span class="text-[10px] font-mono text-amber-300 ml-1.5">\${info.score}</span>\`
+                            ? '<span class="text-xs font-mono text-amber-300 ml-1.5">' + info.score + '</span>'
                             : '';
 
-                        return \`
-                            <div class="inline-flex items-center bg-[#1e293b] border border-gray-700 rounded-full px-2.5 py-1 shrink-0 space-x-1.5">
-                                <span class="text-[10px] font-black uppercase text-[#00c0FF] pr-1 border-r border-gray-700">
-                                    Over \${overNum}
-                                </span>
-                                <div class="inline-flex items-center space-x-1">
-                                    \${ballsChips}
-                                </div>
-                                \${scoreTag}
-                            </div>
-                        \`;
+                        return '<div class="inline-flex items-center bg-[#1e293b] border border-gray-700 rounded-full px-3 py-1.5 shrink-0 space-x-2">' +
+                            '<span class="text-xs font-black uppercase text-[#00c0FF] pr-1.5 border-r border-gray-700">' +
+                            'Over ' + overNum +
+                            '</span>' +
+                            '<div class="inline-flex items-center space-x-1">' +
+                            ballsChips +
+                            '</div>' +
+                            scoreTag +
+                            '</div>';
                     }).join('');
 
                     track.scrollLeft = track.scrollWidth;
@@ -423,9 +421,7 @@ function renderMatchDetailPage(user, matchData) {
                         null;
 
                     if (rawList && rawList.length > 0) {
-                        oversMap.clear();
                         let maxOv = 1;
-
                         rawList.forEach((item, idx) => {
                             const ovNum = Number(item.overNumber ?? item.over ?? item.number ?? (idx + 1));
                             const cleanOv = Number.isFinite(ovNum) && ovNum > 0 ? ovNum : (idx + 1);
@@ -439,9 +435,10 @@ function renderMatchDetailPage(user, matchData) {
                                 normalizeBall(b?.ball ?? b?.runs ?? b?.symbol ?? b?.value ?? b?.event ?? b)
                             );
 
+                            const prev = oversMap.get(cleanOv);
                             oversMap.set(cleanOv, {
-                                balls,
-                                score: item.score ? String(item.score) : ''
+                                balls: balls.length > 0 ? balls : (prev ? prev.balls : []),
+                                score: item.score ? String(item.score) : (prev ? prev.score : '')
                             });
                         });
 
