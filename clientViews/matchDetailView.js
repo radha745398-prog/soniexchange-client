@@ -20,9 +20,12 @@ function renderMatchDetailPage(user, matchData) {
     const initialOversA = matchData ? (matchData.oversA || '') : '';
     const initialOversB = matchData ? (matchData.oversB || '') : '';
     const initialScoreA = matchData ? (matchData.scoreA || '-') : '-';
+    const initialScoreB = matchData ? (matchData.scoreB || '-') : '-';
     const initialOversList = matchData && Array.isArray(matchData.oversList) ? matchData.oversList : [];
-    const safeInitialOvers = JSON.stringify(String(initialOversA || initialOversB || ''));
-    const safeInitialScoreA = JSON.stringify(String(initialScoreA));
+    const safeInitialOvers = JSON.stringify(String(initialOversB || initialOversA || ''));
+    const safeInitialScore = JSON.stringify(
+        String((initialScoreB && initialScoreB !== '-' && initialScoreB !== 'Yet to bat') ? initialScoreB : initialScoreA)
+    );
     const safeInitialOversList = JSON.stringify(initialOversList);
 
     return `
@@ -345,7 +348,7 @@ function renderMatchDetailPage(user, matchData) {
                 }
 
                 function ensureOversUpTo(maxOver) {
-                    const limit = Math.max(1, Math.min(100, Number(maxOver) || 1));
+                    const limit = Math.max(1, Math.min(150, Number(maxOver) || 1));
                     for (let ov = 1; ov <= limit; ov++) {
                         if (!oversMap.has(ov)) {
                             oversMap.set(ov, { balls: [], score: '' });
@@ -403,7 +406,11 @@ function renderMatchDetailPage(user, matchData) {
                     const overNum = parseOverNumberFromText(oversText);
                     ensureOversUpTo(overNum);
                     const entry = oversMap.get(overNum);
-                    entry.balls.push(normalizeBall(ballSymbol));
+                    const cleanBall = normalizeBall(ballSymbol);
+                    entry.balls.push(cleanBall);
+                    if (entry.balls.length > 8) {
+                        entry.balls = entry.balls.slice(-8);
+                    }
                     if (scoreText && scoreText !== '-') {
                         entry.score = scoreText;
                     }
@@ -447,13 +454,17 @@ function renderMatchDetailPage(user, matchData) {
                         return;
                     }
 
-                    const currentOvText = matchObj.oversA || matchObj.oversB || '';
+                    const currentOvText = matchObj.oversB || matchObj.oversA || '';
+                    const activeSc = (matchObj.scoreB && matchObj.scoreB !== '-' && matchObj.scoreB !== 'Yet to bat')
+                        ? matchObj.scoreB
+                        : matchObj.scoreA;
+
                     if (currentOvText) {
                         const ovNum = parseOverNumberFromText(currentOvText);
                         ensureOversUpTo(ovNum);
                         const existing = oversMap.get(ovNum);
-                        if (matchObj.scoreA && matchObj.scoreA !== '-') {
-                            existing.score = matchObj.scoreA;
+                        if (activeSc && activeSc !== '-') {
+                            existing.score = activeSc;
                         }
                         renderOverHistoryLine();
                     }
@@ -474,7 +485,7 @@ function renderMatchDetailPage(user, matchData) {
                     ensureOversUpTo(maxOv);
                 } else {
                     const initOv = ${safeInitialOvers};
-                    const initSc = ${safeInitialScoreA};
+                    const initSc = ${safeInitialScore};
                     const startOver = initOv ? parseOverNumberFromText(initOv) : 1;
                     ensureOversUpTo(startOver);
                     if (initSc && initSc !== '-') {
