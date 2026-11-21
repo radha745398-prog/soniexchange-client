@@ -1,4 +1,4 @@
-// server.js - Final Countdown and Live Match Fix
+// server.js - SportBex Live/Upcoming + Commentary (matchHeader & Over Strip)
 
 const express = require('express');
 const path = require('path');
@@ -11,655 +11,420 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// API Key successfully configured
-const HIGHLIGHTLY_KEY = '4cfda7fc-7c4d-49fb-b04c-8b0acdbe3853';
-
-const BASE_URL = 'https://cricket.highlightly.net';
+// SportBex Trial API Configuration
+const SPORTBEX_API_KEY = process.env.SPORTBEX_API_KEY || 'QTkiVDvw56VkWQwsx43lQ8BHaH71ycC5ZAN2wVur';
+const SPORTBEX_BASE_URL = process.env.SPORTBEX_BASE_URL || 'https://trial-api.sportbex.com';
 const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
-// Keep cache disabled/near-zero so polling always gets fresh match data
+// Short cache (1.5s) for live polling stability without hammering trial API
 const apiCache = new Map();
-const API_CACHE_TTL_MS = 0;
+const LIVE_CACHE_TTL_MS = 1500;
+const SERIES_CACHE_TTL_MS = 30000;
 
 const safestr = (val, fallback = '') => {
     if (val === null || val === undefined) return fallback;
-
     if (typeof val === 'object') {
-        return val.name || val.longName || val.description ||
-            val.shortName || val.text || val.runs || val.score || fallback;
+        return val.name || val.short_name || val.shortName || val.text || val.score || fallback;
     }
-
     return String(val);
 };
 
-const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => (
-    {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    }[c]
-));
-
-function getShortTeamName(name) {
-    const clean = String(name || '').trim();
-    if (!clean) return 'TEAM';
-
-    const upper = clean.toUpperCase();
-    const known = {
-        'INDIA': 'IND',
-        'PAKISTAN': 'PAK',
-        'AUSTRALIA': 'AUS',
-        'ENGLAND': 'ENG',
-        'SOUTH AFRICA': 'SA',
-        'NEW ZEALAND': 'NZ',
-        'SRI LANKA': 'SL',
-        'BANGLADESH': 'BAN',
-        'AFGHANISTAN': 'AFG',
-        'WEST INDIES': 'WI',
-        'IRELAND': 'IRE',
-        'ZIMBABWE': 'ZIM',
-        'SCOTLAND': 'SCO',
-        'NETHERLANDS': 'NED',
-        'UNITED ARAB EMIRATES': 'UAE',
-        'UAE': 'UAE'
-    };
-
-    if (known[upper]) return known[upper];
-
-    const words = clean
-        .replace(/[^a-zA-Z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .filter(Boolean);
-
-    if (words.length === 1) {
-        return words[0].slice(0, 4).toUpperCase();
-    }
-
-    const lastWord = words[words.length - 1].toUpperCase();
-    const hasWomen = words.some(w => w.toUpperCase() === 'WOMEN' || w.toUpperCase() === 'W');
-    const initials = words
-        .filter(w => !['WOMEN', 'W', 'MEN', 'M', 'XI', 'A'].includes(w.toUpperCase()))
-        .map(w => w[0])
-        .join('')
-        .toUpperCase();
-
-    if (lastWord === 'W' || hasWomen) {
-        return `${initials || words[0].slice(0, 3).toUpperCase()} W`;
-    }
-
-    return (initials || words.map(w => w.slice(0, 2)).join('')).slice(0, 5).toUpperCase();
-}
-
-function getRawMatch(json) {
-    if (Array.isArray(json)) return json[0] || null;
-    if (Array.isArray(json?.data)) return json.data[0] || null;
-    if (json?.data && typeof json.data === 'object') return json.data;
-    if (Array.isArray(json?.matches)) return json.matches[0] || null;
-    return json || null;
-}
+const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+}[c]));
 
 function parseTimestamp(value) {
     if (!value) return null;
-
-    let timestamp;
-
+    let ts;
     if (typeof value === 'number') {
-        timestamp = value < 1000000000000 ? value * 1000 : value;
+        ts = value < 1000000000000 ? value * 1000 : value;
     } else {
-        timestamp = new Date(value).getTime();
+        ts = new Date(value).getTime();
     }
-
-    return Number.isFinite(timestamp) ? timestamp : null;
+    return Number.isFinite(ts) ? ts : null;
 }
 
-function getStartTimestamp(match) {
-    if (!match) return null;
+// Parses strings like "59/1 (9.3)" or "61/3 (23.0) & 235/10 (60.3)"
+function parseScoreAndOvers(rawScoreText) {
+    const raw = String(rawScoreText || '').trim();
+    if (!raw) return { score: '-', overs: '' };
 
-    const possibleTimes = [
-        match.startTime,
-        match.starting_at,
-        match.startingAt,
-        match.startDate,
-        match.dateTime,
-        match.time
-    ];
+    const parts = raw.split('&').map(s => s.trim()).filter(Boolean);
+    const latestPart = parts[parts.length - 1] || raw;
 
-    for (const value of possibleTimes) {
-        const timestamp = parseTimestamp(value);
-        if (timestamp) return timestamp;
-    }
+    const overMatch = latestPart.match(/\(([^)]+)\)\s*$/);
+    const overs = overMatch ? overMatch[1].trim() : '';
 
-    return null;
+    const cleanScores = parts.map(p => p.replace(/\s*\([^)]*\)\s*$/, '').trim()).filter(Boolean);
+    const score = cleanScores.length > 0 ? cleanScores.join(' & ') : '-';
+
+    return { score, overs };
 }
 
-function getStateName(match) {
-    const state = match?.state ?? match?.status ?? {};
-
-    if (typeof state === 'string') {
-        return state.toLowerCase();
-    }
-
-    return String(
-        state.description ||
-        state.name ||
-        state.longName ||
-        state.shortName ||
-        match?.matchState ||
-        ''
-    ).toLowerCase();
-}
-
-function getMatchStatus(match) {
-    const stateName = getStateName(match);
-
+function getSportBexStatus(rawStatus, isLive) {
+    const st = String(rawStatus || '').trim().toUpperCase();
     if (
-        stateName.includes('finished') ||
-        stateName.includes('completed') ||
-        stateName.includes('result') ||
-        stateName.includes('abandoned')
+        st.includes('FINISH') ||
+        st.includes('COMPLET') ||
+        st.includes('RESULT') ||
+        st.includes('END')
     ) {
         return 'FINISHED';
     }
-
     if (
-        stateName.includes('stumps') ||
-        stateName.includes('lunch') ||
-        stateName.includes('tea') ||
-        stateName.includes('drinks') ||
-        stateName.includes('break')
+        st.includes('BREAK') ||
+        st.includes('LUNCH') ||
+        st.includes('TEA') ||
+        st.includes('STUMP') ||
+        st.includes('DRINK')
     ) {
         return 'BREAK';
     }
-
-    if (
-        stateName.includes('scheduled') ||
-        stateName.includes('not started') ||
-        stateName.includes('upcoming') ||
-        stateName.includes('yet to begin')
-    ) {
-        return 'UPCOMING';
-    }
-
-    if (
-        match?.isLive === true ||
-        stateName.includes('live') ||
-        stateName.includes('in progress') ||
-        stateName.includes('inplay') ||
-        stateName.includes('in play')
-    ) {
+    if (isLive === true || st === 'LIVE' || st.includes('INPLAY') || st.includes('IN PROGRESS')) {
         return 'LIVE';
     }
-
     return 'UPCOMING';
 }
 
-async function hl(endpoint) {
+async function sbGet(endpoint, ttlMs = LIVE_CACHE_TTL_MS) {
     try {
-        if (!HIGHLIGHTLY_KEY.trim()) {
-            console.error('HIGHLIGHTLY_KEY is missing. Add your API key in server.js.');
-            return null;
-        }
-
         const now = Date.now();
         const cached = apiCache.get(endpoint);
-        if (API_CACHE_TTL_MS > 0 && cached && (now - cached.timestamp) < API_CACHE_TTL_MS) {
+        if (ttlMs > 0 && cached && (now - cached.timestamp) < ttlMs) {
             return cached.data;
         }
 
-        console.log(`[API REQUEST] ${BASE_URL}${endpoint}`);
+        const url = `${SPORTBEX_BASE_URL}${endpoint}`;
+        console.log(`[SPORTBEX REQUEST] ${url}`);
 
-        const r = await fetch(`${BASE_URL}${endpoint}`, {
+        const resp = await fetch(url, {
+            method: 'GET',
             headers: {
-                'x-rapidapi-key': HIGHLIGHTLY_KEY.trim(),
+                'sportbex-api-key': SPORTBEX_API_KEY.trim(),
+                'Accept': 'application/json',
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache'
             }
         });
 
-        const responseText = await r.text();
+        const text = await resp.text();
+        console.log(`[SPORTBEX RESPONSE] ${endpoint} - HTTP ${resp.status}`);
 
-        console.log(`[API RESPONSE] ${endpoint} - HTTP ${r.status}`);
-
-        if (!r.ok) {
-            console.error('API Error:', responseText.slice(0, 300));
+        if (!resp.ok) {
+            console.error('[SPORTBEX ERROR]', text.slice(0, 300));
             return cached ? cached.data : null;
         }
 
-        const parsed = JSON.parse(responseText);
-        if (API_CACHE_TTL_MS > 0) {
-            apiCache.set(endpoint, {
-                data: parsed,
-                timestamp: now
-            });
+        const json = JSON.parse(text);
+        if (ttlMs > 0) {
+            apiCache.set(endpoint, { data: json, timestamp: now });
         }
-
-        return parsed;
-
-    } catch (e) {
-        console.error('Fetch Exception:', e.message);
+        return json;
+    } catch (err) {
+        console.error('[SPORTBEX FETCH EXCEPTION]', err.message);
         const cached = apiCache.get(endpoint);
         return cached ? cached.data : null;
     }
 }
 
-// SCORE EXTRACTOR
-function extractScoreAndOvers(teamObj, matchObj, isHome = true) {
-    let runs = '';
-    let wickets = '';
-    let overs = '';
-    let isYetToBat = false;
+// Fetch Live Matches from SportBex
+// Note: Verify exact path in your SportBex trial docs if different (e.g. /api/cricket/live-matches)
+async function fetchLiveMatchesRaw() {
+    const endpoints = [
+        '/api/cricket/live-matches',
+        '/api/cricket/matches/live',
+        '/api/cricket/live'
+    ];
 
-    const teamsState =
-        matchObj.state?.teams ||
-        matchObj.inplayData?.state?.teams;
-
-    if (teamsState) {
-        const teamKey = isHome ? 'home' : 'away';
-
-        const tState = teamsState[teamKey] ||
-            teamsState[isHome ? 'localteam' : 'visitorteam'];
-
-        if (tState) {
-            if (
-                tState.status === 'yet_to_bat' ||
-                tState.isYetToBat ||
-                tState.score === 'Yet to bat' ||
-                tState.score === null
-            ) {
-                isYetToBat = true;
-            }
-
-            const rawScore = safestr(tState.score);
-
-            if (
-                rawScore &&
-                rawScore !== 'null' &&
-                rawScore !== 'Yet to bat'
-            ) {
-                if (rawScore.includes('/')) {
-                    const parts = rawScore.split('/');
-                    runs = parts[0];
-                    wickets = parts[1];
-                } else {
-                    runs = rawScore;
-                }
-            }
-
-            const rawInfo = safestr(tState.info);
-
-            if (rawInfo && rawInfo !== 'null') {
-                overs = rawInfo;
-            }
-        }
+    for (const ep of endpoints) {
+        const json = await sbGet(ep, LIVE_CACHE_TTL_MS);
+        if (Array.isArray(json?.data)) return json.data;
+        if (Array.isArray(json)) return json;
     }
-
-    if (!isYetToBat && runs === '') {
-        const teamName = safestr(teamObj?.name || teamObj).toLowerCase();
-
-        const scoreboard =
-            matchObj.inplayData?.scoreboard ||
-            matchObj.scoreboard ||
-            [];
-
-        if (Array.isArray(scoreboard) && scoreboard.length > 0) {
-            const matched = scoreboard.find(s => {
-                const sName = safestr(
-                    s.team?.name || s.name || s.teamName || ''
-                ).toLowerCase();
-
-                return sName && teamName &&
-                    (sName.includes(teamName) || teamName.includes(sName));
-            }) || (
-                isHome
-                    ? scoreboard[0]
-                    : scoreboard[1] || scoreboard[scoreboard.length - 1]
-            );
-
-            if (matched) {
-                runs = matched.runs ?? matched.score ??
-                    matched.r ?? matched.total ?? '';
-
-                wickets = matched.wickets ?? matched.w ?? matched.wkt ?? '';
-                overs = matched.overs ?? matched.ov ?? matched.over ?? '';
-            }
-        }
-    }
-
-    let finalScore = '-';
-
-    if (isYetToBat) {
-        finalScore = 'Yet to bat';
-    } else if (
-        runs !== '' &&
-        runs !== null &&
-        runs !== undefined &&
-        runs !== '-'
-    ) {
-        finalScore = (
-            wickets !== '' &&
-            wickets !== null &&
-            wickets !== undefined &&
-            String(wickets) !== ''
-        ) ? `${runs}/${wickets}` : String(runs);
-    }
-
-    return {
-        score: finalScore,
-        overs: overs !== null && overs !== undefined ? String(overs) : ''
-    };
-}
-
-// REAL OVERS & BALLS EXTRACTOR (FROM API RESPONSE ONLY)
-function extractRealOversAndBalls(matchObj) {
-    const rawList =
-        (Array.isArray(matchObj?.oversList) && matchObj.oversList) ||
-        (Array.isArray(matchObj?.overs) && matchObj.overs) ||
-        (Array.isArray(matchObj?.recentOvers) && matchObj.recentOvers) ||
-        (Array.isArray(matchObj?.inplayData?.overs) && matchObj.inplayData.overs) ||
-        (Array.isArray(matchObj?.inplayData?.recentOvers) && matchObj.inplayData.recentOvers) ||
-        null;
-
-    if (rawList && rawList.length > 0) {
-        return rawList.map((item, idx) => {
-            const overNumber = Number(
-                item?.overNumber ?? item?.over ?? item?.number ?? (idx + 1)
-            );
-            const ballsRaw = Array.isArray(item?.balls)
-                ? item.balls
-                : (Array.isArray(item?.deliveries) ? item.deliveries : []);
-
-            const balls = ballsRaw.map(b => {
-                if (typeof b === 'string' || typeof b === 'number') {
-                    return String(b);
-                }
-                if (b?.isWicket || b?.wicket) return 'W';
-                const val = b?.ball ?? b?.runs ?? b?.symbol ?? b?.value ?? b?.event ?? '';
-                return safestr(val);
-            }).filter(Boolean);
-
-            const scoreVal = item?.score ?? item?.runs ?? item?.total ?? '';
-
-            return {
-                overNumber: Number.isFinite(overNumber) && overNumber > 0 ? overNumber : (idx + 1),
-                balls,
-                score: scoreVal !== null && scoreVal !== undefined ? String(scoreVal) : ''
-            };
-        });
-    }
-
-    const flatBalls =
-        (Array.isArray(matchObj?.balls) && matchObj.balls) ||
-        (Array.isArray(matchObj?.inplayData?.balls) && matchObj.inplayData.balls) ||
-        null;
-
-    if (flatBalls && flatBalls.length > 0) {
-        const grouped = new Map();
-
-        flatBalls.forEach((b, idx) => {
-            const ovNumRaw = Number(b?.overNumber ?? b?.over ?? (Math.floor(idx / 6) + 1));
-            const ovNum = Number.isFinite(ovNumRaw) && ovNumRaw > 0 ? ovNumRaw : (Math.floor(idx / 6) + 1);
-            const current = grouped.get(ovNum) || { overNumber: ovNum, balls: [], score: '' };
-
-            let symbol = '';
-            if (typeof b === 'string' || typeof b === 'number') {
-                symbol = String(b);
-            } else if (b?.isWicket || b?.wicket) {
-                symbol = 'W';
-            } else {
-                symbol = safestr(b?.ball ?? b?.runs ?? b?.symbol ?? b?.value ?? b?.event ?? '');
-            }
-
-            if (symbol) {
-                current.balls.push(symbol);
-            }
-            if (b?.score || b?.totalScore) {
-                current.score = String(b.score || b.totalScore);
-            }
-
-            grouped.set(ovNum, current);
-        });
-
-        return Array.from(grouped.values());
-    }
-
     return [];
 }
 
-function extractLiveEventStats(matchObj) {
-    const inplay = matchObj?.inplayData || {};
-    const batsmen = Array.isArray(inplay.batsmen) ? inplay.batsmen : [];
-    const bowlers = Array.isArray(inplay.bowlers) ? inplay.bowlers : [];
+// Fetch Series List from SportBex ("Retrieved the series list Data!")
+async function fetchSeriesListRaw() {
+    const endpoints = [
+        '/api/cricket/upcoming-series',
+        '/api/cricket/series',
+        '/api/cricket/series-list'
+    ];
 
-    let totalRuns = 0;
-    let totalBalls = 0;
-    let totalFours = 0;
-    let totalSixes = 0;
-    let totalWickets = 0;
+    for (const ep of endpoints) {
+        const json = await sbGet(ep, SERIES_CACHE_TTL_MS);
+        if (Array.isArray(json?.data)) return json.data;
+        if (Array.isArray(json)) return json;
+    }
+    return [];
+}
 
-    batsmen.forEach(bat => {
-        totalRuns += Number(bat?.runs ?? bat?.r ?? 0) || 0;
-        totalBalls += Number(bat?.balls ?? bat?.b ?? 0) || 0;
-        totalFours += Number(bat?.fours ?? bat?.['4s'] ?? 0) || 0;
-        totalSixes += Number(bat?.sixes ?? bat?.['6s'] ?? 0) || 0;
-    });
+// Fetch Commentary by Match _id
+async function fetchCommentaryRaw(matchId) {
+    const cleanId = encodeURIComponent(String(matchId || '').trim());
+    if (!cleanId) return null;
 
-    bowlers.forEach(bowl => {
-        totalWickets += Number(bowl?.wickets ?? bowl?.w ?? 0) || 0;
-        const bBalls = Number(bowl?.balls ?? 0) || 0;
-        if (bBalls > totalBalls) totalBalls = bBalls;
-    });
+    const endpoints = [
+        `/api/cricket/commentary/${cleanId}`,
+        `/api/cricket/match-commentary/${cleanId}`,
+        `/api/cricket/matches/${cleanId}/commentary`
+    ];
 
-    const report = safestr(
-        inplay?.state?.report ||
-        matchObj?.state?.report ||
-        matchObj?.note ||
-        matchObj?.result ||
-        ''
-    );
+    for (const ep of endpoints) {
+        const json = await sbGet(ep, LIVE_CACHE_TTL_MS);
+        if (json?.data && typeof json.data === 'object') return json.data;
+        if (json?.score || Array.isArray(json?.balls)) return json;
+    }
+    return null;
+}
+
+function normalizeLiveMatchCard(m) {
+    const id = String(m._id || m.id || m.matchId || '').trim();
+    const t1 = m.teams?.t1 || {};
+    const t2 = m.teams?.t2 || {};
+
+    const teamA = safestr(t1.name, 'Team A');
+    const teamB = safestr(t2.name, 'Team B');
+    const shortA = safestr(t1.short_name || t1.shortName, teamA.slice(0, 4).toUpperCase());
+    const shortB = safestr(t2.short_name || t2.shortName, teamB.slice(0, 4).toUpperCase());
+
+    const p1 = parseScoreAndOvers(t1.score);
+    const p2 = parseScoreAndOvers(t2.score);
+
+    const status = getSportBexStatus(m.status, m.isLive);
+    const startTs = parseTimestamp(m.startDate || m.timestamp);
+
+    const scoreSummary = [
+        p1.score !== '-' ? `${shortA}: ${p1.score}${p1.overs ? ` (${p1.overs})` : ''}` : '',
+        p2.score !== '-' ? `${shortB}: ${p2.score}${p2.overs ? ` (${p2.overs})` : ''}` : ''
+    ].filter(Boolean).join('  |  ');
 
     return {
-        totalRuns,
-        totalBalls,
-        totalFours,
-        totalSixes,
-        totalWickets,
-        report
+        id: esc(id),
+        eventId: esc(m.eventId || ''),
+        tournament: esc([m.seriesName, m.name].filter(Boolean).join(' • ') || 'Cricket'),
+        teamA: esc(teamA),
+        teamB: esc(teamB),
+        shortA: esc(shortA),
+        shortB: esc(shortB),
+        logoA: esc(t1.logo || ''),
+        logoB: esc(t2.logo || ''),
+        scoreA: esc(p1.score),
+        oversA: esc(p1.overs),
+        scoreB: esc(p2.score),
+        oversB: esc(p2.overs),
+        scoreSummary: esc(scoreSummary),
+        status,
+        isLive: status === 'LIVE',
+        dateTime: esc(m.sessionStatus || m.status || (startTs ? new Date(startTs).toLocaleString('en-IN') : '')),
+        venue: esc(m.ground || 'Stadium'),
+        countdownTimestamp: status === 'UPCOMING' ? startTs : null
     };
 }
 
-function extractMatchNoteAndResult(matchObj, teamAName, teamBName) {
-    const shortA = getShortTeamName(teamAName);
-    const shortB = getShortTeamName(teamBName);
+function mapUpcomingSeriesItems(seriesList) {
+    const now = Date.now();
+    return (Array.isArray(seriesList) ? seriesList : [])
+        .map(s => {
+            const startTs = parseTimestamp(s.startDate);
+            const endTs = parseTimestamp(s.endDate);
+            return {
+                id: esc(s._id || s.id || ''),
+                title: esc(s.name || 'Series'),
+                tournament: s.isPopular ? 'Popular Series' : 'Series',
+                dateTime: esc(
+                    startTs
+                        ? `Starts: ${new Date(startTs).toLocaleDateString('en-IN')}`
+                        : ''
+                ),
+                startTs,
+                endTs
+            };
+        })
+        .filter(item => {
+            if (!item.startTs) return true;
+            // Include upcoming series (not yet started) or active series not yet ended
+            return item.startTs > now || (!item.endTs || item.endTs >= now);
+        });
+}
 
-    const rawNote = safestr(
-        matchObj?.inplayData?.state?.report ||
-        matchObj?.state?.report ||
-        matchObj?.state?.note ||
-        matchObj?.note ||
-        matchObj?.result ||
-        matchObj?.statusText ||
+function normalizeBallSymbol(rawVal) {
+    const s = String(rawVal ?? '').trim().toUpperCase();
+    if (!s || s === '0' || s === 'DOT' || s === '.') return 'DOT';
+    if (s === 'WK' || s === 'W' || s.includes('WICKET') || s.includes('OUT')) return 'W';
+    if (['6', '4', '3', '2', '1'].includes(s)) return s;
+    return s.slice(0, 4);
+}
+
+// Builds oversList [{ overNumber, balls, score }] from SportBex commentary
+function extractCommentaryOversList(commentaryData) {
+    if (!commentaryData) return [];
+
+    const ballsArr = Array.isArray(commentaryData.balls) ? commentaryData.balls : [];
+    const oversMap = new Map();
+
+    // 1. Collect overSummary.overSummaryBalls when present
+    ballsArr.forEach(item => {
+        const ovSummary = item?.overSummary;
+        if (ovSummary && Array.isArray(ovSummary.overSummaryBalls)) {
+            const ovNum = Number(item.overNumber) || Number(ovSummary.overNumber) || 1;
+            const mappedBalls = ovSummary.overSummaryBalls.map(normalizeBallSymbol);
+            const scoreStr = ovSummary.totalScore !== undefined && ovSummary.totalScore !== null
+                ? String(ovSummary.totalScore)
+                : '';
+
+            oversMap.set(ovNum, {
+                overNumber: ovNum,
+                balls: mappedBalls,
+                score: scoreStr
+            });
+        }
+    });
+
+    // 2. Group individual balls by overNumber (chronological order)
+    const chronoBalls = [...ballsArr].sort((a, b) => {
+        const ovDiff = (Number(a.overNumber) || 0) - (Number(b.overNumber) || 0);
+        if (ovDiff !== 0) return ovDiff;
+        const bDiff = (Number(a.ballNumber) || 0) - (Number(b.ballNumber) || 0);
+        if (bDiff !== 0) return bDiff;
+        return (Number(a.commentaryTimestamp) || 0) - (Number(b.commentaryTimestamp) || 0);
+    });
+
+    const groupedByOver = new Map();
+    chronoBalls.forEach(b => {
+        const ovNum = Number(b.overNumber) || 1;
+        if (!groupedByOver.has(ovNum)) groupedByOver.set(ovNum, []);
+        groupedByOver.get(ovNum).push(normalizeBallSymbol(b.value));
+    });
+
+    groupedByOver.forEach((ballsList, ovNum) => {
+        const existing = oversMap.get(ovNum);
+        if (!existing || !existing.balls || existing.balls.length === 0) {
+            oversMap.set(ovNum, {
+                overNumber: ovNum,
+                balls: ballsList,
+                score: existing ? existing.score : ''
+            });
+        }
+    });
+
+    return Array.from(oversMap.values()).sort((a, b) => a.overNumber - b.overNumber);
+}
+
+// Merge Live Match metadata + Commentary score/balls into matchHeader format
+async function loadMatchData(matchId) {
+    const cleanId = String(matchId || '').trim();
+    if (!cleanId) return null;
+
+    const [liveList, commentary] = await Promise.all([
+        fetchLiveMatchesRaw(),
+        fetchCommentaryRaw(cleanId)
+    ]);
+
+    const rawLiveMatch = liveList.find(
+        m => String(m._id || m.id || m.matchId || '').trim() === cleanId
+    ) || null;
+
+    if (!rawLiveMatch && !commentary) {
+        return null;
+    }
+
+    const scoreObj = commentary?.score || {};
+    const teamsObj = scoreObj.teams || {};
+    const cTeam1 = teamsObj.team1 || null;
+    const cTeam2 = teamsObj.team2 || null;
+
+    const lT1 = rawLiveMatch?.teams?.t1 || {};
+    const lT2 = rawLiveMatch?.teams?.t2 || {};
+
+    const teamAName = safestr(cTeam1?.name || lT1.name, 'Team A');
+    const teamBName = safestr(cTeam2?.name || lT2.name, 'Team B');
+
+    const shortA = safestr(cTeam1?.shortName || lT1.short_name, teamAName.slice(0, 4).toUpperCase());
+    const shortB = safestr(cTeam2?.shortName || lT2.short_name, teamBName.slice(0, 4).toUpperCase());
+
+    const logoA = safestr(cTeam1?.logo || lT1.logo, '');
+    const logoB = safestr(cTeam2?.logo || lT2.logo, '');
+
+    // Team 1 score/overs
+    let scoreA = '-';
+    let oversA = '';
+    if (cTeam1?.inningsStats) {
+        const st1 = cTeam1.inningsStats;
+        if (st1.runs !== undefined && st1.runs !== null) {
+            scoreA = st1.wickets !== undefined && st1.wickets !== null
+                ? `${st1.runs}/${st1.wickets}`
+                : String(st1.runs);
+        }
+        oversA = st1.overs !== undefined && st1.overs !== null ? String(st1.overs) : '';
+    } else if (lT1.score) {
+        const parsed1 = parseScoreAndOvers(lT1.score);
+        scoreA = parsed1.score;
+        oversA = parsed1.overs;
+    }
+
+    // Team 2 score/overs
+    let scoreB = '-';
+    let oversB = '';
+    if (cTeam2?.inningsStats) {
+        const st2 = cTeam2.inningsStats;
+        if (st2.runs !== undefined && st2.runs !== null) {
+            scoreB = st2.wickets !== undefined && st2.wickets !== null
+                ? `${st2.runs}/${st2.wickets}`
+                : String(st2.runs);
+        }
+        oversB = st2.overs !== undefined && st2.overs !== null ? String(st2.overs) : '';
+    } else if (lT2.score) {
+        const parsed2 = parseScoreAndOvers(lT2.score);
+        scoreB = parsed2.score;
+        oversB = parsed2.overs;
+    }
+
+    const status = getSportBexStatus(
+        scoreObj.status || rawLiveMatch?.status,
+        rawLiveMatch?.isLive ?? (scoreObj.status === 'LIVE')
+    );
+
+    const startTs = parseTimestamp(rawLiveMatch?.startDate || rawLiveMatch?.timestamp);
+    const matchNote = safestr(
+        rawLiveMatch?.sessionStatus || scoreObj.tossDecision || '',
         ''
-    ).trim();
-
-    let matchNote = rawNote;
-    let resultText = '';
-
-    const upperNote = rawNote.toUpperCase();
-    if (
-        upperNote.includes('WON BY') ||
-        upperNote.includes('TIED') ||
-        upperNote.includes('NO RESULT') ||
-        upperNote.includes('ABANDONED')
-    ) {
-        resultText = rawNote
-            .replace(new RegExp(teamAName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), shortA)
-            .replace(new RegExp(teamBName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), shortB)
-            .toUpperCase();
-    }
+    );
+    const resultText = safestr(rawLiveMatch?.result?.message || '', '');
+    const oversList = extractCommentaryOversList(commentary);
 
     return {
-        shortA,
-        shortB,
-        matchNote,
-        resultText
-    };
-}
-
-// MATCH STATE TEXT
-function getMatchStateText(match) {
-    const status = getMatchStatus(match);
-    const stateObj = match.state || match.status || {};
-
-    if (status === 'UPCOMING') return 'UPCOMING';
-
-    if (status === 'FINISHED') {
-        return safestr(
-            match?.inplayData?.state?.report ||
-            stateObj.report ||
-            stateObj.description ||
-            stateObj.name ||
-            stateObj,
-            'FINISHED'
-        ).toUpperCase();
-    }
-
-    if (status === 'BREAK') {
-        return safestr(
-            stateObj.description || stateObj.name || stateObj,
-            'BREAK'
-        ).toUpperCase();
-    }
-
-    const rawLiveText = safestr(
-        match?.inplayData?.state?.report ||
-        match.lastBall ||
-        match.currentBall ||
-        match.ballEvent ||
-        match.statusText ||
-        match.matchState ||
-        (typeof stateObj === 'object' ? (stateObj.description || stateObj.statusText || stateObj.note || '') : '')
-    ).trim();
-
-    if (
-        rawLiveText &&
-        rawLiveText.toLowerCase() !== 'live' &&
-        rawLiveText.toLowerCase() !== 'in play' &&
-        rawLiveText.toLowerCase() !== 'inprogress' &&
-        rawLiveText.toLowerCase() !== 'in progress'
-    ) {
-        return rawLiveText.toUpperCase();
-    }
-
-    return 'BOWLER RUNNING IN';
-}
-
-// NORMALIZE MATCH
-function normalizeMatch(m) {
-    if (!m) return {};
-
-    const teamAObj = m.homeTeam || m.localteam || m.teamA ||
-        m.team_a || { name: m.teamA || 'Team A' };
-
-    const teamBObj = m.awayTeam || m.visitorteam || m.teamB ||
-        m.team_b || { name: m.teamB || 'Team B' };
-
-    const teamAName = safestr(
-        teamAObj.name || teamAObj.longName || teamAObj
-    );
-
-    const teamBName = safestr(
-        teamBObj.name || teamBObj.longName || teamBObj
-    );
-
-    const logoA = safestr(teamAObj.logo || teamAObj.image || '');
-    const logoB = safestr(teamBObj.logo || teamBObj.image || '');
-    const flagA = safestr(teamAObj.flag || teamAObj.countryFlag || '');
-    const flagB = safestr(teamBObj.flag || teamBObj.countryFlag || '');
-
-    const resA = extractScoreAndOvers(teamAObj, m, true);
-    const resB = extractScoreAndOvers(teamBObj, m, false);
-
-    const matchStatus = getMatchStatus(m);
-    const startTimestamp = getStartTimestamp(m);
-
-    // Countdown only for scheduled/upcoming matches
-    const countdownTimestamp =
-        matchStatus === 'UPCOMING' ? startTimestamp : null;
-
-    const startTimeValue =
-        m.startTime ||
-        m.starting_at ||
-        m.startingAt ||
-        m.dateTime ||
-        m.time ||
-        '';
-
-    const oversList = extractRealOversAndBalls(m);
-    const liveEvent = extractLiveEventStats(m);
-    const noteInfo = extractMatchNoteAndResult(m, teamAName, teamBName);
-
-    return {
-        id: esc(m.id || m.matchId || m.match_id),
-
-        tournament: esc(
-            m.league?.name ||
-            m.tournament ||
-            m.series ||
-            'Live Cricket'
-        ),
-
+        id: esc(cleanId),
+        eventId: esc(rawLiveMatch?.eventId || ''),
+        tournament: esc([rawLiveMatch?.seriesName, rawLiveMatch?.name].filter(Boolean).join(' • ') || 'Cricket'),
         teamA: esc(teamAName),
         teamB: esc(teamBName),
-
-        shortA: esc(noteInfo.shortA),
-        shortB: esc(noteInfo.shortB),
-
+        shortA: esc(shortA),
+        shortB: esc(shortB),
         logoA: esc(logoA),
         logoB: esc(logoB),
-
-        flagA: esc(flagA),
-        flagB: esc(flagB),
-
-        scoreA: esc(resA.score),
-        oversA: esc(resA.overs),
-
-        scoreB: esc(resB.score),
-        oversB: esc(resB.overs),
-
+        flagA: '',
+        flagB: '',
+        scoreA: esc(scoreA),
+        oversA: esc(oversA),
+        scoreB: esc(scoreB),
+        oversB: esc(oversB),
         oversList,
-        liveEvent,
-        matchNote: esc(noteInfo.matchNote),
-        resultText: esc(noteInfo.resultText),
-
-        status: matchStatus,
-        isLive: matchStatus === 'LIVE',
-
-        matchStateText: esc(getMatchStateText(m)),
-
-        dateTime: esc(
-            startTimeValue ||
-            (matchStatus === 'LIVE' ? 'LIVE' : '')
-        ),
-
-        countdownTimestamp,
-
-        venue: esc(m.venue?.name || m.venue || 'Stadium'),
-
-        odds: {
-            teamA_back: '1.98',
-            teamA_lay: '2.00',
-            draw_back: '-',
-            draw_lay: '-',
-            teamB_back: '1.98',
-            teamB_lay: '2.00'
-        }
+        liveEvent: null,
+        matchNote: esc(matchNote),
+        resultText: esc(resultText),
+        status,
+        isLive: status === 'LIVE',
+        matchStateText: esc(status === 'LIVE' ? 'BOWLER RUNNING IN' : status),
+        dateTime: esc(matchNote || (startTs ? new Date(startTs).toLocaleString('en-IN') : '')),
+        venue: esc(rawLiveMatch?.ground || 'Stadium'),
+        countdownTimestamp: status === 'UPCOMING' ? startTs : null
     };
-}
-
-function sendWithAutoRefresh(res, htmlContent) {
-    res.send(htmlContent);
 }
 
 // HOME
@@ -671,114 +436,64 @@ app.get('/', (req, res) => {
 app.get('/switch-to-client', (req, res) => {
     const targetUser = req.query.user || 'Client';
     const adminToken = req.query.admin_token || MASTER_ADMIN_KEY;
-
     res.redirect(
         `/dashboard?user=${encodeURIComponent(targetUser)}&admin_token=${encodeURIComponent(adminToken)}`
     );
 });
 
-// DASHBOARD
+// DASHBOARD (Live Matches + Upcoming Series)
 app.get('/dashboard', async (req, res) => {
-    res.setHeader(
-        'Cache-Control',
-        'no-store, no-cache, must-revalidate, proxy-revalidate'
-    );
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    const targetUser = req.query.user || 'Client';
-
     const user = {
-        username: esc(targetUser),
+        username: esc(req.query.user || 'Client'),
         points: 50000,
         exposure: 1200
     };
 
-    let matches = [];
+    let liveMatches = [];
+    let upcomingItems = [];
 
     try {
-        const today = new Date().toISOString().slice(0, 10);
-        const json = await hl(`/matches?date=${today}`);
+        const [rawLive, rawSeries] = await Promise.all([
+            fetchLiveMatchesRaw(),
+            fetchSeriesListRaw()
+        ]);
 
-        const list = Array.isArray(json)
-            ? json
-            : (
-                Array.isArray(json?.data)
-                    ? json.data
-                    : (
-                        Array.isArray(json?.matches)
-                            ? json.matches
-                            : []
-                    )
-            );
+        liveMatches = rawLive
+            .filter(m => m && (m._id || m.id || m.matchId))
+            .map(normalizeLiveMatchCard);
 
-        matches = list
-            .filter(m => m && (m.id || m.matchId || m.match_id))
-            .map(normalizeMatch);
-
+        upcomingItems = mapUpcomingSeriesItems(rawSeries);
     } catch (err) {
         console.error('Dashboard Error:', err.message);
     }
 
-    sendWithAutoRefresh(res, renderDashboardPage(user, matches));
+    res.send(renderDashboardPage(user, liveMatches, upcomingItems));
 });
 
-// SHARED MATCH DATA LOADER
-async function loadMatchData(matchId) {
-    const json = await hl(
-        `/matches/${encodeURIComponent(matchId)}`
-    );
-
-    const found = getRawMatch(json);
-
-    if (!found || !(found.id || found.matchId || found.match_id)) {
-        return null;
-    }
-
-    console.log('RAW MATCH KEYS:', Object.keys(found || {}));
-    console.log(
-        'RAW BALL/OVER FIELDS:',
-        JSON.stringify({
-            state: found?.state,
-            lastBall: found?.lastBall,
-            currentBall: found?.currentBall,
-            balls: found?.balls,
-            overs: found?.overs,
-            inplayData: found?.inplayData
-        }).slice(0, 1200)
-    );
-
-    return normalizeMatch(found);
-}
-
-// LIVE MATCH DATA API
+// LIVE MATCH POLLING API
 app.get('/api/match/:id', async (req, res) => {
-    res.setHeader(
-        'Cache-Control',
-        'no-store, no-cache, must-revalidate, proxy-revalidate'
-    );
-
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
     try {
         const match = await loadMatchData(req.params.id);
-
         if (!match) {
             return res.status(404).json({
                 success: false,
                 message: 'Match data not available'
             });
         }
-
         return res.json({
             success: true,
             match
         });
-
     } catch (err) {
         console.error('Live Match API Error:', err.message);
-
         return res.status(500).json({
             success: false,
             message: 'Unable to fetch match data'
@@ -788,11 +503,7 @@ app.get('/api/match/:id', async (req, res) => {
 
 // MATCH DETAIL PAGE
 app.get('/match/:id', async (req, res) => {
-    res.setHeader(
-        'Cache-Control',
-        'no-store, no-cache, must-revalidate, proxy-revalidate'
-    );
-
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
@@ -803,7 +514,6 @@ app.get('/match/:id', async (req, res) => {
     };
 
     const matchId = req.params.id;
-
     let matchData = {
         id: esc(matchId),
         tournament: 'Cricket Match',
@@ -832,24 +542,16 @@ app.get('/match/:id', async (req, res) => {
     };
 
     try {
-        const loadedMatch = await loadMatchData(matchId);
-
-        if (loadedMatch) {
-            matchData = loadedMatch;
-        }
-
+        const loaded = await loadMatchData(matchId);
+        if (loaded) matchData = loaded;
     } catch (err) {
         console.error('Match Detail Error:', err.message);
     }
 
-    sendWithAutoRefresh(
-        res,
-        renderMatchDetailPage(user, matchData)
-    );
+    res.send(renderMatchDetailPage(user, matchData));
 });
 
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`SportBex server running on port ${PORT}`);
 });
