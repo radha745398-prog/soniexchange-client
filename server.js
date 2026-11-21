@@ -1,4 +1,4 @@
-// server.js - SportBex Live/Upcoming + Commentary (matchHeader & Over Strip)
+// server.js - SportBex Live Matches, Upcoming Series & Match Commentary
 
 const express = require('express');
 const path = require('path');
@@ -16,7 +16,7 @@ const SPORTBEX_API_KEY = process.env.SPORTBEX_API_KEY || 'QTkiVDvw56VkWQwsx43lQ8
 const SPORTBEX_BASE_URL = process.env.SPORTBEX_BASE_URL || 'https://trial-api.sportbex.com';
 const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
-// Short cache (1.5s) for live polling stability without hammering trial API
+// Short cache for smooth live polling without hitting trial rate limits
 const apiCache = new Map();
 const LIVE_CACHE_TTL_MS = 1500;
 const SERIES_CACHE_TTL_MS = 30000;
@@ -131,55 +131,34 @@ async function sbGet(endpoint, ttlMs = LIVE_CACHE_TTL_MS) {
     }
 }
 
-// Fetch Live Matches from SportBex
-// Note: Verify exact path in your SportBex trial docs if different (e.g. /api/cricket/live-matches)
+// 1. Get All Live Matches
 async function fetchLiveMatchesRaw() {
-    const endpoints = [
-        '/api/cricket/live-matches',
-        '/api/cricket/matches/live',
-        '/api/cricket/live'
-    ];
-
-    for (const ep of endpoints) {
-        const json = await sbGet(ep, LIVE_CACHE_TTL_MS);
-        if (Array.isArray(json?.data)) return json.data;
-        if (Array.isArray(json)) return json;
-    }
+    const json = await sbGet('/api/live-score/match/live', LIVE_CACHE_TTL_MS);
+    if (Array.isArray(json?.data)) return json.data;
+    if (Array.isArray(json)) return json;
     return [];
 }
 
-// Fetch Series List from SportBex ("Retrieved the series list Data!")
+// 2. Get Upcoming Series
 async function fetchSeriesListRaw() {
-    const endpoints = [
-        '/api/cricket/upcoming-series',
-        '/api/cricket/series',
-        '/api/cricket/series-list'
-    ];
-
-    for (const ep of endpoints) {
-        const json = await sbGet(ep, SERIES_CACHE_TTL_MS);
-        if (Array.isArray(json?.data)) return json.data;
-        if (Array.isArray(json)) return json;
-    }
+    const json = await sbGet('/api/live-score/series/upcoming', SERIES_CACHE_TTL_MS);
+    if (Array.isArray(json?.data)) return json.data;
+    if (Array.isArray(json)) return json;
     return [];
 }
 
-// Fetch Commentary by Match _id
+// 3. Get Match Commentary
 async function fetchCommentaryRaw(matchId) {
     const cleanId = encodeURIComponent(String(matchId || '').trim());
     if (!cleanId) return null;
 
-    const endpoints = [
-        `/api/cricket/commentary/${cleanId}`,
-        `/api/cricket/match-commentary/${cleanId}`,
-        `/api/cricket/matches/${cleanId}/commentary`
-    ];
+    const json = await sbGet(
+        `/api/live-score/match/${cleanId}/commentary?perPage=10&page=1`,
+        LIVE_CACHE_TTL_MS
+    );
 
-    for (const ep of endpoints) {
-        const json = await sbGet(ep, LIVE_CACHE_TTL_MS);
-        if (json?.data && typeof json.data === 'object') return json.data;
-        if (json?.score || Array.isArray(json?.balls)) return json;
-    }
+    if (json?.data && typeof json.data === 'object') return json.data;
+    if (json?.score || Array.isArray(json?.balls)) return json;
     return null;
 }
 
@@ -248,7 +227,6 @@ function mapUpcomingSeriesItems(seriesList) {
         })
         .filter(item => {
             if (!item.startTs) return true;
-            // Include upcoming series (not yet started) or active series not yet ended
             return item.startTs > now || (!item.endTs || item.endTs >= now);
         });
 }
@@ -268,7 +246,7 @@ function extractCommentaryOversList(commentaryData) {
     const ballsArr = Array.isArray(commentaryData.balls) ? commentaryData.balls : [];
     const oversMap = new Map();
 
-    // 1. Collect overSummary.overSummaryBalls when present
+    // 1. Use overSummary.overSummaryBalls when present
     ballsArr.forEach(item => {
         const ovSummary = item?.overSummary;
         if (ovSummary && Array.isArray(ovSummary.overSummaryBalls)) {
@@ -286,7 +264,7 @@ function extractCommentaryOversList(commentaryData) {
         }
     });
 
-    // 2. Group individual balls by overNumber (chronological order)
+    // 2. Group individual balls chronologically by overNumber
     const chronoBalls = [...ballsArr].sort((a, b) => {
         const ovDiff = (Number(a.overNumber) || 0) - (Number(b.overNumber) || 0);
         if (ovDiff !== 0) return ovDiff;
