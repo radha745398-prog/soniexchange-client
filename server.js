@@ -12,7 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // API Key successfully configured
-const HIGHLIGHTLY_KEY = '8e021a69-1c87-443e-b503-d7ef1fead0fb';
+const HIGHLIGHTLY_KEY = 'ce943b6f-f248-4e33-a914-a02e0be48433';
 
 const BASE_URL = 'https://cricket.highlightly.net';
 const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
