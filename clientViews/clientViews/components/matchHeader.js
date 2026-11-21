@@ -338,7 +338,7 @@ function renderMatchHeader(user, matchData) {
 
                 if (targetInfo && targetInfo.isDirect) {
                     const chasingTeam = String(noteStr || '').toUpperCase().includes(shortTeamB) ? shortTeamB : shortTeamA;
-                    return `${chasingTeam} NEED ${targetInfo.runsNeeded} FROM ${targetInfo.ballsLeft} BALLS`;
+                    return chasingTeam + ' NEED ' + targetInfo.runsNeeded + ' FROM ' + targetInfo.ballsLeft + ' BALLS';
                 }
 
                 const targetRuns = Number(targetInfo);
@@ -362,11 +362,11 @@ function renderMatchHeader(user, matchData) {
                 const runsNeeded = Math.max(0, targetRuns - currentRuns);
                 const ballsLeft = parseOversToBalls(activeOvers, 20);
 
-                if (runsNeeded <= 0) return `${chasingShort} WON`;
+                if (runsNeeded <= 0) return chasingShort + ' WON';
                 if (ballsLeft !== null && ballsLeft > 0) {
-                    return `${chasingShort} NEED ${runsNeeded} FROM ${ballsLeft} BALLS`;
+                    return chasingShort + ' NEED ' + runsNeeded + ' FROM ' + ballsLeft + ' BALLS';
                 }
-                return `${chasingShort} NEED ${runsNeeded} RUNS`;
+                return chasingShort + ' NEED ' + runsNeeded + ' RUNS';
             }
 
             function setBadgeState(text, colorClass, animate = false) {
@@ -636,7 +636,7 @@ function renderMatchHeader(user, matchData) {
                     currentResult = m.resultText || '';
 
                     currentMatchState =
-                        String(stateLabel).toUpperCase();
+                        String(stateLabel || '').toUpperCase();
 
                     // COUNTDOWN TIMESTAMP
                     if (
