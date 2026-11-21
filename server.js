@@ -17,9 +17,9 @@ const HIGHLIGHTLY_KEY = 'f9257ac0-a966-443e-b898-0f451a9b8fec';
 const BASE_URL = 'https://cricket.highlightly.net';
 const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
-// Short-lived server cache to protect API rate limits while keeping data fresh
+// Keep cache disabled/near-zero so polling always gets fresh match data
 const apiCache = new Map();
-const API_CACHE_TTL_MS = 1500;
+const API_CACHE_TTL_MS = 0;
 
 const safestr = (val, fallback = '') => {
     if (val === null || val === undefined) return fallback;
@@ -204,7 +204,7 @@ async function hl(endpoint) {
 
         const now = Date.now();
         const cached = apiCache.get(endpoint);
-        if (cached && (now - cached.timestamp) < API_CACHE_TTL_MS) {
+        if (API_CACHE_TTL_MS > 0 && cached && (now - cached.timestamp) < API_CACHE_TTL_MS) {
             return cached.data;
         }
 
@@ -213,7 +213,8 @@ async function hl(endpoint) {
         const r = await fetch(`${BASE_URL}${endpoint}`, {
             headers: {
                 'x-rapidapi-key': HIGHLIGHTLY_KEY.trim(),
-                'Cache-Control': 'no-cache'
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
             }
         });
 
@@ -227,10 +228,12 @@ async function hl(endpoint) {
         }
 
         const parsed = JSON.parse(responseText);
-        apiCache.set(endpoint, {
-            data: parsed,
-            timestamp: now
-        });
+        if (API_CACHE_TTL_MS > 0) {
+            apiCache.set(endpoint, {
+                data: parsed,
+                timestamp: now
+            });
+        }
 
         return parsed;
 
@@ -444,6 +447,8 @@ function extractLiveEventStats(matchObj) {
 
     bowlers.forEach(bowl => {
         totalWickets += Number(bowl?.wickets ?? bowl?.w ?? 0) || 0;
+        const bBalls = Number(bowl?.balls ?? 0) || 0;
+        if (bBalls > totalBalls) totalBalls = bBalls;
     });
 
     const report = safestr(
