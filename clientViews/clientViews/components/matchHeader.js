@@ -254,8 +254,8 @@ function renderMatchHeader(user, matchData) {
             let lastScoreA = ${safeScoreA};
             let lastScoreB = ${safeScoreB};
 
-            let lastOvers =
-                ${safeOversA} || ${safeOversB};
+            let lastOversA = ${safeOversA};
+            let lastOversB = ${safeOversB};
 
             let lastLiveEvent = ${safeLiveEvent};
 
@@ -474,9 +474,9 @@ function renderMatchHeader(user, matchData) {
                 } else if (currentStatus === 'LIVE') {
                     const chaseText = buildChaseText(
                         lastScoreA,
-                        lastOvers,
+                        lastOversA,
                         lastScoreB,
-                        lastOvers,
+                        lastOversB,
                         currentNote
                     );
 
@@ -498,7 +498,7 @@ function renderMatchHeader(user, matchData) {
                 badge.innerText = text;
 
                 badge.className =
-                    'mb-1 px-3 py-1 rounded-full font-black text-xs tracking-wider uppercase border shadow-[0_0_15px_rgba(255,255,255,0.65)] animate-ping ' +
+                    'mb-1 px-3 py-1 rounded-full font-black text-xs tracking-wider uppercase border shadow-[0_0_15px_rgba(255,255,255,0.65)] animate-pulse ' +
                     colorClass;
 
                 if (popupTimer) {
@@ -564,10 +564,10 @@ function renderMatchHeader(user, matchData) {
                     const res = await fetch(
                         '/api/match/' +
                         encodeURIComponent(matchId) +
-                        '?_t=' + Date.now(),
+                        '?_t=' + Date.now() + '&_r=' + Math.random().toString(36).slice(2),
                         {
                             method: 'GET',
-                            cache: 'reload',
+                            cache: 'no-store',
                             headers: {
                                 'Cache-Control': 'no-store, no-cache, must-revalidate',
                                 'Pragma': 'no-cache'
@@ -603,8 +603,9 @@ function renderMatchHeader(user, matchData) {
                     const currentScoreA = m.scoreA || '-';
                     const currentScoreB = m.scoreB || '-';
 
-                    const currentOvers =
-                        m.oversA || m.oversB || '';
+                    const currentOversA = m.oversA || '';
+                    const currentOversB = m.oversB || '';
+                    const activeOverStr = currentOversB || currentOversA || '';
 
                     const stateText =
                         String(m.matchStateText || '').toUpperCase();
@@ -658,9 +659,9 @@ function renderMatchHeader(user, matchData) {
 
                     const chaseLiveText = buildChaseText(
                         currentScoreA,
-                        m.oversA || '',
+                        currentOversA,
                         currentScoreB,
-                        m.oversB || '',
+                        currentOversB,
                         currentNote
                     );
 
@@ -748,7 +749,8 @@ function renderMatchHeader(user, matchData) {
                         const scoreChanged =
                             currentScoreA !== lastScoreA ||
                             currentScoreB !== lastScoreB ||
-                            currentOvers !== lastOvers ||
+                            currentOversA !== lastOversA ||
+                            currentOversB !== lastOversB ||
                             sixDiff > 0 ||
                             fourDiff > 0 ||
                             wktStatDiff > 0 ||
@@ -764,10 +766,20 @@ function renderMatchHeader(user, matchData) {
 
                             let ballSymbol = null;
 
-                            const oldScore = parseScore(lastScoreA);
-                            const newScore = parseScore(currentScoreA);
+                            const oldScoreA = parseScore(lastScoreA);
+                            const newScoreA = parseScore(currentScoreA);
+                            const oldScoreB = parseScore(lastScoreB);
+                            const newScoreB = parseScore(currentScoreB);
 
-                            if (wktStatDiff > 0 || (oldScore && newScore && (newScore.wickets - oldScore.wickets) > 0)) {
+                            const wktDiffA = oldScoreA && newScoreA ? (newScoreA.wickets - oldScoreA.wickets) : 0;
+                            const wktDiffB = oldScoreB && newScoreB ? (newScoreB.wickets - oldScoreB.wickets) : 0;
+                            const runDiffA = oldScoreA && newScoreA ? (newScoreA.runs - oldScoreA.runs) : 0;
+                            const runDiffB = oldScoreB && newScoreB ? (newScoreB.runs - oldScoreB.runs) : 0;
+
+                            const wktDelta = Math.max(wktStatDiff, wktDiffA, wktDiffB);
+                            const runDelta = runDiffB > 0 ? runDiffB : (runDiffA > 0 ? runDiffA : runStatDiff);
+
+                            if (wktDelta > 0) {
                                 ballSymbol = 'W';
                                 if (wicketText.includes('STUMP')) {
                                     diffText = 'STUMP OUT!';
@@ -779,52 +791,47 @@ function renderMatchHeader(user, matchData) {
                                     diffText = 'WICKET FALLEN!';
                                 }
                                 color = badgeColor.red;
-                            } else if (sixDiff > 0 || (oldScore && newScore && (newScore.runs - oldScore.runs) === 6)) {
+                            } else if (sixDiff > 0 || runDelta === 6) {
                                 ballSymbol = '6';
                                 diffText = 'SIX (6)';
                                 color = badgeColor.purple;
-                            } else if (fourDiff > 0 || (oldScore && newScore && (newScore.runs - oldScore.runs) === 4)) {
+                            } else if (fourDiff > 0 || runDelta === 4) {
                                 ballSymbol = '4';
                                 diffText = 'FOUR (4)';
                                 color = 'bg-blue-600/40 border-blue-400 text-blue-200';
-                            } else if (oldScore && newScore) {
-                                const runDiff = newScore.runs - oldScore.runs;
-                                if (runDiff === 3) {
-                                    ballSymbol = '3';
-                                    diffText = '3 RUNS';
-                                    color = 'bg-emerald-500/30 border-emerald-400 text-emerald-300';
-                                } else if (runDiff === 2) {
-                                    ballSymbol = '2';
-                                    diffText = '2 RUNS';
-                                    color = 'bg-indigo-500/30 border-indigo-400 text-indigo-300';
-                                } else if (runDiff === 1) {
-                                    ballSymbol = '1';
-                                    diffText = '1 RUN';
-                                    color = 'bg-green-500/30 border-green-400 text-green-300';
-                                } else if (runDiff === 0 && (currentOvers !== lastOvers || ballStatDiff > 0)) {
-                                    ballSymbol = 'DOT';
-                                    diffText = 'DOT BALL';
-                                    color = 'bg-slate-600/30 border-slate-400 text-slate-300';
-                                }
-                            } else if (runStatDiff > 0) {
-                                const rNum = Math.min(runStatDiff, 6);
-                                ballSymbol = String(rNum);
-                                diffText = rNum + (rNum > 1 ? ' RUNS' : ' RUN');
+                            } else if (runDelta === 3) {
+                                ballSymbol = '3';
+                                diffText = '3 RUNS';
+                                color = 'bg-emerald-500/30 border-emerald-400 text-emerald-300';
+                            } else if (runDelta === 2) {
+                                ballSymbol = '2';
+                                diffText = '2 RUNS';
+                                color = 'bg-indigo-500/30 border-indigo-400 text-indigo-300';
+                            } else if (runDelta === 1) {
+                                ballSymbol = '1';
+                                diffText = '1 RUN';
                                 color = 'bg-green-500/30 border-green-400 text-green-300';
-                            } else if (ballStatDiff > 0) {
+                            } else if (
+                                runDelta === 0 &&
+                                (currentOversA !== lastOversA || currentOversB !== lastOversB || ballStatDiff > 0)
+                            ) {
                                 ballSymbol = 'DOT';
                                 diffText = 'DOT BALL';
                                 color = 'bg-slate-600/30 border-slate-400 text-slate-300';
                             }
+
+                            const activeScore = (currentScoreB && currentScoreB !== '-' && currentScoreB !== 'Yet to bat')
+                                ? currentScoreB
+                                : currentScoreA;
 
                             if (
                                 ballSymbol &&
                                 typeof window.recordLiveOverBall === 'function'
                             ) {
                                 window.recordLiveOverBall(
-                                    currentOvers,
+                                    activeOverStr,
                                     ballSymbol,
-                                    currentScoreA
+                                    activeScore
                                 );
                             }
 
@@ -832,7 +839,8 @@ function renderMatchHeader(user, matchData) {
 
                             lastScoreA = currentScoreA;
                             lastScoreB = currentScoreB;
-                            lastOvers = currentOvers;
+                            lastOversA = currentOversA;
+                            lastOversB = currentOversB;
                             lastLiveEvent = ev;
 
                         } else if (!popupTimer) {
@@ -872,9 +880,15 @@ function renderMatchHeader(user, matchData) {
                 }
             }
 
-            // First refresh after page load, then every 5 seconds.
+            // Fast polling + immediate sync on resume from minimize/tab switch
             pollMatch();
-            setInterval(pollMatch, 5000);
+            setInterval(pollMatch, 2500);
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    pollMatch();
+                }
+            });
+            window.addEventListener('focus', pollMatch);
 
         })();
     </script>
