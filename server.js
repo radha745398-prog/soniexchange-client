@@ -19,7 +19,7 @@ const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
 // Short-lived server cache to protect API rate limits while keeping data fresh
 const apiCache = new Map();
-const API_CACHE_TTL_MS = 3500;
+const API_CACHE_TTL_MS = 1500;
 
 const safestr = (val, fallback = '') => {
     if (val === null || val === undefined) return fallback;
@@ -41,6 +41,56 @@ const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => (
         "'": '&#39;'
     }[c]
 ));
+
+function getShortTeamName(name) {
+    const clean = String(name || '').trim();
+    if (!clean) return 'TEAM';
+
+    const upper = clean.toUpperCase();
+    const known = {
+        'INDIA': 'IND',
+        'PAKISTAN': 'PAK',
+        'AUSTRALIA': 'AUS',
+        'ENGLAND': 'ENG',
+        'SOUTH AFRICA': 'SA',
+        'NEW ZEALAND': 'NZ',
+        'SRI LANKA': 'SL',
+        'BANGLADESH': 'BAN',
+        'AFGHANISTAN': 'AFG',
+        'WEST INDIES': 'WI',
+        'IRELAND': 'IRE',
+        'ZIMBABWE': 'ZIM',
+        'SCOTLAND': 'SCO',
+        'NETHERLANDS': 'NED',
+        'UNITED ARAB EMIRATES': 'UAE',
+        'UAE': 'UAE'
+    };
+
+    if (known[upper]) return known[upper];
+
+    const words = clean
+        .replace(/[^a-zA-Z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+
+    if (words.length === 1) {
+        return words[0].slice(0, 4).toUpperCase();
+    }
+
+    const lastWord = words[words.length - 1].toUpperCase();
+    const hasWomen = words.some(w => w.toUpperCase() === 'WOMEN' || w.toUpperCase() === 'W');
+    const initials = words
+        .filter(w => !['WOMEN', 'W', 'MEN', 'M', 'XI', 'A'].includes(w.toUpperCase()))
+        .map(w => w[0])
+        .join('')
+        .toUpperCase();
+
+    if (lastWord === 'W' || hasWomen) {
+        return `${initials || words[0].slice(0, 3).toUpperCase()} W`;
+    }
+
+    return (initials || words.map(w => w.slice(0, 2)).join('')).slice(0, 5).toUpperCase();
+}
 
 function getRawMatch(json) {
     if (Array.isArray(json)) return json[0] || null;
@@ -374,6 +424,84 @@ function extractRealOversAndBalls(matchObj) {
     return [];
 }
 
+function extractLiveEventStats(matchObj) {
+    const inplay = matchObj?.inplayData || {};
+    const batsmen = Array.isArray(inplay.batsmen) ? inplay.batsmen : [];
+    const bowlers = Array.isArray(inplay.bowlers) ? inplay.bowlers : [];
+
+    let totalRuns = 0;
+    let totalBalls = 0;
+    let totalFours = 0;
+    let totalSixes = 0;
+    let totalWickets = 0;
+
+    batsmen.forEach(bat => {
+        totalRuns += Number(bat?.runs ?? bat?.r ?? 0) || 0;
+        totalBalls += Number(bat?.balls ?? bat?.b ?? 0) || 0;
+        totalFours += Number(bat?.fours ?? bat?.['4s'] ?? 0) || 0;
+        totalSixes += Number(bat?.sixes ?? bat?.['6s'] ?? 0) || 0;
+    });
+
+    bowlers.forEach(bowl => {
+        totalWickets += Number(bowl?.wickets ?? bowl?.w ?? 0) || 0;
+    });
+
+    const report = safestr(
+        inplay?.state?.report ||
+        matchObj?.state?.report ||
+        matchObj?.note ||
+        matchObj?.result ||
+        ''
+    );
+
+    return {
+        totalRuns,
+        totalBalls,
+        totalFours,
+        totalSixes,
+        totalWickets,
+        report
+    };
+}
+
+function extractMatchNoteAndResult(matchObj, teamAName, teamBName) {
+    const shortA = getShortTeamName(teamAName);
+    const shortB = getShortTeamName(teamBName);
+
+    const rawNote = safestr(
+        matchObj?.inplayData?.state?.report ||
+        matchObj?.state?.report ||
+        matchObj?.state?.note ||
+        matchObj?.note ||
+        matchObj?.result ||
+        matchObj?.statusText ||
+        ''
+    ).trim();
+
+    let matchNote = rawNote;
+    let resultText = '';
+
+    const upperNote = rawNote.toUpperCase();
+    if (
+        upperNote.includes('WON BY') ||
+        upperNote.includes('TIED') ||
+        upperNote.includes('NO RESULT') ||
+        upperNote.includes('ABANDONED')
+    ) {
+        resultText = rawNote
+            .replace(new RegExp(teamAName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), shortA)
+            .replace(new RegExp(teamBName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), shortB)
+            .toUpperCase();
+    }
+
+    return {
+        shortA,
+        shortB,
+        matchNote,
+        resultText
+    };
+}
+
 // MATCH STATE TEXT
 function getMatchStateText(match) {
     const status = getMatchStatus(match);
@@ -383,7 +511,11 @@ function getMatchStateText(match) {
 
     if (status === 'FINISHED') {
         return safestr(
-            stateObj.description || stateObj.name || stateObj,
+            match?.inplayData?.state?.report ||
+            stateObj.report ||
+            stateObj.description ||
+            stateObj.name ||
+            stateObj,
             'FINISHED'
         ).toUpperCase();
     }
@@ -396,6 +528,7 @@ function getMatchStateText(match) {
     }
 
     const rawLiveText = safestr(
+        match?.inplayData?.state?.report ||
         match.lastBall ||
         match.currentBall ||
         match.ballEvent ||
@@ -459,6 +592,8 @@ function normalizeMatch(m) {
         '';
 
     const oversList = extractRealOversAndBalls(m);
+    const liveEvent = extractLiveEventStats(m);
+    const noteInfo = extractMatchNoteAndResult(m, teamAName, teamBName);
 
     return {
         id: esc(m.id || m.matchId || m.match_id),
@@ -473,6 +608,9 @@ function normalizeMatch(m) {
         teamA: esc(teamAName),
         teamB: esc(teamBName),
 
+        shortA: esc(noteInfo.shortA),
+        shortB: esc(noteInfo.shortB),
+
         logoA: esc(logoA),
         logoB: esc(logoB),
 
@@ -486,6 +624,9 @@ function normalizeMatch(m) {
         oversB: esc(resB.overs),
 
         oversList,
+        liveEvent,
+        matchNote: esc(noteInfo.matchNote),
+        resultText: esc(noteInfo.resultText),
 
         status: matchStatus,
         isLive: matchStatus === 'LIVE',
@@ -663,6 +804,8 @@ app.get('/match/:id', async (req, res) => {
         tournament: 'Cricket Match',
         teamA: 'Team A',
         teamB: 'Team B',
+        shortA: 'TEAM A',
+        shortB: 'TEAM B',
         logoA: '',
         logoB: '',
         flagA: '',
@@ -672,6 +815,9 @@ app.get('/match/:id', async (req, res) => {
         scoreB: '-',
         oversB: '',
         oversList: [],
+        liveEvent: null,
+        matchNote: '',
+        resultText: '',
         status: 'UPCOMING',
         isLive: false,
         matchStateText: 'UPCOMING',
