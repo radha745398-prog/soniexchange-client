@@ -1,14 +1,23 @@
 // clientViews/components/matchHeader.js
-// Instant Ball-by-Ball Live Score + Event Popup + Break/Upcoming Timers + Auto Sync
+// Reference Frame + SoniExchange Colors + Instant Ball-by-Ball Logic + Timers
 
 function flagOrLogoHTML(src, name) {
     if (src) {
         return `<img src="${src}" alt="${name}" class="w-8 h-8 rounded-full object-cover bg-white/10 border border-white/30 shrink-0">`;
     }
 
-    const initials = String(name || '').trim().slice(0, 2).toUpperCase();
+    const initials = String(name || '?').trim().slice(0, 2).toUpperCase();
 
     return `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#1e3a8a] to-[#0f172a] border border-white/25 flex items-center justify-center text-[10px] font-black text-white shrink-0 shadow">${initials}</div>`;
+}
+
+function decodeHtmlEntities(str) {
+    return String(str || '')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'");
 }
 
 function renderMatchHeader(user, matchData) {
@@ -19,22 +28,22 @@ function renderMatchHeader(user, matchData) {
     const d = matchData || {};
 
     const matchId = d.id || '';
-    const teamA = d.teamA || '';
-    const teamB = d.teamB || '';
-    const shortA = d.shortA || String(teamA).slice(0, 4).toUpperCase();
-    const shortB = d.shortB || String(teamB).slice(0, 4).toUpperCase();
-    const venue = d.venue || '';
-    const rawMatchTime = String(d.dateTime || '').trim();
-    const matchTime = /\b(DAY\s*\d+|SESSION|LEAD\s+BY)\b/i.test(rawMatchTime) ? '' : rawMatchTime;
+    const teamA = decodeHtmlEntities(d.teamA || 'Team A');
+    const teamB = decodeHtmlEntities(d.teamB || 'Team B');
+    const shortA = decodeHtmlEntities(d.shortA || String(teamA).slice(0, 4).toUpperCase());
+    const shortB = decodeHtmlEntities(d.shortB || String(teamB).slice(0, 4).toUpperCase());
+    const venue = decodeHtmlEntities(d.venue || 'Stadium');
+    const rawMatchTime = decodeHtmlEntities(String(d.dateTime || '').trim());
+    const matchTime = /\b(DAY\s*\d+|SESSION|LEAD\s+BY|TRAIL\s+BY)\b/i.test(rawMatchTime) ? '' : rawMatchTime;
 
-    const scoreA = d.scoreA || '-';
-    const oversA = d.oversA || '';
-    const scoreB = d.scoreB || '-';
-    const oversB = d.oversB || '';
+    const scoreA = decodeHtmlEntities(d.scoreA || '-');
+    const oversA = decodeHtmlEntities(d.oversA || '');
+    const scoreB = decodeHtmlEntities(d.scoreB || '-');
+    const oversB = decodeHtmlEntities(d.oversB || '');
 
-    const matchStateText = d.matchStateText || '';
-    const matchNote = d.matchNote || '';
-    const resultText = d.resultText || '';
+    const matchStateText = decodeHtmlEntities(d.matchStateText || '');
+    const matchNote = decodeHtmlEntities(d.matchNote || '');
+    const resultText = decodeHtmlEntities(d.resultText || '');
     const countdownTimestamp = Number(d.countdownTimestamp) || null;
     const initialLiveEvent = d.liveEvent || null;
     const breakTimerMode = d.breakTimerMode || 'FORWARD';
@@ -77,6 +86,7 @@ function renderMatchHeader(user, matchData) {
 
     const upperState = String(matchStateText).toUpperCase();
 
+    // Center badge shows active event / bowler-in / break / upcoming / result (never static "LIVE")
     let initialBadgeText = 'UPCOMING';
     let initialBadgeClass = 'bg-blue-500/20 border-blue-400 text-blue-300';
 
@@ -84,8 +94,8 @@ function renderMatchHeader(user, matchData) {
         initialBadgeText = resultText || matchStateText || 'FINISHED';
         initialBadgeClass = 'bg-emerald-500/20 border-emerald-400 text-emerald-300';
     } else if (isLive) {
-        initialBadgeText = 'LIVE';
-        initialBadgeClass = 'bg-emerald-500/20 border-emerald-400 text-emerald-300';
+        initialBadgeText = 'BOWLER RUNNING IN';
+        initialBadgeClass = 'bg-amber-500/20 border-amber-400 text-amber-300 animate-pulse';
     } else if (isBreak || upperState.includes('LUNCH') || upperState.includes('TEA') || upperState.includes('DRINKS') || upperState.includes('BREAK')) {
         initialBadgeText = 'BREAK';
         initialBadgeClass = 'bg-orange-500/30 border-orange-400 text-orange-300';
@@ -93,7 +103,7 @@ function renderMatchHeader(user, matchData) {
 
     const initialStateText = isFinished
         ? (resultText || matchNote || matchStateText || '')
-        : (matchNote || matchStateText || '');
+        : (matchNote || '');
 
     const safeMatchId = JSON.stringify(String(matchId));
     const safeScoreA = JSON.stringify(String(scoreA));
@@ -169,6 +179,7 @@ function renderMatchHeader(user, matchData) {
 
         <div class="p-3 sm:p-4 bg-[#111c26] relative">
 
+            <!-- LEFT CORNER LIVE STATUS + VENUE -->
             <div class="text-[11px] text-gray-400 flex items-center space-x-1.5 mb-2">
 
                 <span id="match-status-dot"
@@ -182,6 +193,7 @@ function renderMatchHeader(user, matchData) {
                 <span>${venue ? '• ' + venue : ''}</span>
             </div>
 
+            <!-- SCOREBOARD ROW: TEAM A | CENTER EVENT/STATE | TEAM B -->
             <div class="grid grid-cols-12 items-center gap-2">
 
                 <div class="col-span-4 flex items-center space-x-2">
@@ -206,7 +218,7 @@ function renderMatchHeader(user, matchData) {
                         ${initialBadgeText}
                     </div>
 
-                    <div class="text-xs text-amber-200 font-bold"
+                    <div class="text-xs text-amber-200 font-bold leading-snug"
                         id="match-state-text">
                         ${initialStateText}
                     </div>
@@ -253,11 +265,20 @@ function renderMatchHeader(user, matchData) {
 
             if (!matchId) return;
 
-            let lastScoreA = ${safeScoreA};
-            let lastScoreB = ${safeScoreB};
+            function cleanText(val) {
+                return String(val || '')
+                    .replace(/&amp;/gi, '&')
+                    .replace(/&lt;/gi, '<')
+                    .replace(/&gt;/gi, '>')
+                    .replace(/&quot;/gi, '"')
+                    .replace(/&#39;/gi, "'");
+            }
 
-            let lastOversA = ${safeOversA};
-            let lastOversB = ${safeOversB};
+            let lastScoreA = cleanText(${safeScoreA});
+            let lastScoreB = cleanText(${safeScoreB});
+
+            let lastOversA = cleanText(${safeOversA});
+            let lastOversB = cleanText(${safeOversB});
 
             let lastLiveEvent = ${safeLiveEvent};
             let lastCommentaryText = '';
@@ -265,7 +286,7 @@ function renderMatchHeader(user, matchData) {
 
             let popupTimer = null;
             let bowlerReadyTimer = null;
-            let isBowlerReadyWindow = false;
+            let isBowlerReadyWindow = true;
             let pollTimer = null;
             let isPolling = false;
             let lastLiveChangeAt = Date.now();
@@ -275,15 +296,14 @@ function renderMatchHeader(user, matchData) {
             let breakEndTimestamp = ${safeBreakEnd};
             let breakStartTimestamp = ${safeBreakStart};
 
-            let stateLabel = ${safeState};
-            let currentNote = ${safeNote};
-            let currentResult = ${safeResult};
-            const shortTeamA = ${safeShortA};
-            const shortTeamB = ${safeShortB};
+            let stateLabel = cleanText(${safeState});
+            let currentNote = cleanText(${safeNote});
+            let currentResult = cleanText(${safeResult});
+            const shortTeamA = cleanText(${safeShortA});
+            const shortTeamB = cleanText(${safeShortB});
             let currentStatus = ${safeStatus};
 
-            let currentMatchState =
-                String(stateLabel || '').toUpperCase();
+            let currentMatchState = String(stateLabel || '').toUpperCase();
 
             const badgeColor = {
                 blue: 'bg-blue-500/20 border-blue-400 text-blue-300',
@@ -509,41 +529,24 @@ function renderMatchHeader(user, matchData) {
                 setBadgeState(label + ' • ' + formatShortTimer(elapsed), badgeColor.orange, true);
             }
 
+            function renderLiveIdleBadge() {
+                if (currentStatus !== 'LIVE' || popupTimer) return;
+                setBadgeState('BOWLER RUNNING IN', badgeColor.amber, true);
+            }
+
             updateCountdown();
             updateBreakTimer();
+            renderLiveIdleBadge();
 
             setInterval(() => {
                 if (currentStatus === 'UPCOMING') {
                     updateCountdown();
                 } else if (currentStatus === 'BREAK' && !popupTimer) {
                     updateBreakTimer();
+                } else if (currentStatus === 'LIVE' && !popupTimer) {
+                    renderLiveIdleBadge();
                 }
             }, 1000);
-
-            function armBowlerReadyWindow(delayMs = 1200) {
-                if (currentStatus !== 'LIVE') return;
-                isBowlerReadyWindow = false;
-                if (bowlerReadyTimer) {
-                    clearTimeout(bowlerReadyTimer);
-                    bowlerReadyTimer = null;
-                }
-                bowlerReadyTimer = setTimeout(() => {
-                    bowlerReadyTimer = null;
-                    if (currentStatus === 'LIVE' && !popupTimer) {
-                        isBowlerReadyWindow = true;
-                        setBadgeState('BOWLER RUNNING IN', badgeColor.amber, true);
-                    }
-                }, delayMs);
-            }
-
-            function renderLiveIdleBadge() {
-                if (currentStatus !== 'LIVE' || popupTimer) return;
-                if (isBowlerReadyWindow) {
-                    setBadgeState('BOWLER RUNNING IN', badgeColor.amber, true);
-                } else {
-                    setBadgeState('LIVE', badgeColor.green, false);
-                }
-            }
 
             function lockFinishedUI() {
                 if (popupTimer) {
@@ -586,7 +589,7 @@ function renderMatchHeader(user, matchData) {
                 } else if (currentStatus === 'BREAK') {
                     updateBreakTimer();
                 } else if (currentStatus === 'LIVE') {
-                    armBowlerReadyWindow(1200);
+                    isBowlerReadyWindow = true;
                     renderLiveIdleBadge();
                 }
             }
@@ -681,21 +684,21 @@ function renderMatchHeader(user, matchData) {
                     const elOversB = document.getElementById('overs-b');
                     const elStateText = document.getElementById('match-state-text');
 
-                    const currentScoreA = m.scoreA || '-';
-                    const currentScoreB = m.scoreB || '-';
-                    const currentOversA = m.oversA || '';
-                    const currentOversB = m.oversB || '';
+                    const currentScoreA = cleanText(m.scoreA || '-');
+                    const currentScoreB = cleanText(m.scoreB || '-');
+                    const currentOversA = cleanText(m.oversA || '');
+                    const currentOversB = cleanText(m.oversB || '');
                     const activeOverStr = currentOversB || currentOversA || '';
 
-                    const stateText = String(m.matchStateText || '').toUpperCase();
-                    const wicketText = String(m.wicketText || m.howOut || '').toUpperCase();
-                    const latestCommentary = String(m.latestCommentary || '').trim();
+                    const stateText = cleanText(m.matchStateText || '').toUpperCase();
+                    const wicketText = cleanText(m.wicketText || m.howOut || '').toUpperCase();
+                    const latestCommentary = cleanText(m.latestCommentary || '').trim();
 
                     const newStatus = resolveStatus(
                         m.status || 'UPCOMING',
-                        m.matchNote,
-                        m.matchStateText,
-                        m.resultText
+                        cleanText(m.matchNote),
+                        cleanText(m.matchStateText),
+                        cleanText(m.resultText)
                     );
 
                     const prevStatus = currentStatus;
@@ -712,18 +715,18 @@ function renderMatchHeader(user, matchData) {
                     }
 
                     if (elScoreA) elScoreA.textContent = currentScoreA;
-                    if (elOversA && m.oversA !== undefined) elOversA.textContent = m.oversA;
+                    if (elOversA && m.oversA !== undefined) elOversA.textContent = currentOversA;
                     if (elScoreB) elScoreB.textContent = currentScoreB;
-                    if (elOversB && m.oversB !== undefined) elOversB.textContent = m.oversB;
+                    if (elOversB && m.oversB !== undefined) elOversB.textContent = currentOversB;
 
                     if (typeof window.syncOversStrip === 'function') {
                         window.syncOversStrip(m);
                     }
 
                     currentStatus = newStatus;
-                    stateLabel = m.matchStateText || newStatus;
-                    currentNote = m.matchNote || '';
-                    currentResult = m.resultText || '';
+                    stateLabel = cleanText(m.matchStateText || newStatus);
+                    currentNote = cleanText(m.matchNote || '');
+                    currentResult = cleanText(m.resultText || '');
                     currentMatchState = String(stateLabel || '').toUpperCase();
 
                     if (currentStatus === 'FINISHED') {
@@ -765,10 +768,9 @@ function renderMatchHeader(user, matchData) {
 
                     if (elStateText) {
                         if (newStatus === 'LIVE') {
-                            const cleanNote = /\\b(DAY\\s*\\d+|SESSION)\\b/i.test(currentNote) ? '' : currentNote;
-                            elStateText.innerText = chaseLiveText || cleanNote || '';
+                            elStateText.innerText = chaseLiveText || currentNote || '';
                         } else {
-                            elStateText.innerText = currentNote || m.matchStateText || '';
+                            elStateText.innerText = currentNote || stateLabel || '';
                         }
                     }
 
@@ -903,9 +905,7 @@ function renderMatchHeader(user, matchData) {
                             lastCommentaryText = latestCommentary;
                             triggerPopup('BALL IN THE AIR', badgeColor.cyan, 2400);
                         } else if (!popupTimer) {
-                            if (!bowlerReadyTimer && !isBowlerReadyWindow) {
-                                armBowlerReadyWindow(1000);
-                            }
+                            isBowlerReadyWindow = true;
                             renderLiveIdleBadge();
                         }
                     }
@@ -919,7 +919,7 @@ function renderMatchHeader(user, matchData) {
 
             // Fast polling + immediate sync on resume/focus + soft auto-sync safety
             pollMatch();
-            pollTimer = setInterval(pollMatch, 800);
+            pollTimer = setInterval(pollMatch, 700);
             setInterval(function() {
                 if (currentStatus === 'LIVE' && (Date.now() - lastLiveChangeAt) > 120000) {
                     lastLiveChangeAt = Date.now();
