@@ -18,7 +18,7 @@ const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
 // Zero cache delay for live match & ball-by-ball commentary
 const apiCache = new Map();
-const LIVE_CACHE_TTL_MS = 0;
+const LIVE_CACHE_TTL_MS = 1000;
 const SERIES_CACHE_TTL_MS = 15000;
 
 const safestr = (val, fallback = '') => {
