@@ -317,11 +317,16 @@ function renderMatchDetailPage(user, matchData) {
         <script>
             (function() {
                 const oversMap = new Map();
+                let hasCommentaryFeed = false;
 
                 function normalizeBall(rawBall) {
                     const s = String(rawBall ?? '').trim().toUpperCase();
                     if (!s || s === '0' || s === 'DOT' || s === '.') return 'DOT';
-                    if (s === 'W' || s.includes('WICKET') || s.includes('OUT')) return 'W';
+                    if (s === 'WK' || s === 'W' || s.includes('WICKET') || s.includes('OUT')) return 'W';
+                    if (s === 'WD' || s.includes('WIDE')) return 'WD';
+                    if (s === 'NB' || s.includes('NO BALL') || s.includes('NOBALL')) return 'NB';
+                    if (s === 'LB' || s.includes('LEG BYE') || s.includes('LEGBYE')) return 'LB';
+                    if (s === 'B' || s === 'BYE') return 'B';
                     if (['6', '4', '3', '2', '1'].includes(s)) return s;
                     return s.slice(0, 4);
                 }
@@ -334,6 +339,8 @@ function renderMatchDetailPage(user, matchData) {
                     if (code === '3') return 'bg-emerald-600 text-white border-emerald-400';
                     if (code === '2') return 'bg-indigo-600 text-white border-indigo-400';
                     if (code === '1') return 'bg-green-600 text-white border-green-400';
+                    if (code === 'WD' || code === 'NB') return 'bg-amber-600 text-white border-amber-300';
+                    if (code === 'LB' || code === 'B') return 'bg-cyan-700 text-white border-cyan-300';
                     return 'bg-slate-600 text-white border-slate-400';
                 }
 
@@ -403,6 +410,7 @@ function renderMatchDetailPage(user, matchData) {
                 }
 
                 window.recordLiveOverBall = function(oversText, ballSymbol, scoreText) {
+                    if (hasCommentaryFeed) return;
                     const overNum = parseOverNumberFromText(oversText);
                     ensureOversUpTo(overNum);
                     const entry = oversMap.get(overNum);
@@ -428,6 +436,7 @@ function renderMatchDetailPage(user, matchData) {
                         null;
 
                     if (rawList && rawList.length > 0) {
+                        hasCommentaryFeed = true;
                         let maxOv = 1;
                         rawList.forEach((item, idx) => {
                             const ovNum = Number(item.overNumber ?? item.over ?? item.number ?? (idx + 1));
@@ -472,6 +481,7 @@ function renderMatchDetailPage(user, matchData) {
 
                 const initList = ${safeInitialOversList};
                 if (Array.isArray(initList) && initList.length > 0) {
+                    hasCommentaryFeed = true;
                     let maxOv = 1;
                     initList.forEach((item, idx) => {
                         const ovNum = Number(item.overNumber ?? (idx + 1));
