@@ -24,7 +24,8 @@ function renderMatchHeader(user, matchData) {
     const shortA = d.shortA || String(teamA).slice(0, 4).toUpperCase();
     const shortB = d.shortB || String(teamB).slice(0, 4).toUpperCase();
     const venue = d.venue || 'Stadium';
-    const matchTime = d.dateTime || '';
+    const rawMatchTime = String(d.dateTime || '').trim();
+    const matchTime = /\b(DAY\s*\d+|SESSION|LEAD\s+BY)\b/i.test(rawMatchTime) ? '' : rawMatchTime;
 
     const scoreA = d.scoreA || '-';
     const oversA = d.oversA || '';
@@ -95,10 +96,10 @@ function renderMatchHeader(user, matchData) {
             'bg-emerald-500/20 border-emerald-400 text-emerald-300';
 
     } else if (isLive) {
-        initialBadgeText = 'BOWLER RUNNING IN';
+        initialBadgeText = 'LIVE';
 
         initialBadgeClass =
-            'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse';
+            'bg-emerald-500/20 border-emerald-400 text-emerald-300';
 
     } else if (isBreak) {
         initialBadgeText = matchStateText || 'BREAK';
@@ -294,8 +295,11 @@ function renderMatchHeader(user, matchData) {
 
             let lastLiveEvent = ${safeLiveEvent};
             let lastCommentaryText = '';
+            let lastBallSignature = '';
 
             let popupTimer = null;
+            let bowlerReadyTimer = null;
+            let isBowlerReadyWindow = false;
             let pollTimer = null;
             let isPolling = false;
 
@@ -566,11 +570,41 @@ function renderMatchHeader(user, matchData) {
                 }
             }, 1000);
 
+            function armBowlerReadyWindow(delayMs = 1500) {
+                if (currentStatus !== 'LIVE') return;
+                isBowlerReadyWindow = false;
+                if (bowlerReadyTimer) {
+                    clearTimeout(bowlerReadyTimer);
+                    bowlerReadyTimer = null;
+                }
+                bowlerReadyTimer = setTimeout(() => {
+                    bowlerReadyTimer = null;
+                    if (currentStatus === 'LIVE' && !popupTimer) {
+                        isBowlerReadyWindow = true;
+                        setBadgeState('BOWLER RUNNING IN', badgeColor.amber, true);
+                    }
+                }, delayMs);
+            }
+
+            function renderLiveIdleBadge() {
+                if (currentStatus !== 'LIVE' || popupTimer) return;
+                if (isBowlerReadyWindow) {
+                    setBadgeState('BOWLER RUNNING IN', badgeColor.amber, true);
+                } else {
+                    setBadgeState('LIVE', badgeColor.green, false);
+                }
+            }
+
             function lockFinishedUI() {
                 if (popupTimer) {
                     clearTimeout(popupTimer);
                     popupTimer = null;
                 }
+                if (bowlerReadyTimer) {
+                    clearTimeout(bowlerReadyTimer);
+                    bowlerReadyTimer = null;
+                }
+                isBowlerReadyWindow = false;
                 targetTimestamp = null;
                 breakEndTimestamp = null;
                 breakStartTimestamp = null;
@@ -605,21 +639,24 @@ function renderMatchHeader(user, matchData) {
                     updateBreakTimer();
 
                 } else if (currentStatus === 'LIVE') {
-                    setBadgeState(
-                        'BOWLER RUNNING IN',
-                        badgeColor.amber,
-                        true
-                    );
+                    armBowlerReadyWindow(1400);
+                    renderLiveIdleBadge();
                 }
             }
 
-            // EVENT POPUP (BLINKS FOR ~2.8s ON RESULT, THEN BOWLER RUNNING IN)
+            // EVENT POPUP (BLINKS FOR ~2.8s ON RESULT)
             function triggerPopup(text, colorClass, durationMs = 2800) {
                 if (currentStatus === 'FINISHED') return;
                 const badge =
                     document.getElementById('match-event-badge');
 
                 if (!badge) return;
+
+                isBowlerReadyWindow = false;
+                if (bowlerReadyTimer) {
+                    clearTimeout(bowlerReadyTimer);
+                    bowlerReadyTimer = null;
+                }
 
                 badge.innerText = text;
 
@@ -902,13 +939,10 @@ function renderMatchHeader(user, matchData) {
                         const runStatDiff = ev && prevEv ? (Number(ev.totalRuns || 0) - Number(prevEv.totalRuns || 0)) : 0;
                         const ballStatDiff = ev && prevEv ? (Number(ev.totalBalls || 0) - Number(prevEv.totalBalls || 0)) : 0;
                         const reportChanged = ev && prevEv && ev.report && ev.report !== prevEv.report;
-                        const latestBallChanged =
-                            ev && prevEv &&
-                            (
-                                String(ev.latestBall || '') !== String(prevEv.latestBall || '') ||
-                                String(ev.latestBallNumber || '') !== String(prevEv.latestBallNumber || '') ||
-                                String(ev.latestOver || '') !== String(prevEv.latestOver || '')
-                            );
+                        const ballSignature = ev
+                            ? [ev.latestOver || '', ev.latestBallNumber || '', ev.latestBall || ''].join('|')
+                            : '';
+                        const latestBallChanged = Boolean(ballSignature && ballSignature !== lastBallSignature);
 
                         const scoreChanged =
                             currentScoreA !== lastScoreA ||
@@ -1014,16 +1048,18 @@ function renderMatchHeader(user, matchData) {
                             lastOversA = currentOversA;
                             lastOversB = currentOversB;
                             lastLiveEvent = ev;
+                            if (ballSignature) {
+                                lastBallSignature = ballSignature;
+                            }
 
                         } else if (latestCommentary && latestCommentary !== lastCommentaryText && isBallInAirText(latestCommentary)) {
                             lastCommentaryText = latestCommentary;
                             triggerPopup('BALL IN THE AIR', badgeColor.cyan, 2400);
                         } else if (!popupTimer) {
-                            setBadgeState(
-                                'BOWLER RUNNING IN',
-                                badgeColor.amber,
-                                true
-                            );
+                            if (!bowlerReadyTimer && !isBowlerReadyWindow) {
+                                armBowlerReadyWindow(1500);
+                            }
+                            renderLiveIdleBadge();
                         }
                     }
 
