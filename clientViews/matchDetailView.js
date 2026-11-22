@@ -137,16 +137,7 @@ function renderMatchDetailPage(user, matchData) {
                 <div class="bg-[#0b141d] px-3 py-2 flex items-center justify-between border-b border-gray-800 text-xs">
                     <div class="font-bold tracking-wider uppercase text-[#00c0FF] flex items-center space-x-1.5">
                         <i class="fa-solid fa-baseball-bat-ball"></i>
-                        <span>OVER HISTORY (SLIDE)</span>
-                    </div>
-                    <div class="flex items-center space-x-1 text-[11px] font-bold">
-                        <span class="px-1.5 py-0.5 rounded bg-red-600 text-white">W</span>
-                        <span class="px-1.5 py-0.5 rounded bg-purple-600 text-white">6</span>
-                        <span class="px-1.5 py-0.5 rounded bg-blue-600 text-white">4</span>
-                        <span class="px-1.5 py-0.5 rounded bg-emerald-600 text-white">3</span>
-                        <span class="px-1.5 py-0.5 rounded bg-indigo-600 text-white">2</span>
-                        <span class="px-1.5 py-0.5 rounded bg-green-600 text-white">1</span>
-                        <span class="px-1.5 py-0.5 rounded bg-slate-600 text-white">DOT</span>
+                        <span>OVER HISTORY</span>
                     </div>
                 </div>
 
@@ -389,7 +380,7 @@ function renderMatchDetailPage(user, matchData) {
                                     label +
                                     '</span>';
                             }).join('')
-                            : '<span class="text-xs text-gray-400 px-1">Slide</span>';
+                            : '<span class="text-xs text-gray-500 px-1">•</span>';
 
                         const scoreTag = info.score
                             ? '<span class="text-xs font-mono text-amber-300 ml-1.5">' + info.score + '</span>'
@@ -397,7 +388,7 @@ function renderMatchDetailPage(user, matchData) {
 
                         return '<div class="inline-flex items-center bg-[#1e293b] border border-gray-700 rounded-full px-3 py-1.5 shrink-0 space-x-2">' +
                             '<span class="text-xs font-black uppercase text-[#00c0FF] pr-1.5 border-r border-gray-700">' +
-                            'Over ' + overNum +
+                            'Ov ' + overNum +
                             '</span>' +
                             '<div class="inline-flex items-center space-x-1">' +
                             ballsChips +
