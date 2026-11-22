@@ -116,15 +116,15 @@ function extractBreakTimerInfo(rawLiveMatch, scoreObj, noteText) {
     };
 }
 
-// Parses strings like "59/1 (9.3)" or "61/3 (23.0) & 235/10 (60.3)"
+// Parses strings like "118/2 (44.1) & 368/10 (121.0)" -> score="118/2 & 368/10", overs="44.1"
 function parseScoreAndOvers(rawScoreText) {
     const raw = String(rawScoreText || '').trim();
     if (!raw) return { score: '-', overs: '' };
 
     const parts = raw.split('&').map(s => s.trim()).filter(Boolean);
-    const latestPart = parts[parts.length - 1] || raw;
+    const currentPart = parts[0] || raw;
 
-    const overMatch = latestPart.match(/\(([^)]+)\)\s*$/);
+    const overMatch = currentPart.match(/\(([^)]+)\)\s*$/);
     const overs = overMatch ? overMatch[1].trim() : '';
 
     const cleanScores = parts.map(p => p.replace(/\s*\([^)]*\)\s*$/, '').trim()).filter(Boolean);
