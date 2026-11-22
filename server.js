@@ -48,6 +48,74 @@ function parseTimestamp(value) {
     return Number.isFinite(ts) ? ts : null;
 }
 
+function parseDurationMsFromText(text) {
+    const str = String(text || '');
+    const mmss = str.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
+    if (mmss) {
+        if (mmss[3] !== undefined) {
+            const h = parseInt(mmss[1], 10) || 0;
+            const m = parseInt(mmss[2], 10) || 0;
+            const s = parseInt(mmss[3], 10) || 0;
+            return ((h * 3600) + (m * 60) + s) * 1000;
+        }
+        const m = parseInt(mmss[1], 10) || 0;
+        const s = parseInt(mmss[2], 10) || 0;
+        return ((m * 60) + s) * 1000;
+    }
+
+    const minsMatch = str.match(/(\d+)\s*(?:MIN|MINS|MINUTE|MINUTES)\b/i);
+    if (minsMatch) {
+        const mins = parseInt(minsMatch[1], 10);
+        if (Number.isFinite(mins) && mins > 0) return mins * 60 * 1000;
+    }
+
+    return null;
+}
+
+function extractBreakTimerInfo(rawLiveMatch, scoreObj, noteText) {
+    const src = rawLiveMatch || {};
+    const sc = scoreObj || {};
+    const combinedText = `${noteText || ''} ${src.status || ''} ${sc.status || ''}`.toUpperCase();
+
+    const rawEndTs = parseTimestamp(
+        src.breakEndDate || src.breakEndTime || src.breakEnd || sc.breakEndDate || sc.breakEndTime
+    );
+    const rawStartTs = parseTimestamp(
+        src.breakStartDate || src.breakStartTime || src.breakStart || sc.breakStartDate || sc.breakStartTime || src.updatedAt || src.timestamp
+    );
+
+    const isCountdownHint =
+        Boolean(rawEndTs) ||
+        combinedText.includes('COUNTDOWN') ||
+        combinedText.includes('REMAINING') ||
+        combinedText.includes('STARTS IN') ||
+        combinedText.includes('RESUMES IN') ||
+        combinedText.includes('LEFT');
+
+    if (rawEndTs && rawEndTs > Date.now()) {
+        return {
+            breakTimerMode: 'COUNTDOWN',
+            breakEndTimestamp: rawEndTs,
+            breakStartTimestamp: null
+        };
+    }
+
+    const durationMs = parseDurationMsFromText(noteText);
+    if (isCountdownHint && durationMs && durationMs > 0) {
+        return {
+            breakTimerMode: 'COUNTDOWN',
+            breakEndTimestamp: Date.now() + durationMs,
+            breakStartTimestamp: null
+        };
+    }
+
+    return {
+        breakTimerMode: 'FORWARD',
+        breakEndTimestamp: null,
+        breakStartTimestamp: rawStartTs || Date.now()
+    };
+}
+
 // Parses strings like "59/1 (9.3)" or "61/3 (23.0) & 235/10 (60.3)"
 function parseScoreAndOvers(rawScoreText) {
     const raw = String(rawScoreText || '').trim();
@@ -424,6 +492,9 @@ async function loadMatchData(matchId) {
     const startTs = parseTimestamp(rawLiveMatch?.startDate || rawLiveMatch?.timestamp);
     const oversList = extractCommentaryOversList(commentary);
     const latestComm = extractLatestCommentaryInfo(commentary);
+    const breakInfo = status === 'BREAK'
+        ? extractBreakTimerInfo(rawLiveMatch, scoreObj, rawNote)
+        : { breakTimerMode: null, breakEndTimestamp: null, breakStartTimestamp: null };
 
     const matchStateText = status === 'FINISHED'
         ? (rawResult || rawNote || 'FINISHED')
@@ -461,7 +532,10 @@ async function loadMatchData(matchId) {
         matchStateText: esc(matchStateText),
         dateTime: esc(rawNote || (startTs ? new Date(startTs).toLocaleString('en-IN') : '')),
         venue: esc(rawLiveMatch?.ground || 'Stadium'),
-        countdownTimestamp: status === 'UPCOMING' ? startTs : null
+        countdownTimestamp: status === 'UPCOMING' ? startTs : null,
+        breakTimerMode: breakInfo.breakTimerMode,
+        breakEndTimestamp: breakInfo.breakEndTimestamp,
+        breakStartTimestamp: breakInfo.breakStartTimestamp
     };
 }
 
@@ -577,7 +651,10 @@ app.get('/match/:id', async (req, res) => {
         matchStateText: 'UPCOMING',
         venue: 'Stadium',
         dateTime: '',
-        countdownTimestamp: null
+        countdownTimestamp: null,
+        breakTimerMode: null,
+        breakEndTimestamp: null,
+        breakStartTimestamp: null
     };
 
     try {
