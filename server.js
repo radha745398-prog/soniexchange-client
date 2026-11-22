@@ -133,24 +133,20 @@ function parseScoreAndOvers(rawScoreText) {
     return { score, overs };
 }
 
-function hasAllOutInScore(scoreA, scoreB) {
-    return /\/\s*10(?:\s|$|&)/.test(String(scoreA || '')) || /\/\s*10(?:\s|$|&)/.test(String(scoreB || ''));
-}
-
-function getSportBexStatus(rawStatus, isLive, extraText = '', scoreA = '', scoreB = '') {
+function getSportBexStatus(rawStatus, isLive, extraText = '') {
     const combined = `${rawStatus || ''} ${extraText || ''}`.trim().toUpperCase();
 
     if (
-        hasAllOutInScore(scoreA, scoreB) ||
         combined.includes('FINISH') ||
         combined.includes('COMPLET') ||
         combined.includes('WON BY') ||
         combined.includes('TIED') ||
         combined.includes('NO RESULT') ||
         combined.includes('ABANDON') ||
-        combined.includes('ALL OUT') ||
         combined.includes('RESULT') ||
-        combined.includes('END')
+        combined.includes('MATCH END') ||
+        combined.includes('STUMPS') ||
+        combined.includes('DAY END')
     ) {
         return 'FINISHED';
     }
@@ -159,7 +155,6 @@ function getSportBexStatus(rawStatus, isLive, extraText = '', scoreA = '', score
         combined.includes('BREAK') ||
         combined.includes('LUNCH') ||
         combined.includes('TEA') ||
-        combined.includes('STUMP') ||
         combined.includes('DRINK') ||
         combined.includes('INNINGS BREAK')
     ) {
@@ -259,7 +254,7 @@ function normalizeLiveMatchCard(m) {
     const p2 = parseScoreAndOvers(t2.score);
 
     const extraText = `${m.sessionStatus || ''} ${m.result?.message || ''}`;
-    const status = getSportBexStatus(m.status, m.isLive, extraText, p1.score, p2.score);
+    const status = getSportBexStatus(m.status, m.isLive, extraText);
     const startTs = parseTimestamp(m.startDate || m.timestamp);
 
     const scoreSummary = [
@@ -484,9 +479,7 @@ async function loadMatchData(matchId) {
     const status = getSportBexStatus(
         scoreObj.status || rawLiveMatch?.status,
         rawLiveMatch?.isLive ?? (scoreObj.status === 'LIVE'),
-        `${rawNote} ${rawResult}`,
-        scoreA,
-        scoreB
+        `${rawNote} ${rawResult}`
     );
 
     const startTs = parseTimestamp(rawLiveMatch?.startDate || rawLiveMatch?.timestamp);
@@ -500,7 +493,7 @@ async function loadMatchData(matchId) {
         ? (rawResult || rawNote || 'FINISHED')
         : (status === 'BREAK'
             ? (rawNote || 'BREAK')
-            : (status === 'LIVE' ? 'BOWLER RUNNING IN' : status));
+            : (status === 'LIVE' ? 'LIVE' : status));
 
     return {
         id: esc(cleanId),
