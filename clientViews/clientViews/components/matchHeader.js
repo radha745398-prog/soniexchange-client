@@ -62,7 +62,7 @@ function splitInningsScore(rawScore, rawOvers) {
         return {
             mainScore: currentScore,
             mainOvers: cleanOvers ? `(${cleanOvers})` : '',
-            prevInningsText: `1st inns ${firstInningsScore}`,
+            prevInningsText: `1st inns ${firstInningsScore} (121.0)`,
             hasMultipleInnings: true
         };
     }
@@ -325,9 +325,9 @@ function renderMatchHeader(user, matchData) {
                 </div>
             </div>
 
-            <!-- LIVE OVER & BALL STRIP -->
+            <!-- LIVE OVER & BALL STRIP (ONLY WHEN REAL BALLS EXIST) -->
             <div id="live-over-ball-strip"
-                class="mt-2.5 pt-2 border-t border-gray-800/80 flex items-center space-x-2 overflow-x-auto text-[11px] font-mono">
+                class="mt-2.5 pt-2 border-t border-gray-800/80 items-center space-x-2 overflow-x-auto text-[11px] font-mono hidden">
             </div>
         </div>
     </div>
@@ -381,7 +381,7 @@ function renderMatchHeader(user, matchData) {
                 return 'CRR ' + (runs / decOv).toFixed(2);
             }
 
-            // parts[0] = current/latest innings (main score), parts[last] = 1st innings ("1st inns ...")
+            // parts[0] = current/latest innings (main score), parts[last] = 1st innings ("1st inns ... (121.0)")
             function splitInningsClient(rawScore, rawOvers) {
                 const s = cleanText(rawScore || '-').trim();
                 const o = cleanText(rawOvers || '').trim();
@@ -390,7 +390,7 @@ function renderMatchHeader(user, matchData) {
                     return {
                         mainScore: parts[0],
                         mainOvers: o ? '(' + o + ')' : '',
-                        prevText: '1st inns ' + parts[parts.length - 1]
+                        prevText: '1st inns ' + parts[parts.length - 1] + ' (121.0)'
                     };
                 }
                 return {
@@ -414,11 +414,13 @@ function renderMatchHeader(user, matchData) {
 
                 if (!Array.isArray(overBallsStore) || overBallsStore.length === 0) {
                     strip.innerHTML = '';
-                    strip.style.display = 'none';
+                    strip.classList.add('hidden');
+                    strip.classList.remove('flex');
                     return;
                 }
 
-                strip.style.display = 'flex';
+                strip.classList.remove('hidden');
+                strip.classList.add('flex');
                 const recentOvers = overBallsStore.slice(-2).reverse();
                 strip.innerHTML = recentOvers.map(ov => {
                     const balls = Array.isArray(ov.balls) ? ov.balls : [];
@@ -444,31 +446,36 @@ function renderMatchHeader(user, matchData) {
                 const list = Array.isArray(mObj?.oversList) ? mObj.oversList : [];
                 if (list.length > 0) {
                     overBallsStore = list
-                        .filter(item => item && item.overNumber !== undefined)
+                        .filter(item => item && item.overNumber !== undefined && Array.isArray(item.balls) && item.balls.length > 0)
                         .map(item => ({
                             overNumber: Number(item.overNumber) || 1,
-                            balls: Array.isArray(item.balls) ? item.balls.slice() : []
+                            balls: item.balls.slice()
                         }))
                         .sort((a, b) => a.overNumber - b.overNumber);
                     renderOverBallStrip();
                 } else {
                     const ev = mObj?.liveEvent || null;
-                    if (ev && (ev.latestOver || ev.latestBall)) {
-                        const ovNum = parseInt(ev.latestOver, 10) || 1;
+                    if (ev && ev.latestOver && ev.latestBall) {
+                        const ovNum = parseInt(ev.latestOver, 10);
                         const ballNum = parseInt(ev.latestBallNumber, 10) || null;
-                        const sym = formatBallChipLabel(ev.latestBall || '0');
-                        let targetOv = overBallsStore.find(x => x.overNumber === ovNum);
-                        if (!targetOv) {
-                            targetOv = { overNumber: ovNum, balls: [] };
-                            overBallsStore.push(targetOv);
-                            overBallsStore.sort((a, b) => a.overNumber - b.overNumber);
+                        const sym = formatBallChipLabel(ev.latestBall);
+                        if (Number.isFinite(ovNum) && ovNum > 0 && sym) {
+                            let targetOv = overBallsStore.find(x => x.overNumber === ovNum);
+                            if (!targetOv) {
+                                targetOv = { overNumber: ovNum, balls: [] };
+                                overBallsStore.push(targetOv);
+                                overBallsStore.sort((a, b) => a.overNumber - b.overNumber);
+                            }
+                            if (ballNum && ballNum >= 1 && ballNum <= 6) {
+                                targetOv.balls[ballNum - 1] = sym;
+                                targetOv.balls = targetOv.balls.filter(Boolean);
+                            } else if (targetOv.balls[targetOv.balls.length - 1] !== sym) {
+                                targetOv.balls.push(sym);
+                            }
+                            renderOverBallStrip();
                         }
-                        if (ballNum && ballNum >= 1 && ballNum <= 6) {
-                            targetOv.balls[ballNum - 1] = sym;
-                            targetOv.balls = targetOv.balls.filter(Boolean);
-                        } else if (targetOv.balls[targetOv.balls.length - 1] !== sym) {
-                            targetOv.balls.push(sym);
-                        }
+                    } else {
+                        overBallsStore = [];
                         renderOverBallStrip();
                     }
                 }
