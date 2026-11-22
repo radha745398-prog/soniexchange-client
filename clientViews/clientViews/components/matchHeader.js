@@ -45,7 +45,6 @@ function formatLiveCrr(scoreStr, oversStr) {
     return `CRR ${(runs / totalOvers).toFixed(2)}`;
 }
 
-// Always keep latest/current innings as mainScore and first innings as prevInningsText
 function splitInningsScore(rawScore, rawOvers) {
     const cleanScore = decodeHtmlEntities(rawScore || '-').trim();
     const cleanOvers = decodeHtmlEntities(rawOvers || '').trim();
@@ -53,10 +52,10 @@ function splitInningsScore(rawScore, rawOvers) {
     const parts = cleanScore.split('&').map(s => s.trim()).filter(Boolean);
     if (parts.length > 1) {
         const currentScore = parts[parts.length - 1];
-        const firstInningsScore = parts[0];
+        const prevScore = parts.slice(0, -1).join(' & ');
         return {
             mainScore: currentScore,
-            prevInningsText: `1st inns ${firstInningsScore}${cleanOvers ? ` (${cleanOvers})` : ''}`,
+            prevInningsText: `1st inns ${prevScore}${cleanOvers ? ` (${cleanOvers})` : ''}`,
             hasMultipleInnings: true
         };
     }
@@ -374,7 +373,7 @@ function renderMatchHeader(user, matchData) {
                     return {
                         mainScore: parts[parts.length - 1],
                         mainOvers: '',
-                        prevText: '1st inns ' + parts[0] + (o ? ' (' + o + ')' : '')
+                        prevText: '1st inns ' + parts.slice(0, -1).join(' & ') + (o ? ' (' + o + ')' : '')
                     };
                 }
                 return {
