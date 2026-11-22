@@ -16,9 +16,9 @@ const SPORTBEX_API_KEY = process.env.SPORTBEX_API_KEY || 'QTkiVDvw56VkWQwsx43lQ8
 const SPORTBEX_BASE_URL = process.env.SPORTBEX_BASE_URL || 'https://trial-api.sportbex.com';
 const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
-// Short cache for smooth live polling without hitting trial rate limits
+// Zero cache delay for live match & commentary so updates flow immediately
 const apiCache = new Map();
-const LIVE_CACHE_TTL_MS = 1500;
+const LIVE_CACHE_TTL_MS = 0;
 const SERIES_CACHE_TTL_MS = 30000;
 
 const safestr = (val, fallback = '') => {
@@ -65,28 +65,43 @@ function parseScoreAndOvers(rawScoreText) {
     return { score, overs };
 }
 
-function getSportBexStatus(rawStatus, isLive) {
-    const st = String(rawStatus || '').trim().toUpperCase();
+function hasAllOutInScore(scoreA, scoreB) {
+    return /\/\s*10(?:\s|$|&)/.test(String(scoreA || '')) || /\/\s*10(?:\s|$|&)/.test(String(scoreB || ''));
+}
+
+function getSportBexStatus(rawStatus, isLive, extraText = '', scoreA = '', scoreB = '') {
+    const combined = `${rawStatus || ''} ${extraText || ''}`.trim().toUpperCase();
+
     if (
-        st.includes('FINISH') ||
-        st.includes('COMPLET') ||
-        st.includes('RESULT') ||
-        st.includes('END')
+        hasAllOutInScore(scoreA, scoreB) ||
+        combined.includes('FINISH') ||
+        combined.includes('COMPLET') ||
+        combined.includes('WON BY') ||
+        combined.includes('TIED') ||
+        combined.includes('NO RESULT') ||
+        combined.includes('ABANDON') ||
+        combined.includes('ALL OUT') ||
+        combined.includes('RESULT') ||
+        combined.includes('END')
     ) {
         return 'FINISHED';
     }
+
     if (
-        st.includes('BREAK') ||
-        st.includes('LUNCH') ||
-        st.includes('TEA') ||
-        st.includes('STUMP') ||
-        st.includes('DRINK')
+        combined.includes('BREAK') ||
+        combined.includes('LUNCH') ||
+        combined.includes('TEA') ||
+        combined.includes('STUMP') ||
+        combined.includes('DRINK') ||
+        combined.includes('INNINGS BREAK')
     ) {
         return 'BREAK';
     }
-    if (isLive === true || st === 'LIVE' || st.includes('INPLAY') || st.includes('IN PROGRESS')) {
+
+    if (isLive === true || combined.includes('LIVE') || combined.includes('INPLAY') || combined.includes('IN PROGRESS')) {
         return 'LIVE';
     }
+
     return 'UPCOMING';
 }
 
@@ -175,7 +190,8 @@ function normalizeLiveMatchCard(m) {
     const p1 = parseScoreAndOvers(t1.score);
     const p2 = parseScoreAndOvers(t2.score);
 
-    const status = getSportBexStatus(m.status, m.isLive);
+    const extraText = `${m.sessionStatus || ''} ${m.result?.message || ''}`;
+    const status = getSportBexStatus(m.status, m.isLive, extraText, p1.score, p2.score);
     const startTs = parseTimestamp(m.startDate || m.timestamp);
 
     const scoreSummary = [
@@ -294,6 +310,34 @@ function extractCommentaryOversList(commentaryData) {
     return Array.from(oversMap.values()).sort((a, b) => a.overNumber - b.overNumber);
 }
 
+function extractLatestCommentaryInfo(commentaryData) {
+    const ballsArr = Array.isArray(commentaryData?.balls) ? commentaryData.balls : [];
+    if (ballsArr.length === 0) {
+        return {
+            latestCommentary: '',
+            latestBall: '',
+            latestOver: '',
+            latestBallNumber: ''
+        };
+    }
+
+    const sorted = [...ballsArr].sort((a, b) => {
+        const tsDiff = (Number(b.commentaryTimestamp) || 0) - (Number(a.commentaryTimestamp) || 0);
+        if (tsDiff !== 0) return tsDiff;
+        const ovDiff = (Number(b.overNumber) || 0) - (Number(a.overNumber) || 0);
+        if (ovDiff !== 0) return ovDiff;
+        return (Number(b.ballNumber) || 0) - (Number(a.ballNumber) || 0);
+    });
+
+    const top = sorted[0] || {};
+    return {
+        latestCommentary: safestr(top.commentary || top.text || top.description, ''),
+        latestBall: normalizeBallSymbol(top.value),
+        latestOver: top.overNumber !== undefined && top.overNumber !== null ? String(top.overNumber) : '',
+        latestBallNumber: top.ballNumber !== undefined && top.ballNumber !== null ? String(top.ballNumber) : ''
+    };
+}
+
 // Merge Live Match metadata + Commentary score/balls into matchHeader format
 async function loadMatchData(matchId) {
     const cleanId = String(matchId || '').trim();
@@ -363,18 +407,29 @@ async function loadMatchData(matchId) {
         oversB = parsed2.overs;
     }
 
-    const status = getSportBexStatus(
-        scoreObj.status || rawLiveMatch?.status,
-        rawLiveMatch?.isLive ?? (scoreObj.status === 'LIVE')
-    );
-
-    const startTs = parseTimestamp(rawLiveMatch?.startDate || rawLiveMatch?.timestamp);
-    const matchNote = safestr(
+    const rawNote = safestr(
         rawLiveMatch?.sessionStatus || scoreObj.tossDecision || '',
         ''
     );
-    const resultText = safestr(rawLiveMatch?.result?.message || '', '');
+    const rawResult = safestr(rawLiveMatch?.result?.message || '', '');
+
+    const status = getSportBexStatus(
+        scoreObj.status || rawLiveMatch?.status,
+        rawLiveMatch?.isLive ?? (scoreObj.status === 'LIVE'),
+        `${rawNote} ${rawResult}`,
+        scoreA,
+        scoreB
+    );
+
+    const startTs = parseTimestamp(rawLiveMatch?.startDate || rawLiveMatch?.timestamp);
     const oversList = extractCommentaryOversList(commentary);
+    const latestComm = extractLatestCommentaryInfo(commentary);
+
+    const matchStateText = status === 'FINISHED'
+        ? (rawResult || rawNote || 'FINISHED')
+        : (status === 'BREAK'
+            ? (rawNote || 'BREAK')
+            : (status === 'LIVE' ? 'BOWLER RUNNING IN' : status));
 
     return {
         id: esc(cleanId),
@@ -393,13 +448,18 @@ async function loadMatchData(matchId) {
         scoreB: esc(scoreB),
         oversB: esc(oversB),
         oversList,
-        liveEvent: null,
-        matchNote: esc(matchNote),
-        resultText: esc(resultText),
+        liveEvent: {
+            latestBall: latestComm.latestBall,
+            latestOver: latestComm.latestOver,
+            latestBallNumber: latestComm.latestBallNumber
+        },
+        latestCommentary: esc(latestComm.latestCommentary),
+        matchNote: esc(rawNote),
+        resultText: esc(rawResult),
         status,
         isLive: status === 'LIVE',
-        matchStateText: esc(status === 'LIVE' ? 'BOWLER RUNNING IN' : status),
-        dateTime: esc(matchNote || (startTs ? new Date(startTs).toLocaleString('en-IN') : '')),
+        matchStateText: esc(matchStateText),
+        dateTime: esc(rawNote || (startTs ? new Date(startTs).toLocaleString('en-IN') : '')),
         venue: esc(rawLiveMatch?.ground || 'Stadium'),
         countdownTimestamp: status === 'UPCOMING' ? startTs : null
     };
@@ -509,6 +569,7 @@ app.get('/match/:id', async (req, res) => {
         oversB: '',
         oversList: [],
         liveEvent: null,
+        latestCommentary: '',
         matchNote: '',
         resultText: '',
         status: 'UPCOMING',
