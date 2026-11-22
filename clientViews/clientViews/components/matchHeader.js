@@ -20,15 +20,20 @@ function decodeHtmlEntities(str) {
 }
 
 function parseRunsForCrr(scoreStr) {
-    const clean = String(scoreStr || '').trim();
+    const clean = decodeHtmlEntities(scoreStr || '').trim();
     if (!clean || clean === '-' || /yet to bat/i.test(clean)) return null;
-    const parts = clean.split('/');
-    const runs = parseInt(parts[0], 10);
+    const parts = clean.split('&').map(s => s.trim()).filter(Boolean);
+    const activePart = parts[parts.length - 1] || clean;
+    const runsMatch = activePart.match(/(\d+)/);
+    if (!runsMatch) return null;
+    const runs = parseInt(runsMatch[1], 10);
     return Number.isFinite(runs) && runs >= 0 ? runs : null;
 }
 
 function parseOversDecimalForCrr(oversStr) {
-    const match = String(oversStr || '').match(/(\d+(?:\.\d+)?)/);
+    const clean = decodeHtmlEntities(oversStr || '').trim();
+    if (!clean) return null;
+    const match = clean.match(/(\d+(?:\.\d+)?)/);
     if (!match) return null;
     const raw = parseFloat(match[1]);
     if (!Number.isFinite(raw) || raw <= 0) return null;
@@ -95,12 +100,12 @@ function renderMatchHeader(user, matchData) {
     const scoreA = innA.mainScore;
     const oversA = innA.hasMultipleInnings ? '' : rawOversA;
     const prevA = innA.prevInningsText;
-    const crrA = formatLiveCrr(scoreA, oversA);
+    const crrA = formatLiveCrr(scoreA, oversA || rawOversA);
 
     const scoreB = innB.mainScore;
     const oversB = innB.hasMultipleInnings ? '' : rawOversB;
     const prevB = innB.prevInningsText;
-    const crrB = formatLiveCrr(scoreB, oversB);
+    const crrB = formatLiveCrr(scoreB, oversB || rawOversB);
 
     const matchStateText = decodeHtmlEntities(d.matchStateText || '');
     const matchNote = decodeHtmlEntities(d.matchNote || '');
@@ -351,14 +356,15 @@ function renderMatchHeader(user, matchData) {
             }
 
             function calcLiveCrrText(scoreVal, oversVal) {
-                const s = String(scoreVal || '').trim();
-                const o = String(oversVal || '').trim();
+                const s = cleanText(scoreVal || '').trim();
+                const o = cleanText(oversVal || '').trim();
                 if (!s || s === '-' || /yet to bat/i.test(s)) return '';
-                const runs = parseInt(s.split('/')[0], 10);
-                const m = o.match(/(\d+(?:\.\d+)?)/);
-                if (!Number.isFinite(runs) || runs < 0 || !m) return '';
-                const rawOv = parseFloat(m[1]);
-                if (!Number.isFinite(rawOv) || rawOv <= 0) return '';
+                const runsMatch = s.match(/(\\d+)/);
+                const ovMatch = o.match(/(\\d+(?:\\.\\d+)?)/);
+                if (!runsMatch || !ovMatch) return '';
+                const runs = parseInt(runsMatch[1], 10);
+                const rawOv = parseFloat(ovMatch[1]);
+                if (!Number.isFinite(runs) || runs < 0 || !Number.isFinite(rawOv) || rawOv <= 0) return '';
                 const doneOv = Math.floor(rawOv);
                 const balls = Math.min(6, Math.max(0, Math.round((rawOv - doneOv) * 10)));
                 const decOv = doneOv + (balls / 6);
@@ -838,12 +844,12 @@ function renderMatchHeader(user, matchData) {
 
                     if (elScoreA) elScoreA.textContent = currentScoreA;
                     if (elOversA && m.oversA !== undefined) elOversA.textContent = currentOversA;
-                    if (elCrrA) elCrrA.textContent = calcLiveCrrText(currentScoreA, currentOversA);
+                    if (elCrrA) elCrrA.textContent = calcLiveCrrText(currentScoreA, currentOversA || rawOversA);
                     if (elPrevA) elPrevA.textContent = pA.prevText;
 
                     if (elScoreB) elScoreB.textContent = currentScoreB;
                     if (elOversB && m.oversB !== undefined) elOversB.textContent = currentOversB;
-                    if (elCrrB) elCrrB.textContent = calcLiveCrrText(currentScoreB, currentOversB);
+                    if (elCrrB) elCrrB.textContent = calcLiveCrrText(currentScoreB, currentOversB || rawOversB);
                     if (elPrevB) elPrevB.textContent = pB.prevText;
 
                     if (typeof window.syncOversStrip === 'function') {
