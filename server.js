@@ -190,16 +190,20 @@ async function sbGet(endpoint, ttlMs = LIVE_CACHE_TTL_MS) {
 
         const text = await resp.text();
         if (!resp.ok) {
+            console.error(`[SPORTBEX API ERROR] status=${resp.status} endpoint=${endpoint} body=${text.slice(0, 300)}`);
             return cached ? cached.data : null;
         }
 
         const json = JSON.parse(text);
+        const count = Array.isArray(json?.data) ? json.data.length : (Array.isArray(json) ? json.length : 1);
+        console.log(`[SPORTBEX API OK] status=${resp.status} endpoint=${endpoint} count=${count}`);
+
         if (ttlMs > 0) {
             apiCache.set(endpoint, { data: json, timestamp: now });
         }
         return json;
     } catch (err) {
-        console.error('[SPORTBEX FETCH EXCEPTION]', err.message);
+        console.error(`[SPORTBEX FETCH EXCEPTION] endpoint=${endpoint} err=${err.message}`);
         const cached = apiCache.get(endpoint);
         return cached ? cached.data : null;
     }
