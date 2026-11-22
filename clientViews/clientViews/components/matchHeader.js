@@ -26,26 +26,44 @@ function renderMatchHeader(user, matchData) {
     const venue = d.venue || 'Stadium';
     const matchTime = d.dateTime || '';
 
-    const matchStatus = String(d.status || 'UPCOMING').toUpperCase();
-
     const scoreA = d.scoreA || '-';
     const oversA = d.oversA || '';
     const scoreB = d.scoreB || '-';
     const oversB = d.oversB || '';
 
-    const matchStateText = d.matchStateText || matchStatus;
+    const matchStateText = d.matchStateText || '';
     const matchNote = d.matchNote || '';
     const resultText = d.resultText || '';
     const countdownTimestamp = Number(d.countdownTimestamp) || null;
     const initialLiveEvent = d.liveEvent || null;
+
+    const combinedInitial = `${d.status || ''} ${matchStateText} ${matchNote} ${resultText}`.toUpperCase();
+    const initialAllOut = /\/\s*10(?:\s|$|&)/.test(String(scoreA)) || /\/\s*10(?:\s|$|&)/.test(String(scoreB));
+    const initialHasResult =
+        initialAllOut ||
+        combinedInitial.includes('WON BY') ||
+        combinedInitial.includes('TIED') ||
+        combinedInitial.includes('NO RESULT') ||
+        combinedInitial.includes('ABANDONED') ||
+        combinedInitial.includes('FINISHED') ||
+        combinedInitial.includes('COMPLETED');
+
+    const matchStatus = initialHasResult
+        ? 'FINISHED'
+        : String(d.status || 'UPCOMING').toUpperCase();
 
     // IMPORTANT: Score or "Yet to bat" does NOT mean LIVE.
     const isLive = matchStatus === 'LIVE';
     const isFinished = matchStatus === 'FINISHED';
     const isBreak = matchStatus === 'BREAK';
 
-    const dot = isLive ? 'bg-green-500 animate-pulse' : 'bg-gray-500';
-    const statusColor = isLive ? 'text-green-400' : 'text-gray-400';
+    const dot = isLive
+        ? 'bg-green-500 animate-pulse'
+        : (isFinished ? 'bg-emerald-400' : 'bg-gray-500');
+
+    const statusColor = isLive
+        ? 'text-green-400'
+        : (isFinished ? 'text-emerald-300' : 'text-gray-400');
 
     const badgeText = isLive
         ? 'LIVE'
@@ -58,20 +76,20 @@ function renderMatchHeader(user, matchData) {
     let initialBadgeClass =
         'bg-blue-500/20 border-blue-400 text-blue-300';
 
-    if (isLive) {
+    if (isFinished) {
+        initialBadgeText = resultText || matchStateText || 'FINISHED';
+
+        initialBadgeClass =
+            'bg-emerald-500/20 border-emerald-400 text-emerald-300';
+
+    } else if (isLive) {
         initialBadgeText = 'BOWLER RUNNING IN';
 
         initialBadgeClass =
             'bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse';
 
-    } else if (isFinished) {
-        initialBadgeText = resultText || 'FINISHED';
-
-        initialBadgeClass =
-            'bg-emerald-500/20 border-emerald-400 text-emerald-300';
-
     } else if (isBreak) {
-        initialBadgeText = matchStateText;
+        initialBadgeText = matchStateText || 'BREAK';
 
         initialBadgeClass =
             'bg-orange-500/30 border-orange-400 text-orange-300';
@@ -94,6 +112,8 @@ function renderMatchHeader(user, matchData) {
 
     if (!isLive && !isFinished && !isBreak) {
         initialStateText = 'Match not started';
+    } else if (isFinished) {
+        initialStateText = resultText || matchNote || matchStateText || 'Match Finished';
     }
 
     const safeMatchId = JSON.stringify(String(matchId));
@@ -258,8 +278,11 @@ function renderMatchHeader(user, matchData) {
             let lastOversB = ${safeOversB};
 
             let lastLiveEvent = ${safeLiveEvent};
+            let lastCommentaryText = '';
 
             let popupTimer = null;
+            let pollTimer = null;
+            let isPolling = false;
 
             let targetTimestamp = ${safeCountdown};
 
@@ -280,8 +303,26 @@ function renderMatchHeader(user, matchData) {
                 gray: 'bg-gray-500/20 border-gray-400 text-gray-300',
                 green: 'bg-emerald-500/25 border-emerald-400 text-emerald-200',
                 red: 'bg-red-600/40 border-red-500 text-red-300',
-                purple: 'bg-purple-600/40 border-purple-400 text-purple-200'
+                purple: 'bg-purple-600/40 border-purple-400 text-purple-200',
+                cyan: 'bg-cyan-500/25 border-cyan-300 text-cyan-200'
             };
+
+            function resolveStatus(rawStatus, scA, scB, note, state, resText) {
+                const combined = `${rawStatus || ''} ${note || ''} ${state || ''} ${resText || ''}`.toUpperCase();
+                const allOut = /\\/\\s*10(?:\\s|$|&)/.test(String(scA || '')) || /\\/\\s*10(?:\\s|$|&)/.test(String(scB || ''));
+                if (
+                    allOut ||
+                    combined.includes('WON BY') ||
+                    combined.includes('TIED') ||
+                    combined.includes('NO RESULT') ||
+                    combined.includes('ABANDONED') ||
+                    combined.includes('FINISHED') ||
+                    combined.includes('COMPLETED')
+                ) {
+                    return 'FINISHED';
+                }
+                return String(rawStatus || 'UPCOMING').toUpperCase();
+            }
 
             function parseScore(score) {
                 const value = String(score || '');
@@ -444,9 +485,37 @@ function renderMatchHeader(user, matchData) {
 
             setInterval(updateCountdown, 1000);
 
+            function lockFinishedUI() {
+                if (popupTimer) {
+                    clearTimeout(popupTimer);
+                    popupTimer = null;
+                }
+                targetTimestamp = null;
+                updateStatusBadge('FINISHED');
+                setBadgeState(
+                    currentResult || currentMatchState || 'FINISHED',
+                    badgeColor.green,
+                    false
+                );
+                const elStateText = document.getElementById('match-state-text');
+                if (elStateText) {
+                    elStateText.innerText = currentResult || currentNote || currentMatchState || 'Match Finished';
+                }
+                if (pollTimer) {
+                    clearInterval(pollTimer);
+                    pollTimer = null;
+                }
+            }
+
+            if (currentStatus === 'FINISHED') {
+                lockFinishedUI();
+            }
+
             // RESTORE CORRECT BADGE AFTER EVENT POPUP
             function restoreBadge() {
-                if (currentStatus === 'UPCOMING') {
+                if (currentStatus === 'FINISHED') {
+                    lockFinishedUI();
+                } else if (currentStatus === 'UPCOMING') {
                     updateCountdown();
 
                     if (!targetTimestamp) {
@@ -457,13 +526,6 @@ function renderMatchHeader(user, matchData) {
                         );
                     }
 
-                } else if (currentStatus === 'FINISHED') {
-                    setBadgeState(
-                        currentResult || currentMatchState || 'FINISHED',
-                        badgeColor.green,
-                        false
-                    );
-
                 } else if (currentStatus === 'BREAK') {
                     setBadgeState(
                         currentMatchState || 'BREAK',
@@ -472,24 +534,17 @@ function renderMatchHeader(user, matchData) {
                     );
 
                 } else if (currentStatus === 'LIVE') {
-                    const chaseText = buildChaseText(
-                        lastScoreA,
-                        lastOversA,
-                        lastScoreB,
-                        lastOversB,
-                        currentNote
-                    );
-
                     setBadgeState(
-                        chaseText || 'BOWLER RUNNING IN',
-                        chaseText ? badgeColor.green : badgeColor.amber,
+                        'BOWLER RUNNING IN',
+                        badgeColor.amber,
                         true
                     );
                 }
             }
 
-            // EVENT POPUP (BLINKS FOR 3.5s, THEN BOWLER RUNNING IN / CHASE)
-            function triggerPopup(text, colorClass) {
+            // EVENT POPUP (BLINKS FOR ~2.8s ON RESULT, THEN BOWLER RUNNING IN)
+            function triggerPopup(text, colorClass, durationMs = 2800) {
+                if (currentStatus === 'FINISHED') return;
                 const badge =
                     document.getElementById('match-event-badge');
 
@@ -508,7 +563,17 @@ function renderMatchHeader(user, matchData) {
                 popupTimer = setTimeout(() => {
                     popupTimer = null;
                     restoreBadge();
-                }, 3500);
+                }, durationMs);
+            }
+
+            function isBallInAirText(text) {
+                const t = String(text || '').toLowerCase();
+                return (
+                    t.includes('in the air') ||
+                    t.includes('high in the air') ||
+                    t.includes('up in the air') ||
+                    t.includes('skied')
+                );
             }
 
             function updateStatusBadge(status) {
@@ -560,6 +625,8 @@ function renderMatchHeader(user, matchData) {
 
             // LIVE DATA POLLING
             async function pollMatch() {
+                if (isPolling || currentStatus === 'FINISHED') return;
+                isPolling = true;
                 try {
                     const res = await fetch(
                         '/api/match/' +
@@ -610,12 +677,21 @@ function renderMatchHeader(user, matchData) {
                     const stateText =
                         String(m.matchStateText || '').toUpperCase();
 
-                    const newStatus =
-                        String(m.status || 'UPCOMING').toUpperCase();
-
                     const wicketText =
                         String(m.wicketText || m.howOut || '')
                         .toUpperCase();
+
+                    const latestCommentary =
+                        String(m.latestCommentary || '').trim();
+
+                    const newStatus = resolveStatus(
+                        m.status || 'UPCOMING',
+                        currentScoreA,
+                        currentScoreB,
+                        m.matchNote,
+                        m.matchStateText,
+                        m.resultText
+                    );
 
                     const prevStatus = currentStatus;
                     const reloadKey = 'live_reloaded_' + matchId + '_' + newStatus;
@@ -630,6 +706,29 @@ function renderMatchHeader(user, matchData) {
                         return;
                     }
 
+                    // Atomic scoreboard & strip update together
+                    if (elScoreA) {
+                        elScoreA.innerText = currentScoreA;
+                    }
+
+                    if (elOversA && m.oversA !== undefined) {
+                        elOversA.innerText = m.oversA;
+                    }
+
+                    if (elScoreB) {
+                        elScoreB.innerText = currentScoreB;
+                    }
+
+                    if (elOversB && m.oversB !== undefined) {
+                        elOversB.innerText = m.oversB;
+                    }
+
+                    if (
+                        typeof window.syncOversStrip === 'function'
+                    ) {
+                        window.syncOversStrip(m);
+                    }
+
                     // UPDATE CURRENT MATCH STATE
                     currentStatus = newStatus;
                     stateLabel = m.matchStateText || newStatus;
@@ -638,6 +737,11 @@ function renderMatchHeader(user, matchData) {
 
                     currentMatchState =
                         String(stateLabel || '').toUpperCase();
+
+                    if (currentStatus === 'FINISHED') {
+                        lockFinishedUI();
+                        return;
+                    }
 
                     // COUNTDOWN TIMESTAMP
                     if (
@@ -670,10 +774,6 @@ function renderMatchHeader(user, matchData) {
                         if (newStatus === 'UPCOMING') {
                             elStateText.innerText =
                                 'Match not started';
-
-                        } else if (newStatus === 'FINISHED') {
-                            elStateText.innerText =
-                                currentResult || m.matchStateText || 'FINISHED';
 
                         } else if (newStatus === 'LIVE') {
                             elStateText.innerText =
@@ -716,24 +816,6 @@ function renderMatchHeader(user, matchData) {
                             );
                         }
 
-                    } else if (
-                        newStatus === 'FINISHED' ||
-                        stateText.includes('FINISHED') ||
-                        stateText.includes('COMPLETED')
-                    ) {
-                        if (popupTimer) {
-                            clearTimeout(popupTimer);
-                            popupTimer = null;
-                        }
-
-                        targetTimestamp = null;
-
-                        setBadgeState(
-                            currentResult || stateText || 'FINISHED',
-                            badgeColor.green,
-                            false
-                        );
-
                     } else if (newStatus === 'LIVE') {
                         // LIVE SCORE AND EVENT DETECTION
                         const ev = m.liveEvent || null;
@@ -745,6 +827,13 @@ function renderMatchHeader(user, matchData) {
                         const runStatDiff = ev && prevEv ? (Number(ev.totalRuns || 0) - Number(prevEv.totalRuns || 0)) : 0;
                         const ballStatDiff = ev && prevEv ? (Number(ev.totalBalls || 0) - Number(prevEv.totalBalls || 0)) : 0;
                         const reportChanged = ev && prevEv && ev.report && ev.report !== prevEv.report;
+                        const latestBallChanged =
+                            ev && prevEv &&
+                            (
+                                String(ev.latestBall || '') !== String(prevEv.latestBall || '') ||
+                                String(ev.latestBallNumber || '') !== String(prevEv.latestBallNumber || '') ||
+                                String(ev.latestOver || '') !== String(prevEv.latestOver || '')
+                            );
 
                         const scoreChanged =
                             currentScoreA !== lastScoreA ||
@@ -756,10 +845,13 @@ function renderMatchHeader(user, matchData) {
                             wktStatDiff > 0 ||
                             runStatDiff > 0 ||
                             ballStatDiff > 0 ||
-                            reportChanged;
+                            reportChanged ||
+                            latestBallChanged;
 
                         if (scoreChanged) {
-                            let diffText = stateText && stateText !== 'LIVE' ? stateText : 'SCORE UPDATED';
+                            let diffText = stateText && stateText !== 'LIVE' && stateText !== 'BOWLER RUNNING IN'
+                                ? stateText
+                                : 'SCORE UPDATED';
 
                             let color =
                                 'bg-yellow-500/20 border-yellow-400 text-yellow-300';
@@ -778,8 +870,9 @@ function renderMatchHeader(user, matchData) {
 
                             const wktDelta = Math.max(wktStatDiff, wktDiffA, wktDiffB);
                             const runDelta = runDiffB > 0 ? runDiffB : (runDiffA > 0 ? runDiffA : runStatDiff);
+                            const rawBallSym = String(ev?.latestBall || '').toUpperCase();
 
-                            if (wktDelta > 0) {
+                            if (wktDelta > 0 || rawBallSym === 'W') {
                                 ballSymbol = 'W';
                                 if (wicketText.includes('STUMP')) {
                                     diffText = 'STUMP OUT!';
@@ -791,29 +884,33 @@ function renderMatchHeader(user, matchData) {
                                     diffText = 'WICKET FALLEN!';
                                 }
                                 color = badgeColor.red;
-                            } else if (sixDiff > 0 || runDelta === 6) {
+                            } else if (rawBallSym && !['DOT', 'W', '6', '4', '3', '2', '1'].includes(rawBallSym)) {
+                                ballSymbol = rawBallSym;
+                                diffText = rawBallSym + ' BALL';
+                                color = 'bg-amber-500/30 border-amber-400 text-amber-200';
+                            } else if (sixDiff > 0 || runDelta === 6 || rawBallSym === '6') {
                                 ballSymbol = '6';
                                 diffText = 'SIX (6)';
                                 color = badgeColor.purple;
-                            } else if (fourDiff > 0 || runDelta === 4) {
+                            } else if (fourDiff > 0 || runDelta === 4 || rawBallSym === '4') {
                                 ballSymbol = '4';
                                 diffText = 'FOUR (4)';
                                 color = 'bg-blue-600/40 border-blue-400 text-blue-200';
-                            } else if (runDelta === 3) {
+                            } else if (runDelta === 3 || rawBallSym === '3') {
                                 ballSymbol = '3';
                                 diffText = '3 RUNS';
                                 color = 'bg-emerald-500/30 border-emerald-400 text-emerald-300';
-                            } else if (runDelta === 2) {
+                            } else if (runDelta === 2 || rawBallSym === '2') {
                                 ballSymbol = '2';
                                 diffText = '2 RUNS';
                                 color = 'bg-indigo-500/30 border-indigo-400 text-indigo-300';
-                            } else if (runDelta === 1) {
+                            } else if (runDelta === 1 || rawBallSym === '1') {
                                 ballSymbol = '1';
                                 diffText = '1 RUN';
                                 color = 'bg-green-500/30 border-green-400 text-green-300';
                             } else if (
                                 runDelta === 0 &&
-                                (currentOversA !== lastOversA || currentOversB !== lastOversB || ballStatDiff > 0)
+                                (currentOversA !== lastOversA || currentOversB !== lastOversB || ballStatDiff > 0 || rawBallSym === 'DOT')
                             ) {
                                 ballSymbol = 'DOT';
                                 diffText = 'DOT BALL';
@@ -835,7 +932,7 @@ function renderMatchHeader(user, matchData) {
                                 );
                             }
 
-                            triggerPopup(diffText, color);
+                            triggerPopup(diffText, color, 2800);
 
                             lastScoreA = currentScoreA;
                             lastScoreB = currentScoreB;
@@ -843,52 +940,38 @@ function renderMatchHeader(user, matchData) {
                             lastOversB = currentOversB;
                             lastLiveEvent = ev;
 
+                        } else if (latestCommentary && latestCommentary !== lastCommentaryText && isBallInAirText(latestCommentary)) {
+                            lastCommentaryText = latestCommentary;
+                            triggerPopup('BALL IN THE AIR', badgeColor.cyan, 2400);
                         } else if (!popupTimer) {
                             setBadgeState(
-                                chaseLiveText || 'BOWLER RUNNING IN',
-                                chaseLiveText ? badgeColor.green : badgeColor.amber,
+                                'BOWLER RUNNING IN',
+                                badgeColor.amber,
                                 true
                             );
                         }
                     }
 
-                    // UPDATE SCOREBOARD
-                    if (elScoreA) {
-                        elScoreA.innerText = currentScoreA;
-                    }
-
-                    if (elOversA && m.oversA !== undefined) {
-                        elOversA.innerText = m.oversA;
-                    }
-
-                    if (elScoreB) {
-                        elScoreB.innerText = currentScoreB;
-                    }
-
-                    if (elOversB && m.oversB !== undefined) {
-                        elOversB.innerText = m.oversB;
-                    }
-
-                    if (
-                        typeof window.syncOversStrip === 'function'
-                    ) {
-                        window.syncOversStrip(m);
-                    }
-
                 } catch (e) {
                     console.error('Live Polling Error:', e);
+                } finally {
+                    isPolling = false;
                 }
             }
 
             // Fast polling + immediate sync on resume from minimize/tab switch
             pollMatch();
-            setInterval(pollMatch, 2500);
+            pollTimer = setInterval(pollMatch, 1200);
             document.addEventListener('visibilitychange', function() {
-                if (!document.hidden) {
+                if (!document.hidden && currentStatus !== 'FINISHED') {
                     pollMatch();
                 }
             });
-            window.addEventListener('focus', pollMatch);
+            window.addEventListener('focus', function() {
+                if (currentStatus !== 'FINISHED') {
+                    pollMatch();
+                }
+            });
 
         })();
     </script>
