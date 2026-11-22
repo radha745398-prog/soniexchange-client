@@ -23,7 +23,7 @@ function parseRunsForCrr(scoreStr) {
     const clean = decodeHtmlEntities(scoreStr || '').trim();
     if (!clean || clean === '-' || /yet to bat/i.test(clean)) return null;
     const parts = clean.split('&').map(s => s.trim()).filter(Boolean);
-    const activePart = parts[parts.length - 1] || clean;
+    const activePart = parts[0] || clean;
     const runsMatch = activePart.match(/(\d+)/);
     if (!runsMatch) return null;
     const runs = parseInt(runsMatch[1], 10);
@@ -50,15 +50,15 @@ function formatLiveCrr(scoreStr, oversStr) {
     return `CRR ${(runs / totalOvers).toFixed(2)}`;
 }
 
-// Always keep latest/current innings as mainScore and first innings as prevInningsText
+// parts[0] = current/latest innings (main score), parts[last] = 1st innings ("1st inns ...")
 function splitInningsScore(rawScore, rawOvers) {
     const cleanScore = decodeHtmlEntities(rawScore || '-').trim();
     const cleanOvers = decodeHtmlEntities(rawOvers || '').trim();
 
     const parts = cleanScore.split('&').map(s => s.trim()).filter(Boolean);
     if (parts.length > 1) {
-        const currentScore = parts[parts.length - 1];
-        const firstInningsScore = parts[0];
+        const currentScore = parts[0];
+        const firstInningsScore = parts[parts.length - 1];
         return {
             mainScore: currentScore,
             prevInningsText: `1st inns ${firstInningsScore}${cleanOvers ? ` (${cleanOvers})` : ''}`,
@@ -372,15 +372,16 @@ function renderMatchHeader(user, matchData) {
                 return 'CRR ' + (runs / decOv).toFixed(2);
             }
 
+            // parts[0] = current/latest innings (main score), parts[last] = 1st innings ("1st inns ...")
             function splitInningsClient(rawScore, rawOvers) {
                 const s = cleanText(rawScore || '-').trim();
                 const o = cleanText(rawOvers || '').trim();
                 const parts = s.split('&').map(x => x.trim()).filter(Boolean);
                 if (parts.length > 1) {
                     return {
-                        mainScore: parts[parts.length - 1],
+                        mainScore: parts[0],
                         mainOvers: '',
-                        prevText: '1st inns ' + parts[0] + (o ? ' (' + o + ')' : '')
+                        prevText: '1st inns ' + parts[parts.length - 1] + (o ? ' (' + o + ')' : '')
                     };
                 }
                 return {
