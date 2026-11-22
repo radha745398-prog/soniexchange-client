@@ -36,6 +36,9 @@ function renderMatchHeader(user, matchData) {
     const resultText = d.resultText || '';
     const countdownTimestamp = Number(d.countdownTimestamp) || null;
     const initialLiveEvent = d.liveEvent || null;
+    const breakTimerMode = d.breakTimerMode || 'FORWARD';
+    const breakEndTimestamp = Number(d.breakEndTimestamp) || null;
+    const breakStartTimestamp = Number(d.breakStartTimestamp) || null;
 
     const combinedInitial = (
         String(d.status || '') + ' ' +
@@ -138,6 +141,9 @@ function renderMatchHeader(user, matchData) {
     const safeStatus = JSON.stringify(String(matchStatus));
     const safeCountdown = countdownTimestamp || 'null';
     const safeLiveEvent = JSON.stringify(initialLiveEvent);
+    const safeBreakMode = JSON.stringify(String(breakTimerMode || 'FORWARD'));
+    const safeBreakEnd = breakEndTimestamp || 'null';
+    const safeBreakStart = breakStartTimestamp || 'null';
 
     return `
     <!-- TOP HEADER BAR -->
@@ -294,6 +300,9 @@ function renderMatchHeader(user, matchData) {
             let isPolling = false;
 
             let targetTimestamp = ${safeCountdown};
+            let breakTimerMode = ${safeBreakMode};
+            let breakEndTimestamp = ${safeBreakEnd};
+            let breakStartTimestamp = ${safeBreakStart};
 
             let stateLabel = ${safeState};
             let currentNote = ${safeNote};
@@ -444,22 +453,23 @@ function renderMatchHeader(user, matchData) {
             }
 
             function formatTime(distance) {
+                const safeMs = Math.max(0, Number(distance) || 0);
                 const days = Math.floor(
-                    distance / (1000 * 60 * 60 * 24)
+                    safeMs / (1000 * 60 * 60 * 24)
                 );
 
                 const hours = Math.floor(
-                    (distance % (1000 * 60 * 60 * 24)) /
+                    (safeMs % (1000 * 60 * 60 * 24)) /
                     (1000 * 60 * 60)
                 );
 
                 const minutes = Math.floor(
-                    (distance % (1000 * 60 * 60)) /
+                    (safeMs % (1000 * 60 * 60)) /
                     (1000 * 60)
                 );
 
                 const seconds = Math.floor(
-                    (distance % (1000 * 60)) / 1000
+                    (safeMs % (1000 * 60)) / 1000
                 );
 
                 let time = '';
@@ -476,12 +486,32 @@ function renderMatchHeader(user, matchData) {
                 return time;
             }
 
-            // COUNTDOWN
+            // Countdown starts only after 12:00 AM on the match's own calendar day
+            function isMatchDayAfterMidnight(matchTs, nowTs) {
+                const mDate = new Date(Number(matchTs));
+                const nDate = new Date(Number(nowTs));
+                return (
+                    mDate.getFullYear() === nDate.getFullYear() &&
+                    mDate.getMonth() === nDate.getMonth() &&
+                    mDate.getDate() === nDate.getDate()
+                );
+            }
+
+            // COUNTDOWN (Starts after 12:00 AM on match day until match starts)
             function updateCountdown() {
                 if (currentStatus !== 'UPCOMING') return;
-                if (!targetTimestamp) return;
+                if (!targetTimestamp) {
+                    setBadgeState('UPCOMING', badgeColor.blue, false);
+                    return;
+                }
 
-                const distance = Number(targetTimestamp) - Date.now();
+                const now = Date.now();
+                if (!isMatchDayAfterMidnight(targetTimestamp, now)) {
+                    setBadgeState('UPCOMING', badgeColor.blue, false);
+                    return;
+                }
+
+                const distance = Number(targetTimestamp) - now;
 
                 if (distance <= 0) {
                     setBadgeState(
@@ -500,9 +530,41 @@ function renderMatchHeader(user, matchData) {
                 );
             }
 
-            updateCountdown();
+            // BREAK TIMER (Countdown if countdown timestamp given, else forward/elapsed)
+            function updateBreakTimer() {
+                if (currentStatus !== 'BREAK') return;
+                const label = currentMatchState || 'BREAK';
+                const now = Date.now();
 
-            setInterval(updateCountdown, 1000);
+                if (breakTimerMode === 'COUNTDOWN' && breakEndTimestamp) {
+                    const rem = Number(breakEndTimestamp) - now;
+                    setBadgeState(
+                        label + ' - ' + formatTime(rem),
+                        badgeColor.orange,
+                        true
+                    );
+                    return;
+                }
+
+                const startRef = Number(breakStartTimestamp) || now;
+                const elapsed = Math.max(0, now - startRef);
+                setBadgeState(
+                    label + ' - ' + formatTime(elapsed),
+                    badgeColor.orange,
+                    true
+                );
+            }
+
+            updateCountdown();
+            updateBreakTimer();
+
+            setInterval(() => {
+                if (currentStatus === 'UPCOMING') {
+                    updateCountdown();
+                } else if (currentStatus === 'BREAK' && !popupTimer) {
+                    updateBreakTimer();
+                }
+            }, 1000);
 
             function lockFinishedUI() {
                 if (popupTimer) {
@@ -510,6 +572,8 @@ function renderMatchHeader(user, matchData) {
                     popupTimer = null;
                 }
                 targetTimestamp = null;
+                breakEndTimestamp = null;
+                breakStartTimestamp = null;
                 updateStatusBadge('FINISHED');
                 setBadgeState(
                     currentResult || currentMatchState || 'FINISHED',
@@ -537,20 +601,8 @@ function renderMatchHeader(user, matchData) {
                 } else if (currentStatus === 'UPCOMING') {
                     updateCountdown();
 
-                    if (!targetTimestamp) {
-                        setBadgeState(
-                            'UPCOMING',
-                            badgeColor.blue,
-                            false
-                        );
-                    }
-
                 } else if (currentStatus === 'BREAK') {
-                    setBadgeState(
-                        currentMatchState || 'BREAK',
-                        badgeColor.orange,
-                        true
-                    );
+                    updateBreakTimer();
 
                 } else if (currentStatus === 'LIVE') {
                     setBadgeState(
@@ -778,6 +830,20 @@ function renderMatchHeader(user, matchData) {
                         targetTimestamp = null;
                     }
 
+                    // BREAK TIMER SYNC
+                    if (newStatus === 'BREAK') {
+                        breakTimerMode = m.breakTimerMode || 'FORWARD';
+                        breakEndTimestamp = m.breakEndTimestamp ? Number(m.breakEndTimestamp) : null;
+                        if (m.breakStartTimestamp) {
+                            breakStartTimestamp = Number(m.breakStartTimestamp);
+                        } else if (!breakStartTimestamp) {
+                            breakStartTimestamp = Date.now();
+                        }
+                    } else {
+                        breakEndTimestamp = null;
+                        breakStartTimestamp = null;
+                    }
+
                     updateStatusBadge(newStatus);
 
                     const chaseLiveText = buildChaseText(
@@ -813,11 +879,9 @@ function renderMatchHeader(user, matchData) {
                         stateText.includes('DRINKS') ||
                         stateText.includes('BREAK')
                     ) {
-                        setBadgeState(
-                            stateText || 'BREAK',
-                            badgeColor.orange,
-                            true
-                        );
+                        if (!popupTimer) {
+                            updateBreakTimer();
+                        }
 
                     } else if (newStatus === 'UPCOMING') {
                         if (popupTimer) {
@@ -825,15 +889,7 @@ function renderMatchHeader(user, matchData) {
                             popupTimer = null;
                         }
 
-                        if (targetTimestamp) {
-                            updateCountdown();
-                        } else {
-                            setBadgeState(
-                                'UPCOMING',
-                                badgeColor.blue,
-                                false
-                            );
-                        }
+                        updateCountdown();
 
                     } else if (newStatus === 'LIVE') {
                         // LIVE SCORE AND EVENT DETECTION
