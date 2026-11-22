@@ -61,13 +61,15 @@ function splitInningsScore(rawScore, rawOvers) {
         const firstInningsScore = parts[parts.length - 1];
         return {
             mainScore: currentScore,
-            prevInningsText: `1st inns ${firstInningsScore}${cleanOvers ? ` (${cleanOvers})` : ''}`,
+            mainOvers: cleanOvers ? `(${cleanOvers})` : '',
+            prevInningsText: `1st inns ${firstInningsScore}`,
             hasMultipleInnings: true
         };
     }
 
     return {
         mainScore: cleanScore || '-',
+        mainOvers: cleanOvers ? `(${cleanOvers})` : '',
         prevInningsText: '',
         hasMultipleInnings: false
     };
@@ -98,20 +100,21 @@ function renderMatchHeader(user, matchData) {
     const innB = splitInningsScore(rawScoreB, rawOversB);
 
     const scoreA = innA.mainScore;
-    const oversA = innA.hasMultipleInnings ? '' : rawOversA;
+    const oversA = innA.mainOvers;
     const prevA = innA.prevInningsText;
-    const crrA = formatLiveCrr(scoreA, oversA || rawOversA);
+    const crrA = formatLiveCrr(scoreA, rawOversA);
 
     const scoreB = innB.mainScore;
-    const oversB = innB.hasMultipleInnings ? '' : rawOversB;
+    const oversB = innB.mainOvers;
     const prevB = innB.prevInningsText;
-    const crrB = formatLiveCrr(scoreB, oversB || rawOversB);
+    const crrB = formatLiveCrr(scoreB, rawOversB);
 
     const matchStateText = decodeHtmlEntities(d.matchStateText || '');
     const matchNote = decodeHtmlEntities(d.matchNote || '');
     const resultText = decodeHtmlEntities(d.resultText || '');
     const countdownTimestamp = Number(d.countdownTimestamp) || null;
     const initialLiveEvent = d.liveEvent || null;
+    const initialOversList = Array.isArray(d.oversList) ? d.oversList : [];
     const breakTimerMode = d.breakTimerMode || 'FORWARD';
     const breakEndTimestamp = Number(d.breakEndTimestamp) || null;
     const breakStartTimestamp = Number(d.breakStartTimestamp) || null;
@@ -173,8 +176,8 @@ function renderMatchHeader(user, matchData) {
     const safeMatchId = JSON.stringify(String(matchId));
     const safeScoreA = JSON.stringify(String(scoreA));
     const safeScoreB = JSON.stringify(String(scoreB));
-    const safeOversA = JSON.stringify(String(oversA));
-    const safeOversB = JSON.stringify(String(oversB));
+    const safeOversA = JSON.stringify(String(rawOversA));
+    const safeOversB = JSON.stringify(String(rawOversB));
     const safeState = JSON.stringify(String(matchStateText));
     const safeNote = JSON.stringify(String(matchNote));
     const safeResult = JSON.stringify(String(resultText));
@@ -183,6 +186,7 @@ function renderMatchHeader(user, matchData) {
     const safeStatus = JSON.stringify(String(matchStatus));
     const safeCountdown = countdownTimestamp || 'null';
     const safeLiveEvent = JSON.stringify(initialLiveEvent);
+    const safeOversList = JSON.stringify(initialOversList);
     const safeBreakMode = JSON.stringify(String(breakTimerMode || 'FORWARD'));
     const safeBreakEnd = breakEndTimestamp || 'null';
     const safeBreakStart = breakStartTimestamp || 'null';
@@ -320,6 +324,11 @@ function renderMatchHeader(user, matchData) {
                     ${flagOrLogoHTML(d.logoB, teamB)}
                 </div>
             </div>
+
+            <!-- LIVE OVER & BALL STRIP -->
+            <div id="live-over-ball-strip"
+                class="mt-2.5 pt-2 border-t border-gray-800/80 flex items-center space-x-2 overflow-x-auto text-[11px] font-mono">
+            </div>
         </div>
     </div>
 
@@ -380,16 +389,95 @@ function renderMatchHeader(user, matchData) {
                 if (parts.length > 1) {
                     return {
                         mainScore: parts[0],
-                        mainOvers: '',
-                        prevText: '1st inns ' + parts[parts.length - 1] + (o ? ' (' + o + ')' : '')
+                        mainOvers: o ? '(' + o + ')' : '',
+                        prevText: '1st inns ' + parts[parts.length - 1]
                     };
                 }
                 return {
                     mainScore: s || '-',
-                    mainOvers: o,
+                    mainOvers: o ? '(' + o + ')' : '',
                     prevText: ''
                 };
             }
+
+            let overBallsStore = [];
+
+            function formatBallChipLabel(ballSym) {
+                const sym = String(ballSym || '').trim().toUpperCase();
+                if (!sym || sym === 'DOT' || sym === '0') return '0';
+                return sym;
+            }
+
+            function renderOverBallStrip() {
+                const strip = document.getElementById('live-over-ball-strip');
+                if (!strip) return;
+
+                if (!Array.isArray(overBallsStore) || overBallsStore.length === 0) {
+                    strip.innerHTML = '';
+                    strip.style.display = 'none';
+                    return;
+                }
+
+                strip.style.display = 'flex';
+                const recentOvers = overBallsStore.slice(-2).reverse();
+                strip.innerHTML = recentOvers.map(ov => {
+                    const balls = Array.isArray(ov.balls) ? ov.balls : [];
+                    const ballChips = balls.map(b => {
+                        const lbl = formatBallChipLabel(b);
+                        let cls = 'bg-[#1c2a38] text-gray-200 border-gray-700';
+                        if (lbl === 'W') cls = 'bg-red-600/30 text-red-200 border-red-500/60';
+                        else if (lbl === '6') cls = 'bg-purple-600/30 text-purple-200 border-purple-400/60';
+                        else if (lbl === '4') cls = 'bg-blue-600/30 text-blue-200 border-blue-400/60';
+                        return '<span class="px-1.5 py-0.5 rounded border font-bold ' + cls + '">' + lbl + '</span>';
+                    }).join('');
+
+                    return (
+                        '<div class="flex items-center space-x-1.5 bg-[#0b141d] px-2 py-1 rounded border border-gray-800 shrink-0">' +
+                        '<span class="text-cyan-300 font-bold">Ov ' + ov.overNumber + ' (' + balls.length + ')</span>' +
+                        ballChips +
+                        '</div>'
+                    );
+                }).join('');
+            }
+
+            function syncFromMatchOversList(mObj) {
+                const list = Array.isArray(mObj?.oversList) ? mObj.oversList : [];
+                if (list.length > 0) {
+                    overBallsStore = list
+                        .filter(item => item && item.overNumber !== undefined)
+                        .map(item => ({
+                            overNumber: Number(item.overNumber) || 1,
+                            balls: Array.isArray(item.balls) ? item.balls.slice() : []
+                        }))
+                        .sort((a, b) => a.overNumber - b.overNumber);
+                    renderOverBallStrip();
+                } else {
+                    const ev = mObj?.liveEvent || null;
+                    if (ev && (ev.latestOver || ev.latestBall)) {
+                        const ovNum = parseInt(ev.latestOver, 10) || 1;
+                        const ballNum = parseInt(ev.latestBallNumber, 10) || null;
+                        const sym = formatBallChipLabel(ev.latestBall || '0');
+                        let targetOv = overBallsStore.find(x => x.overNumber === ovNum);
+                        if (!targetOv) {
+                            targetOv = { overNumber: ovNum, balls: [] };
+                            overBallsStore.push(targetOv);
+                            overBallsStore.sort((a, b) => a.overNumber - b.overNumber);
+                        }
+                        if (ballNum && ballNum >= 1 && ballNum <= 6) {
+                            targetOv.balls[ballNum - 1] = sym;
+                            targetOv.balls = targetOv.balls.filter(Boolean);
+                        } else if (targetOv.balls[targetOv.balls.length - 1] !== sym) {
+                            targetOv.balls.push(sym);
+                        }
+                        renderOverBallStrip();
+                    }
+                }
+            }
+
+            syncFromMatchOversList({
+                oversList: ${safeOversList},
+                liveEvent: ${safeLiveEvent}
+            });
 
             let lastScoreA = cleanText(${safeScoreA});
             let lastScoreB = cleanText(${safeScoreB});
@@ -817,7 +905,7 @@ function renderMatchHeader(user, matchData) {
                     const currentScoreB = pB.mainScore;
                     const currentOversA = pA.mainOvers;
                     const currentOversB = pB.mainOvers;
-                    const activeOverStr = currentOversB || currentOversA || '';
+                    const activeOverStr = rawOversB || rawOversA || '';
 
                     const stateText = cleanText(m.matchStateText || '').toUpperCase();
                     const wicketText = cleanText(m.wicketText || m.howOut || '').toUpperCase();
@@ -845,13 +933,15 @@ function renderMatchHeader(user, matchData) {
 
                     if (elScoreA) elScoreA.textContent = currentScoreA;
                     if (elOversA && m.oversA !== undefined) elOversA.textContent = currentOversA;
-                    if (elCrrA) elCrrA.textContent = calcLiveCrrText(currentScoreA, currentOversA || rawOversA);
+                    if (elCrrA) elCrrA.textContent = calcLiveCrrText(currentScoreA, rawOversA);
                     if (elPrevA) elPrevA.textContent = pA.prevText;
 
                     if (elScoreB) elScoreB.textContent = currentScoreB;
                     if (elOversB && m.oversB !== undefined) elOversB.textContent = currentOversB;
-                    if (elCrrB) elCrrB.textContent = calcLiveCrrText(currentScoreB, currentOversB || rawOversB);
+                    if (elCrrB) elCrrB.textContent = calcLiveCrrText(currentScoreB, rawOversB);
                     if (elPrevB) elPrevB.textContent = pB.prevText;
+
+                    syncFromMatchOversList(m);
 
                     if (typeof window.syncOversStrip === 'function') {
                         window.syncOversStrip(m);
