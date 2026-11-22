@@ -44,16 +44,10 @@ function renderMatchHeader(user, matchData) {
     const combinedInitial = (
         String(d.status || '') + ' ' +
         String(matchStateText || '') + ' ' +
-        String(matchNote || '') + ' ' +
         String(resultText || '')
     ).toUpperCase();
 
-    const initialAllOut =
-        /\/\s*10(?:\s|$|&)/.test(String(scoreA)) ||
-        /\/\s*10(?:\s|$|&)/.test(String(scoreB));
-
     const initialHasResult =
-        initialAllOut ||
         combinedInitial.includes('WON BY') ||
         combinedInitial.includes('TIED') ||
         combinedInitial.includes('NO RESULT') ||
@@ -329,20 +323,13 @@ function renderMatchHeader(user, matchData) {
                 cyan: 'bg-cyan-500/25 border-cyan-300 text-cyan-200'
             };
 
-            function resolveStatus(rawStatus, scA, scB, note, state, resText) {
+            function resolveStatus(rawStatus, note, state, resText) {
                 const combined = (
                     String(rawStatus || '') + ' ' +
-                    String(note || '') + ' ' +
-                    String(state || '') + ' ' +
                     String(resText || '')
                 ).toUpperCase();
 
-                const allOut =
-                    /\\/\\s*10(?:\\s|$|&)/.test(String(scA || '')) ||
-                    /\\/\\s*10(?:\\s|$|&)/.test(String(scB || ''));
-
                 if (
-                    allOut ||
                     combined.includes('WON BY') ||
                     combined.includes('TIED') ||
                     combined.includes('NO RESULT') ||
@@ -351,6 +338,16 @@ function renderMatchHeader(user, matchData) {
                     combined.includes('COMPLETED')
                 ) {
                     return 'FINISHED';
+                }
+
+                const noteUpper = (String(note || '') + ' ' + String(state || '')).toUpperCase();
+                if (
+                    noteUpper.includes('BREAK') ||
+                    noteUpper.includes('LUNCH') ||
+                    noteUpper.includes('TEA') ||
+                    noteUpper.includes('DRINK')
+                ) {
+                    return 'BREAK';
                 }
 
                 return String(rawStatus || 'UPCOMING').toUpperCase();
@@ -794,8 +791,6 @@ function renderMatchHeader(user, matchData) {
 
                     const newStatus = resolveStatus(
                         m.status || 'UPCOMING',
-                        currentScoreA,
-                        currentScoreB,
                         m.matchNote,
                         m.matchStateText,
                         m.resultText
@@ -816,19 +811,19 @@ function renderMatchHeader(user, matchData) {
 
                     // Atomic scoreboard & strip update together
                     if (elScoreA) {
-                        elScoreA.innerText = currentScoreA;
+                        elScoreA.textContent = currentScoreA;
                     }
 
                     if (elOversA && m.oversA !== undefined) {
-                        elOversA.innerText = m.oversA;
+                        elOversA.textContent = m.oversA;
                     }
 
                     if (elScoreB) {
-                        elScoreB.innerText = currentScoreB;
+                        elScoreB.textContent = currentScoreB;
                     }
 
                     if (elOversB && m.oversB !== undefined) {
-                        elOversB.innerText = m.oversB;
+                        elOversB.textContent = m.oversB;
                     }
 
                     if (
@@ -891,15 +886,16 @@ function renderMatchHeader(user, matchData) {
                         currentNote
                     );
 
-                    // STATE TEXT
+                    // STATE TEXT (Never put Day/Session note inside badge; keep clean in state text)
                     if (elStateText) {
                         if (newStatus === 'UPCOMING') {
                             elStateText.innerText =
                                 'Match not started';
 
                         } else if (newStatus === 'LIVE') {
+                            const cleanNote = /\\b(DAY\\s*\\d+|SESSION)\\b/i.test(currentNote) ? '' : currentNote;
                             elStateText.innerText =
-                                chaseLiveText || currentNote || m.matchStateText || 'LIVE';
+                                chaseLiveText || cleanNote || 'LIVE';
 
                         } else {
                             elStateText.innerText =
@@ -912,7 +908,6 @@ function renderMatchHeader(user, matchData) {
                         newStatus === 'BREAK' ||
                         stateText.includes('LUNCH') ||
                         stateText.includes('TEA') ||
-                        stateText.includes('STUMPS') ||
                         stateText.includes('DRINKS') ||
                         stateText.includes('BREAK')
                     ) {
@@ -958,9 +953,7 @@ function renderMatchHeader(user, matchData) {
                             latestBallChanged;
 
                         if (scoreChanged) {
-                            let diffText = stateText && stateText !== 'LIVE' && stateText !== 'BOWLER RUNNING IN'
-                                ? stateText
-                                : 'SCORE UPDATED';
+                            let diffText = 'SCORE UPDATED';
 
                             let color =
                                 'bg-yellow-500/20 border-yellow-400 text-yellow-300';
