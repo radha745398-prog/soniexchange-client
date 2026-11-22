@@ -12,7 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // SportBex Trial API Configuration
-const SPORTBEX_API_KEY = process.env.SPORTBEX_API_KEY || 'QTkiVDvw56VkWQwsx43lQ8BHaH71ycC5ZAN2wVur';
+const SPORTBEX_API_KEY = process.env.SPORTBEX_API_KEY || '1CUNYL4AC2aagyJy8eSr250V4OzoxD6i4kMQBBX4';
 const SPORTBEX_BASE_URL = process.env.SPORTBEX_BASE_URL || 'https://trial-api.sportbex.com';
 const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
