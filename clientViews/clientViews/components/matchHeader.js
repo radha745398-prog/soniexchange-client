@@ -37,8 +37,17 @@ function renderMatchHeader(user, matchData) {
     const countdownTimestamp = Number(d.countdownTimestamp) || null;
     const initialLiveEvent = d.liveEvent || null;
 
-    const combinedInitial = `${d.status || ''} ${matchStateText} ${matchNote} ${resultText}`.toUpperCase();
-    const initialAllOut = /\/\s*10(?:\s|$|&)/.test(String(scoreA)) || /\/\s*10(?:\s|$|&)/.test(String(scoreB));
+    const combinedInitial = (
+        String(d.status || '') + ' ' +
+        String(matchStateText || '') + ' ' +
+        String(matchNote || '') + ' ' +
+        String(resultText || '')
+    ).toUpperCase();
+
+    const initialAllOut =
+        /\/\s*10(?:\s|$|&)/.test(String(scoreA)) ||
+        /\/\s*10(?:\s|$|&)/.test(String(scoreB));
+
     const initialHasResult =
         initialAllOut ||
         combinedInitial.includes('WON BY') ||
@@ -308,8 +317,17 @@ function renderMatchHeader(user, matchData) {
             };
 
             function resolveStatus(rawStatus, scA, scB, note, state, resText) {
-                const combined = `${rawStatus || ''} ${note || ''} ${state || ''} ${resText || ''}`.toUpperCase();
-                const allOut = /\\/\\s*10(?:\\s|$|&)/.test(String(scA || '')) || /\\/\\s*10(?:\\s|$|&)/.test(String(scB || ''));
+                const combined = (
+                    String(rawStatus || '') + ' ' +
+                    String(note || '') + ' ' +
+                    String(state || '') + ' ' +
+                    String(resText || '')
+                ).toUpperCase();
+
+                const allOut =
+                    /\\/\\s*10(?:\\s|$|&)/.test(String(scA || '')) ||
+                    /\\/\\s*10(?:\\s|$|&)/.test(String(scB || ''));
+
                 if (
                     allOut ||
                     combined.includes('WON BY') ||
@@ -321,6 +339,7 @@ function renderMatchHeader(user, matchData) {
                 ) {
                     return 'FINISHED';
                 }
+
                 return String(rawStatus || 'UPCOMING').toUpperCase();
             }
 
