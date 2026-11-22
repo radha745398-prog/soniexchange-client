@@ -487,6 +487,21 @@ async function loadMatchData(matchId) {
         ? extractBreakTimerInfo(rawLiveMatch, scoreObj, rawNote)
         : { breakTimerMode: null, breakEndTimestamp: null, breakStartTimestamp: null };
 
+    console.log('[SB DEBUG MATCH]', JSON.stringify({
+        matchId: cleanId,
+        rawT1Score: lT1.score || null,
+        rawT2Score: lT2.score || null,
+        cTeam1Stats: cTeam1?.inningsStats || null,
+        cTeam2Stats: cTeam2?.inningsStats || null,
+        scoreA,
+        oversA,
+        scoreB,
+        oversB,
+        latestComm,
+        oversCount: oversList.length,
+        lastTwoOvers: oversList.slice(-2)
+    }));
+
     const matchStateText = status === 'FINISHED'
         ? (rawResult || rawNote || 'FINISHED')
         : (status === 'BREAK'
