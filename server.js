@@ -1,4 +1,4 @@
-// server.js - SportBex Live Matches, Upcoming Series & Match Commentary
+// server.js - SportBex Live Matches, Upcoming Series & Ball-by-Ball Commentary
 
 const express = require('express');
 const path = require('path');
@@ -16,10 +16,10 @@ const SPORTBEX_API_KEY = process.env.SPORTBEX_API_KEY || 'QTkiVDvw56VkWQwsx43lQ8
 const SPORTBEX_BASE_URL = process.env.SPORTBEX_BASE_URL || 'https://trial-api.sportbex.com';
 const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
 
-// Zero cache delay for live match & commentary so updates flow immediately
+// Zero cache delay for live match & ball-by-ball commentary
 const apiCache = new Map();
 const LIVE_CACHE_TTL_MS = 0;
-const SERIES_CACHE_TTL_MS = 30000;
+const SERIES_CACHE_TTL_MS = 15000;
 
 const safestr = (val, fallback = '') => {
     if (val === null || val === undefined) return fallback;
@@ -176,9 +176,8 @@ async function sbGet(endpoint, ttlMs = LIVE_CACHE_TTL_MS) {
             return cached.data;
         }
 
-        const url = `${SPORTBEX_BASE_URL}${endpoint}`;
-        console.log(`[SPORTBEX REQUEST] ${url}`);
-
+        const sep = endpoint.includes('?') ? '&' : '?';
+        const url = `${SPORTBEX_BASE_URL}${endpoint}${sep}_ts=${now}`;
         const resp = await fetch(url, {
             method: 'GET',
             headers: {
@@ -190,10 +189,7 @@ async function sbGet(endpoint, ttlMs = LIVE_CACHE_TTL_MS) {
         });
 
         const text = await resp.text();
-        console.log(`[SPORTBEX RESPONSE] ${endpoint} - HTTP ${resp.status}`);
-
         if (!resp.ok) {
-            console.error('[SPORTBEX ERROR]', text.slice(0, 300));
             return cached ? cached.data : null;
         }
 
@@ -225,13 +221,13 @@ async function fetchSeriesListRaw() {
     return [];
 }
 
-// 3. Get Match Commentary
+// 3. Get Match Commentary (Ball-by-Ball)
 async function fetchCommentaryRaw(matchId) {
     const cleanId = encodeURIComponent(String(matchId || '').trim());
     if (!cleanId) return null;
 
     const json = await sbGet(
-        `/api/live-score/match/${cleanId}/commentary?perPage=10&page=1`,
+        `/api/live-score/match/${cleanId}/commentary?perPage=20&page=1`,
         LIVE_CACHE_TTL_MS
     );
 
@@ -245,8 +241,8 @@ function normalizeLiveMatchCard(m) {
     const t1 = m.teams?.t1 || {};
     const t2 = m.teams?.t2 || {};
 
-    const teamA = safestr(t1.name, 'Team A');
-    const teamB = safestr(t2.name, 'Team B');
+    const teamA = safestr(t1.name, '');
+    const teamB = safestr(t2.name, '');
     const shortA = safestr(t1.short_name || t1.shortName, teamA.slice(0, 4).toUpperCase());
     const shortB = safestr(t2.short_name || t2.shortName, teamB.slice(0, 4).toUpperCase());
 
@@ -265,7 +261,7 @@ function normalizeLiveMatchCard(m) {
     return {
         id: esc(id),
         eventId: esc(m.eventId || ''),
-        tournament: esc([m.seriesName, m.name].filter(Boolean).join(' • ') || 'Cricket'),
+        tournament: esc([m.seriesName, m.name].filter(Boolean).join(' • ')),
         teamA: esc(teamA),
         teamB: esc(teamB),
         shortA: esc(shortA),
@@ -280,7 +276,7 @@ function normalizeLiveMatchCard(m) {
         status,
         isLive: status === 'LIVE',
         dateTime: esc(m.sessionStatus || m.status || (startTs ? new Date(startTs).toLocaleString('en-IN') : '')),
-        venue: esc(m.ground || 'Stadium'),
+        venue: esc(m.ground || ''),
         countdownTimestamp: status === 'UPCOMING' ? startTs : null
     };
 }
@@ -293,7 +289,7 @@ function mapUpcomingSeriesItems(seriesList) {
             const endTs = parseTimestamp(s.endDate);
             return {
                 id: esc(s._id || s.id || ''),
-                title: esc(s.name || 'Series'),
+                title: esc(s.name || ''),
                 tournament: s.isPopular ? 'Popular Series' : 'Series',
                 dateTime: esc(
                     startTs
@@ -325,7 +321,6 @@ function extractCommentaryOversList(commentaryData) {
     const ballsArr = Array.isArray(commentaryData.balls) ? commentaryData.balls : [];
     const oversMap = new Map();
 
-    // 1. Use overSummary.overSummaryBalls when present
     ballsArr.forEach(item => {
         const ovSummary = item?.overSummary;
         if (ovSummary && Array.isArray(ovSummary.overSummaryBalls)) {
@@ -343,7 +338,6 @@ function extractCommentaryOversList(commentaryData) {
         }
     });
 
-    // 2. Group individual balls chronologically by overNumber
     const chronoBalls = [...ballsArr].sort((a, b) => {
         const ovDiff = (Number(a.overNumber) || 0) - (Number(b.overNumber) || 0);
         if (ovDiff !== 0) return ovDiff;
@@ -380,7 +374,8 @@ function extractLatestCommentaryInfo(commentaryData) {
             latestCommentary: '',
             latestBall: '',
             latestOver: '',
-            latestBallNumber: ''
+            latestBallNumber: '',
+            latestBallTimestamp: 0
         };
     }
 
@@ -397,7 +392,8 @@ function extractLatestCommentaryInfo(commentaryData) {
         latestCommentary: safestr(top.commentary || top.text || top.description, ''),
         latestBall: normalizeBallSymbol(top.value),
         latestOver: top.overNumber !== undefined && top.overNumber !== null ? String(top.overNumber) : '',
-        latestBallNumber: top.ballNumber !== undefined && top.ballNumber !== null ? String(top.ballNumber) : ''
+        latestBallNumber: top.ballNumber !== undefined && top.ballNumber !== null ? String(top.ballNumber) : '',
+        latestBallTimestamp: Number(top.commentaryTimestamp) || 0
     };
 }
 
@@ -427,8 +423,8 @@ async function loadMatchData(matchId) {
     const lT1 = rawLiveMatch?.teams?.t1 || {};
     const lT2 = rawLiveMatch?.teams?.t2 || {};
 
-    const teamAName = safestr(cTeam1?.name || lT1.name, 'Team A');
-    const teamBName = safestr(cTeam2?.name || lT2.name, 'Team B');
+    const teamAName = safestr(cTeam1?.name || lT1.name, '');
+    const teamBName = safestr(cTeam2?.name || lT2.name, '');
 
     const shortA = safestr(cTeam1?.shortName || lT1.short_name, teamAName.slice(0, 4).toUpperCase());
     const shortB = safestr(cTeam2?.shortName || lT2.short_name, teamBName.slice(0, 4).toUpperCase());
@@ -436,7 +432,6 @@ async function loadMatchData(matchId) {
     const logoA = safestr(cTeam1?.logo || lT1.logo, '');
     const logoB = safestr(cTeam2?.logo || lT2.logo, '');
 
-    // Team 1 score/overs
     let scoreA = '-';
     let oversA = '';
     if (cTeam1?.inningsStats) {
@@ -453,7 +448,6 @@ async function loadMatchData(matchId) {
         oversA = parsed1.overs;
     }
 
-    // Team 2 score/overs
     let scoreB = '-';
     let oversB = '';
     if (cTeam2?.inningsStats) {
@@ -498,7 +492,7 @@ async function loadMatchData(matchId) {
     return {
         id: esc(cleanId),
         eventId: esc(rawLiveMatch?.eventId || ''),
-        tournament: esc([rawLiveMatch?.seriesName, rawLiveMatch?.name].filter(Boolean).join(' • ') || 'Cricket'),
+        tournament: esc([rawLiveMatch?.seriesName, rawLiveMatch?.name].filter(Boolean).join(' • ')),
         teamA: esc(teamAName),
         teamB: esc(teamBName),
         shortA: esc(shortA),
@@ -515,7 +509,8 @@ async function loadMatchData(matchId) {
         liveEvent: {
             latestBall: latestComm.latestBall,
             latestOver: latestComm.latestOver,
-            latestBallNumber: latestComm.latestBallNumber
+            latestBallNumber: latestComm.latestBallNumber,
+            latestBallTimestamp: latestComm.latestBallTimestamp
         },
         latestCommentary: esc(latestComm.latestCommentary),
         matchNote: esc(rawNote),
@@ -524,7 +519,7 @@ async function loadMatchData(matchId) {
         isLive: status === 'LIVE',
         matchStateText: esc(matchStateText),
         dateTime: esc(rawNote || (startTs ? new Date(startTs).toLocaleString('en-IN') : '')),
-        venue: esc(rawLiveMatch?.ground || 'Stadium'),
+        venue: esc(rawLiveMatch?.ground || ''),
         countdownTimestamp: status === 'UPCOMING' ? startTs : null,
         breakTimerMode: breakInfo.breakTimerMode,
         breakEndTimestamp: breakInfo.breakEndTimestamp,
@@ -621,11 +616,11 @@ app.get('/match/:id', async (req, res) => {
     const matchId = req.params.id;
     let matchData = {
         id: esc(matchId),
-        tournament: 'Cricket Match',
-        teamA: 'Team A',
-        teamB: 'Team B',
-        shortA: 'TEAM A',
-        shortB: 'TEAM B',
+        tournament: '',
+        teamA: '',
+        teamB: '',
+        shortA: '',
+        shortB: '',
         logoA: '',
         logoB: '',
         flagA: '',
@@ -641,8 +636,8 @@ app.get('/match/:id', async (req, res) => {
         resultText: '',
         status: 'UPCOMING',
         isLive: false,
-        matchStateText: 'UPCOMING',
-        venue: 'Stadium',
+        matchStateText: '',
+        venue: '',
         dateTime: '',
         countdownTimestamp: null,
         breakTimerMode: null,
