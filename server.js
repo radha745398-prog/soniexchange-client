@@ -7,6 +7,8 @@ const app = express();
 const { MASTER_ADMIN_KEY, CACHE_TTL } = require('./config/sportbexConfig');
 const { sbGet } = require('./services/sportbexClient');
 const { fetchSeriesListRaw, mapUpcomingSeriesItems } = require('./services/getSeries');
+const { fetchUpcomingSeriesRaw, mapUpcomingSeriesItems } = require('./services/upcomingSeries');
+
 
 const { renderDashboardPage } = require('./clientViews/dashboardView');
 const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
