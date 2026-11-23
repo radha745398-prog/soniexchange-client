@@ -2,24 +2,16 @@
 
 const express = require('express');
 const path = require('path');
-const fetch = require('node-fetch');
 const app = express();
+
+const { MASTER_ADMIN_KEY, CACHE_TTL } = require('./config/sportbexConfig');
+const { sbGet } = require('./services/sportbexClient');
 
 const { renderDashboardPage } = require('./clientViews/dashboardView');
 const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
-// SportBex Trial API Configuration
-const SPORTBEX_API_KEY = process.env.SPORTBEX_API_KEY || '1CUNYL4AC2aagyJy8eSr250V4OzoxD6i4kMQBBX4';
-const SPORTBEX_BASE_URL = process.env.SPORTBEX_BASE_URL || 'https://trial-api.sportbex.com';
-const MASTER_ADMIN_KEY = process.env.MASTER_ADMIN_KEY || '';
-
-// Zero cache delay for live match & ball-by-ball commentary
-const apiCache = new Map();
-const LIVE_CACHE_TTL_MS = 1000;
-const SERIES_CACHE_TTL_MS = 15000;
 
 const safestr = (val, fallback = '') => {
     if (val === null || val === undefined) return fallback;
@@ -168,50 +160,9 @@ function getSportBexStatus(rawStatus, isLive, extraText = '') {
     return 'UPCOMING';
 }
 
-async function sbGet(endpoint, ttlMs = LIVE_CACHE_TTL_MS) {
-    try {
-        const now = Date.now();
-        const cached = apiCache.get(endpoint);
-        if (ttlMs > 0 && cached && (now - cached.timestamp) < ttlMs) {
-            return cached.data;
-        }
-
-        const sep = endpoint.includes('?') ? '&' : '?';
-        const url = `${SPORTBEX_BASE_URL}${endpoint}${sep}_ts=${now}`;
-        const resp = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'sportbex-api-key': SPORTBEX_API_KEY.trim(),
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-            }
-        });
-
-        const text = await resp.text();
-        if (!resp.ok) {
-            console.error(`[SPORTBEX API ERROR] status=${resp.status} endpoint=${endpoint} body=${text.slice(0, 300)}`);
-            return cached ? cached.data : null;
-        }
-
-        const json = JSON.parse(text);
-        const count = Array.isArray(json?.data) ? json.data.length : (Array.isArray(json) ? json.length : 1);
-        console.log(`[SPORTBEX API OK] status=${resp.status} endpoint=${endpoint} count=${count}`);
-
-        if (ttlMs > 0) {
-            apiCache.set(endpoint, { data: json, timestamp: now });
-        }
-        return json;
-    } catch (err) {
-        console.error(`[SPORTBEX FETCH EXCEPTION] endpoint=${endpoint} err=${err.message}`);
-        const cached = apiCache.get(endpoint);
-        return cached ? cached.data : null;
-    }
-}
-
 // 1. Get All Live Matches
 async function fetchLiveMatchesRaw() {
-    const json = await sbGet('/api/live-score/match/live', LIVE_CACHE_TTL_MS);
+    const json = await sbGet('/api/live-score/match/live', CACHE_TTL.LIVE_MS);
     if (Array.isArray(json?.data)) return json.data;
     if (Array.isArray(json)) return json;
     return [];
@@ -219,7 +170,7 @@ async function fetchLiveMatchesRaw() {
 
 // 2. Get Upcoming Series
 async function fetchSeriesListRaw() {
-    const json = await sbGet('/api/live-score/series/upcoming', SERIES_CACHE_TTL_MS);
+    const json = await sbGet('/api/live-score/series/upcoming', CACHE_TTL.SERIES_MS);
     if (Array.isArray(json?.data)) return json.data;
     if (Array.isArray(json)) return json;
     return [];
@@ -232,7 +183,7 @@ async function fetchCommentaryRaw(matchId) {
 
     const json = await sbGet(
         `/api/live-score/match/${cleanId}/commentary?perPage=20&page=1`,
-        LIVE_CACHE_TTL_MS
+        CACHE_TTL.LIVE_MS
     );
 
     if (json?.data && typeof json.data === 'object') return json.data;
