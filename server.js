@@ -6,9 +6,8 @@ const app = express();
 
 const { MASTER_ADMIN_KEY, CACHE_TTL } = require('./config/sportbexConfig');
 const { sbGet } = require('./services/sportbexClient');
-const { fetchSeriesListRaw, mapUpcomingSeriesItems } = require('./services/getSeries');
+const { fetchSeriesListRaw } = require('./services/getSeries');
 const { fetchUpcomingSeriesRaw, mapUpcomingSeriesItems } = require('./services/upcomingSeries');
-
 
 const { renderDashboardPage } = require('./clientViews/dashboardView');
 const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
@@ -497,16 +496,18 @@ app.get('/dashboard', async (req, res) => {
     let upcomingItems = [];
 
     try {
-        const [rawLive, rawSeries] = await Promise.all([
+        const [rawLive, rawSeries, rawUpcomingSeries] = await Promise.all([
             fetchLiveMatchesRaw(),
-            fetchSeriesListRaw()
+            fetchSeriesListRaw(),
+            fetchUpcomingSeriesRaw()
         ]);
 
         liveMatches = rawLive
             .filter(m => m && (m._id || m.id || m.matchId))
             .map(normalizeLiveMatchCard);
 
-        upcomingItems = mapUpcomingSeriesItems(rawSeries);
+        const mappedUpcoming = mapUpcomingSeriesItems(rawUpcomingSeries);
+        upcomingItems = mappedUpcoming.length > 0 ? mappedUpcoming : mapUpcomingSeriesItems(rawSeries);
     } catch (err) {
         console.error('Dashboard Error:', err.message);
     }
