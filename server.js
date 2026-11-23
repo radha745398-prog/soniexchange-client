@@ -508,6 +508,12 @@ app.get('/dashboard', async (req, res) => {
 
         const mappedUpcoming = mapUpcomingSeriesItems(rawUpcomingSeries);
         upcomingItems = mappedUpcoming.length > 0 ? mappedUpcoming : mapUpcomingSeriesItems(rawSeries);
+
+        console.log('[SB UPCOMING]', JSON.stringify({
+            rawUpcomingCount: Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries.length : 0,
+            rawSeriesCount: Array.isArray(rawSeries) ? rawSeries.length : 0,
+            upcomingItemsCount: upcomingItems.length
+        }));
     } catch (err) {
         console.error('Dashboard Error:', err.message);
     }
