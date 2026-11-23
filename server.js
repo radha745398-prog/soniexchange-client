@@ -6,6 +6,7 @@ const app = express();
 
 const { MASTER_ADMIN_KEY, CACHE_TTL } = require('./config/sportbexConfig');
 const { sbGet } = require('./services/sportbexClient');
+const { fetchSeriesListRaw, mapUpcomingSeriesItems } = require('./services/getSeries');
 
 const { renderDashboardPage } = require('./clientViews/dashboardView');
 const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
@@ -168,14 +169,6 @@ async function fetchLiveMatchesRaw() {
     return [];
 }
 
-// 2. Get Upcoming Series
-async function fetchSeriesListRaw() {
-    const json = await sbGet('/api/live-score/series/upcoming', CACHE_TTL.SERIES_MS);
-    if (Array.isArray(json?.data)) return json.data;
-    if (Array.isArray(json)) return json;
-    return [];
-}
-
 // 3. Get Match Commentary (Ball-by-Ball)
 async function fetchCommentaryRaw(matchId) {
     const cleanId = encodeURIComponent(String(matchId || '').trim());
@@ -234,31 +227,6 @@ function normalizeLiveMatchCard(m) {
         venue: esc(m.ground || ''),
         countdownTimestamp: status === 'UPCOMING' ? startTs : null
     };
-}
-
-function mapUpcomingSeriesItems(seriesList) {
-    const now = Date.now();
-    return (Array.isArray(seriesList) ? seriesList : [])
-        .map(s => {
-            const startTs = parseTimestamp(s.startDate);
-            const endTs = parseTimestamp(s.endDate);
-            return {
-                id: esc(s._id || s.id || ''),
-                title: esc(s.name || ''),
-                tournament: s.isPopular ? 'Popular Series' : 'Series',
-                dateTime: esc(
-                    startTs
-                        ? `Starts: ${new Date(startTs).toLocaleDateString('en-IN')}`
-                        : ''
-                ),
-                startTs,
-                endTs
-            };
-        })
-        .filter(item => {
-            if (!item.startTs) return true;
-            return item.startTs > now || (!item.endTs || item.endTs >= now);
-        });
 }
 
 function normalizeBallSymbol(rawVal) {
