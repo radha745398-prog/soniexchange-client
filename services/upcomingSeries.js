@@ -27,11 +27,30 @@ function parseTimestamp(value) {
     return Number.isFinite(ts) ? ts : null;
 }
 
+function extractSeriesArray(json) {
+    if (Array.isArray(json)) return json;
+    if (Array.isArray(json?.data)) return json.data;
+    if (Array.isArray(json?.series)) return json.series;
+    if (Array.isArray(json?.items)) return json.items;
+    if (Array.isArray(json?.results)) return json.results;
+    if (Array.isArray(json?.data?.data)) return json.data.data;
+    if (Array.isArray(json?.data?.series)) return json.data.series;
+    if (Array.isArray(json?.data?.items)) return json.data.items;
+
+    if (json && typeof json === 'object') {
+        console.log('[SB UPCOMING SHAPE]', JSON.stringify({
+            keys: Object.keys(json),
+            dataType: typeof json.data,
+            dataKeys: json.data && typeof json.data === 'object' ? Object.keys(json.data) : null,
+            sample: json
+        }).slice(0, 1200));
+    }
+    return [];
+}
+
 async function fetchUpcomingSeriesRaw() {
     const json = await sbGet('/api/live-score/series/upcoming', CACHE_TTL.SERIES_MS);
-    if (Array.isArray(json?.data)) return json.data;
-    if (Array.isArray(json)) return json;
-    return [];
+    return extractSeriesArray(json);
 }
 
 function mapUpcomingSeriesItems(seriesList) {
