@@ -35,27 +35,25 @@ async function fetchUpcomingSeriesRaw() {
 }
 
 function mapUpcomingSeriesItems(seriesList) {
-    const now = Date.now();
     return (Array.isArray(seriesList) ? seriesList : [])
+        .filter((s) => s && typeof s === 'object')
         .map((s) => {
-            const startTs = parseTimestamp(s.startDate);
-            const endTs = parseTimestamp(s.endDate);
+            const startTs = parseTimestamp(s.startDate || s.start_date || s.startTime);
+            const endTs = parseTimestamp(s.endDate || s.end_date || s.endTime);
+            const seriesName = safestr(s.name || s.seriesName || s.title, 'Upcoming Series');
+
             return {
                 id: esc(s._id || s.id || ''),
-                title: esc(s.name || ''),
-                tournament: s.isPopular ? 'Popular Series' : 'Series',
+                title: esc(seriesName),
+                tournament: s.isPopular ? 'Popular Series' : 'Upcoming Series',
                 dateTime: esc(
                     startTs
                         ? `Starts: ${new Date(startTs).toLocaleDateString('en-IN')}`
-                        : ''
+                        : 'Schedule TBA'
                 ),
                 startTs,
                 endTs
             };
-        })
-        .filter((item) => {
-            if (!item.startTs) return true;
-            return item.startTs > now || (!item.endTs || item.endTs >= now);
         });
 }
 
