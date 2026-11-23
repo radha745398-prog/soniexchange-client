@@ -35,7 +35,10 @@ async function fetchUpcomingSeriesRaw() {
 }
 
 function mapUpcomingSeriesItems(seriesList) {
-    return (Array.isArray(seriesList) ? seriesList : [])
+    const list = Array.isArray(seriesList) ? seriesList : [];
+    console.log('[SB UPCOMING SAMPLE]', JSON.stringify(list[0] || null));
+
+    return list
         .filter((s) => s && typeof s === 'object')
         .map((s) => {
             const startTs = parseTimestamp(s.startDate || s.start_date || s.startTime);
