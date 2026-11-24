@@ -17,6 +17,46 @@ function renderMatchDetailPage(user, matchData) {
     const teamA = matchData ? matchData.teamA : 'Pakistan';
     const teamB = matchData ? matchData.teamB : 'Sri Lanka';
     const matchId = matchData ? matchData.id : '556727281';
+    const status = matchData ? String(matchData.status || '') : '';
+    const countdownTs = matchData && matchData.countdownTimestamp ? Number(matchData.countdownTimestamp) : 0;
+    const tournamentText = matchData ? String(matchData.tournament || '') : '';
+    const venueText = matchData ? String(matchData.venue || '') : '';
+    const dateTimeText = matchData ? String(matchData.dateTime || '') : '';
+
+    const isUpcomingCountdown = status === 'UPCOMING' && countdownTs > 0;
+    const upcomingBannerHTML = isUpcomingCountdown ? `
+        <section id="upcoming-countdown-box"
+                 class="bg-[#0f172a] text-white rounded-lg border border-amber-500/50 p-4 shadow-lg">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <div class="inline-flex items-center space-x-2 text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                        <span>Match Starts Soon • Upcoming</span>
+                    </div>
+                    <h2 class="text-base sm:text-lg font-black text-white mt-1">
+                        ${teamA} vs ${teamB}
+                    </h2>
+                    ${tournamentText ? `<div class="text-xs text-gray-300 mt-0.5">${tournamentText}</div>` : ''}
+                    <div class="text-[11px] text-gray-400 mt-1 flex flex-wrap gap-3">
+                        ${dateTimeText ? `<span><i class="fa-regular fa-clock mr-1 text-amber-400"></i>${dateTimeText}</span>` : ''}
+                        ${venueText ? `<span><i class="fa-solid fa-location-dot mr-1 text-amber-400"></i>${venueText}</span>` : ''}
+                    </div>
+                </div>
+
+                <div class="bg-[#1e293b] border border-amber-400/40 rounded-lg px-4 py-3 text-center shrink-0">
+                    <div class="text-[10px] uppercase tracking-wider text-amber-300 font-bold mb-1">
+                        Time Remaining
+                    </div>
+                    <div id="match-detail-countdown"
+                         data-countdown="${countdownTs}"
+                         class="text-xl sm:text-2xl font-mono font-black text-emerald-400 tracking-wider">
+                        --:--:--
+                    </div>
+                </div>
+            </div>
+        </section>
+    ` : '';
+
     const initialOversA = matchData ? (matchData.oversA || '') : '';
     const initialOversB = matchData ? (matchData.oversB || '') : '';
     const initialScoreA = matchData ? (matchData.scoreA || '-') : '-';
@@ -130,6 +170,8 @@ function renderMatchDetailPage(user, matchData) {
 
         <!-- MAIN CONTENT MARKETS -->
         <main class="flex-1 p-2 sm:p-3 space-y-3 max-w-7xl mx-auto w-full">
+
+            ${upcomingBannerHTML}
 
             <!-- OVER-BY-OVER SLIDEABLE BALL HISTORY LINE -->
             <section id="overs-balls-strip-box"
@@ -304,8 +346,36 @@ function renderMatchDetailPage(user, matchData) {
             </div>
         </div>
 
-        <!-- JAVASCRIPT FOR SLIDEABLE OVER-BY-OVER BALL HISTORY & BETTING -->
+        <!-- JAVASCRIPT FOR COUNTDOWN, SLIDEABLE OVER-BY-OVER BALL HISTORY & BETTING -->
         <script>
+            (function() {
+                function formatCountdown(ms) {
+                    if (!Number.isFinite(ms) || ms <= 0) return 'Starting Soon';
+                    const totalSec = Math.floor(ms / 1000);
+                    const days = Math.floor(totalSec / 86400);
+                    const hours = Math.floor((totalSec % 86400) / 3600);
+                    const mins = Math.floor((totalSec % 3600) / 60);
+                    const secs = totalSec % 60;
+                    const pad = (n) => String(n).padStart(2, '0');
+                    if (days > 0) {
+                        return days + 'd ' + pad(hours) + ':' + pad(mins) + ':' + pad(secs);
+                    }
+                    return pad(hours) + ':' + pad(mins) + ':' + pad(secs);
+                }
+
+                function tickDetailCountdowns() {
+                    const now = Date.now();
+                    document.querySelectorAll('[data-countdown]').forEach((el) => {
+                        const target = Number(el.getAttribute('data-countdown'));
+                        if (!target) return;
+                        el.textContent = formatCountdown(target - now);
+                    });
+                }
+
+                tickDetailCountdowns();
+                setInterval(tickDetailCountdowns, 1000);
+            })();
+
             (function() {
                 const oversMap = new Map();
                 let hasCommentaryFeed = false;
