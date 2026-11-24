@@ -28,7 +28,30 @@ app.use(express.json());
 const UPCOMING_WINDOW_MS = 24 * 60 * 60 * 1000;
 const PAST_GRACE_MS = 15 * 60 * 1000;
 
-function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 60) {
+const MAIN_TEAMS_AND_KEYWORDS = [
+    'AUSTRALIA',
+    'ENGLAND',
+    'INDIA',
+    'SOUTH AFRICA',
+    'NEW ZEALAND',
+    'PAKISTAN',
+    'SRI LANKA',
+    'WEST INDIES',
+    'BANGLADESH',
+    'AFGHANISTAN',
+    'WORLD CUP',
+    'ASHES',
+    'T20I',
+    'ODI'
+];
+
+function getMainMatchRank(match) {
+    const text = `${match?.teamA || ''} ${match?.teamB || ''} ${match?.tournament || ''}`.toUpperCase();
+    const isMain = MAIN_TEAMS_AND_KEYWORDS.some((kw) => text.includes(kw));
+    return isMain ? 0 : 1;
+}
+
+function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 120) {
     const now = Date.now();
     const candidates = [
         ...(Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries : []),
@@ -41,14 +64,18 @@ function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 60) {
             const id = String(s?._id ?? s?.id ?? s?.seriesId ?? '').trim();
             const startTs = parseTimestamp(s?.startDate || s?.start_date || s?.startTime);
             const endTs = parseTimestamp(s?.endDate || s?.end_date || s?.endTime);
+            const seriesText = `${s?.name || ''} ${s?.seriesName || ''} ${s?.title || ''}`.toUpperCase();
+            const isMainSeries = Boolean(s?.isPopular) || MAIN_TEAMS_AND_KEYWORDS.some((kw) => seriesText.includes(kw));
 
-            let bucket = 2;
-            if (startTs && endTs && startTs <= now && now <= endTs) {
+            let bucket = 3;
+            if (isMainSeries && (!startTs || Math.abs(startTs - now) <= 7 * UPCOMING_WINDOW_MS)) {
                 bucket = 0;
-            } else if (startTs && Math.abs(startTs - now) <= 3 * UPCOMING_WINDOW_MS) {
-                bucket = 0;
-            } else if (startTs) {
+            } else if (startTs && endTs && startTs <= now && now <= endTs) {
                 bucket = 1;
+            } else if (startTs && Math.abs(startTs - now) <= 3 * UPCOMING_WINDOW_MS) {
+                bucket = 1;
+            } else if (startTs) {
+                bucket = 2;
             }
 
             return { id, startTs: startTs || Number.MAX_SAFE_INTEGER, bucket };
@@ -256,7 +283,7 @@ async function loadMatchData(matchId) {
                 fetchUpcomingSeriesRaw(),
                 fetchSeriesListRaw()
             ]);
-            const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 60);
+            const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 120);
 
             const matchesArrays = await Promise.all(
                 seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
@@ -458,9 +485,10 @@ app.get('/dashboard', async (req, res) => {
         liveMatches = rawLive
             .filter(m => m && (m._id || m.id || m.matchId))
             .map(normalizeLiveMatchCard)
-            .filter(Boolean);
+            .filter(Boolean)
+            .sort((a, b) => getMainMatchRank(a) - getMainMatchRank(b));
 
-        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 60);
+        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 120);
 
         const seriesMatchesArrays = await Promise.all(
             seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
@@ -484,9 +512,14 @@ app.get('/dashboard', async (req, res) => {
                 return true;
             })
             .sort((a, b) => {
+                const aMain = getMainMatchRank(a);
+                const bMain = getMainMatchRank(b);
+                if (aMain !== bMain) return aMain - bMain;
+
                 const aIn24h = a.startTs && a.startTs <= within24hLimit ? 0 : 1;
                 const bIn24h = b.startTs && b.startTs <= within24hLimit ? 0 : 1;
                 if (aIn24h !== bIn24h) return aIn24h - bIn24h;
+
                 return (a.startTs || Number.MAX_SAFE_INTEGER) - (b.startTs || Number.MAX_SAFE_INTEGER);
             });
 
