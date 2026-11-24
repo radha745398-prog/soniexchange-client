@@ -515,6 +515,39 @@ app.get('/dashboard', async (req, res) => {
     res.send(renderDashboardPage(user, liveMatches, upcomingItems));
 });
 
+// FIND MATCH DEBUG ROUTE
+app.get('/find-match', async (req, res) => {
+    try {
+        const q = String(req.query.q || '').trim().toLowerCase();
+        const [rawLive, rawSeries, rawUpcomingSeries] = await Promise.all([
+            fetchLiveMatchesRaw(),
+            fetchSeriesListRaw(),
+            fetchUpcomingSeriesRaw()
+        ]);
+
+        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 200);
+        const matchesArrays = await Promise.all(
+            seriesIds.map((sid) => fetchSeriesMatchesRaw(sid).catch(() => []))
+        );
+        const allSeriesMatches = matchesArrays.flat();
+
+        const matchFilter = (m) => {
+            if (!q) return true;
+            const text = JSON.stringify(m || {}).toLowerCase();
+            return text.includes(q);
+        };
+
+        res.json({
+            query: q || 'ALL',
+            seriesScannedCount: seriesIds.length,
+            liveMatchesFound: rawLive.filter(matchFilter),
+            seriesMatchesFound: allSeriesMatches.filter(matchFilter).slice(0, 30)
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // LIVE MATCH POLLING API
 app.get('/api/match/:id', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
