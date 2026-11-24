@@ -455,9 +455,21 @@ app.get('/dashboard', async (req, res) => {
             seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
         );
 
+        const flatSeriesMatches = seriesMatchesArrays.flat();
+        console.log('[SB SERIES SAMPLE]', JSON.stringify(
+            flatSeriesMatches.slice(0, 5).map(m => ({
+                id: m?._id || m?.id,
+                name: m?.name,
+                teams: `${m?.teams?.t1?.name || ''} vs ${m?.teams?.t2?.name || ''}`,
+                rawStatus: m?.status,
+                isLive: m?.isLive,
+                startDate: m?.startDate,
+                timestamp: m?.timestamp
+            }))
+        ));
+
         const now = Date.now();
-        const normalizedMatches = seriesMatchesArrays
-            .flat()
+        const normalizedMatches = flatSeriesMatches
             .filter(m => m && (m._id || m.id || m.matchId))
             .map(normalizeUpcomingMatchCard)
             .filter(m => m && m.status === 'UPCOMING' && (!m.startTs || m.startTs >= now - 15 * 60 * 1000))
