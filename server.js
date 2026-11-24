@@ -199,7 +199,7 @@ function extractLatestCommentaryInfo(commentaryData) {
     };
 }
 
-// Merge Live Match metadata + Commentary score/balls into matchHeader format
+// Merge Live Match metadata + Commentary score/balls (or Upcoming match lookup) into matchHeader format
 async function loadMatchData(matchId) {
     const cleanId = String(matchId || '').trim();
     if (!cleanId) return null;
@@ -214,6 +214,63 @@ async function loadMatchData(matchId) {
     ) || null;
 
     if (!rawLiveMatch && !commentary) {
+        try {
+            const [rawUpcomingSeries, rawSeries] = await Promise.all([
+                fetchUpcomingSeriesRaw(),
+                fetchSeriesListRaw()
+            ]);
+            const seriesSource = Array.isArray(rawUpcomingSeries) && rawUpcomingSeries.length > 0
+                ? rawUpcomingSeries
+                : (Array.isArray(rawSeries) ? rawSeries : []);
+            const seriesIds = seriesSource
+                .map(s => String(s?._id || s?.id || '').trim())
+                .filter(Boolean)
+                .slice(0, 8);
+
+            const matchesArrays = await Promise.all(
+                seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
+            );
+            const foundUpcoming = matchesArrays
+                .flat()
+                .find(m => String(m?._id || m?.id || m?.matchId || '').trim() === cleanId);
+
+            if (foundUpcoming) {
+                const upNorm = normalizeUpcomingMatchCard(foundUpcoming);
+                return {
+                    id: esc(cleanId),
+                    eventId: esc(foundUpcoming.eventId || ''),
+                    tournament: esc([foundUpcoming.seriesName, foundUpcoming.name].filter(Boolean).join(' • ')),
+                    teamA: esc(foundUpcoming.teams?.t1?.name || ''),
+                    teamB: esc(foundUpcoming.teams?.t2?.name || ''),
+                    shortA: esc(foundUpcoming.teams?.t1?.short_name || ''),
+                    shortB: esc(foundUpcoming.teams?.t2?.short_name || ''),
+                    logoA: esc(foundUpcoming.teams?.t1?.logo || ''),
+                    logoB: esc(foundUpcoming.teams?.t2?.logo || ''),
+                    flagA: '',
+                    flagB: '',
+                    scoreA: '-',
+                    oversA: '',
+                    scoreB: '-',
+                    oversB: '',
+                    oversList: [],
+                    liveEvent: null,
+                    latestCommentary: '',
+                    matchNote: '',
+                    resultText: '',
+                    status: 'UPCOMING',
+                    isLive: false,
+                    matchStateText: 'UPCOMING',
+                    dateTime: esc(upNorm?.dateTime || ''),
+                    venue: esc(foundUpcoming.ground || ''),
+                    countdownTimestamp: upNorm?.countdownTimestamp || null,
+                    breakTimerMode: null,
+                    breakEndTimestamp: null,
+                    breakStartTimestamp: null
+                };
+            }
+        } catch (e) {
+            console.error('Upcoming match lookup error:', e.message);
+        }
         return null;
     }
 
@@ -392,7 +449,7 @@ app.get('/dashboard', async (req, res) => {
         const seriesIds = seriesSource
             .map(s => String(s?._id || s?.id || '').trim())
             .filter(Boolean)
-            .slice(0, 6);
+            .slice(0, 8);
 
         const seriesMatchesArrays = await Promise.all(
             seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
