@@ -17,6 +17,7 @@ const {
     fetchLiveMatchesRaw,
     normalizeLiveMatchCard
 } = require('./services/liveMatches');
+const { fetchSeriesMatchesRaw, normalizeUpcomingMatchCard } = require('./services/seriesMatches');
 
 const { renderDashboardPage } = require('./clientViews/dashboardView');
 const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
@@ -357,7 +358,7 @@ app.get('/switch-to-client', (req, res) => {
     );
 });
 
-// DASHBOARD (Live Matches + Upcoming Series)
+// DASHBOARD (Live Matches + Upcoming Matches & Series)
 app.get('/dashboard', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
@@ -384,12 +385,36 @@ app.get('/dashboard', async (req, res) => {
             .map(normalizeLiveMatchCard)
             .filter(Boolean);
 
+        const seriesSource = Array.isArray(rawUpcomingSeries) && rawUpcomingSeries.length > 0
+            ? rawUpcomingSeries
+            : (Array.isArray(rawSeries) ? rawSeries : []);
+
+        const seriesIds = seriesSource
+            .map(s => String(s?._id || s?.id || '').trim())
+            .filter(Boolean)
+            .slice(0, 6);
+
+        const seriesMatchesArrays = await Promise.all(
+            seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
+        );
+
+        const now = Date.now();
+        const normalizedMatches = seriesMatchesArrays
+            .flat()
+            .filter(m => m && (m._id || m.id || m.matchId))
+            .map(normalizeUpcomingMatchCard)
+            .filter(m => m && m.status === 'UPCOMING' && (!m.startTs || m.startTs >= now - 15 * 60 * 1000))
+            .sort((a, b) => (a.startTs || Number.MAX_SAFE_INTEGER) - (b.startTs || Number.MAX_SAFE_INTEGER));
+
         const mappedUpcoming = mapUpcomingSeriesItems(rawUpcomingSeries);
-        upcomingItems = mappedUpcoming.length > 0 ? mappedUpcoming : mapUpcomingSeriesItems(rawSeries);
+        upcomingItems = normalizedMatches.length > 0
+            ? normalizedMatches
+            : (mappedUpcoming.length > 0 ? mappedUpcoming : mapUpcomingSeriesItems(rawSeries));
 
         console.log('[SB UPCOMING]', JSON.stringify({
             rawUpcomingCount: Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries.length : 0,
             rawSeriesCount: Array.isArray(rawSeries) ? rawSeries.length : 0,
+            upcomingMatchesCount: normalizedMatches.length,
             upcomingItemsCount: upcomingItems.length
         }));
     } catch (err) {
