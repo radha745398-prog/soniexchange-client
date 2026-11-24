@@ -28,39 +28,6 @@ app.use(express.json());
 const UPCOMING_WINDOW_MS = 24 * 60 * 60 * 1000;
 const PAST_GRACE_MS = 15 * 60 * 1000;
 
-// Logon ke sabse zyada dekhe jaane waale teams aur leagues/tournaments
-const TOP_POPULAR_KEYWORDS = [
-    'INDIA',
-    'AUSTRALIA',
-    'ENGLAND',
-    'SOUTH AFRICA',
-    'NEW ZEALAND',
-    'PAKISTAN',
-    'SRI LANKA',
-    'WEST INDIES',
-    'BANGLADESH',
-    'AFGHANISTAN',
-    'WORLD CUP',
-    'CHAMPIONS TROPHY',
-    'ASHES',
-    'IPL',
-    'BIG BASH',
-    'BBL',
-    'PSL',
-    'SA20',
-    'ILT20',
-    'CPL',
-    'T20I',
-    'ODI'
-];
-
-// 0 = Top international / major league match, 1 = Baaki match
-function getPopularityRank(match) {
-    const text = `${match?.teamA || ''} ${match?.teamB || ''} ${match?.tournament || ''}`.toUpperCase();
-    const isPopular = TOP_POPULAR_KEYWORDS.some((kw) => text.includes(kw));
-    return isPopular ? 0 : 1;
-}
-
 function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 120) {
     const now = Date.now();
     const candidates = [
@@ -74,18 +41,14 @@ function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 120) {
             const id = String(s?._id ?? s?.id ?? s?.seriesId ?? '').trim();
             const startTs = parseTimestamp(s?.startDate || s?.start_date || s?.startTime);
             const endTs = parseTimestamp(s?.endDate || s?.end_date || s?.endTime);
-            const seriesText = `${s?.name || ''} ${s?.seriesName || ''} ${s?.title || ''}`.toUpperCase();
-            const isPopularSeries = Boolean(s?.isPopular) || TOP_POPULAR_KEYWORDS.some((kw) => seriesText.includes(kw));
 
-            let bucket = 3;
-            if (isPopularSeries && (!startTs || Math.abs(startTs - now) <= 7 * UPCOMING_WINDOW_MS)) {
+            let bucket = 2;
+            if (startTs && endTs && startTs <= now && now <= endTs) {
                 bucket = 0;
-            } else if (startTs && endTs && startTs <= now && now <= endTs) {
-                bucket = 1;
             } else if (startTs && Math.abs(startTs - now) <= 3 * UPCOMING_WINDOW_MS) {
-                bucket = 1;
+                bucket = 0;
             } else if (startTs) {
-                bucket = 2;
+                bucket = 1;
             }
 
             return { id, startTs: startTs || Number.MAX_SAFE_INTEGER, bucket };
@@ -470,7 +433,7 @@ app.get('/switch-to-client', (req, res) => {
     );
 });
 
-// DASHBOARD (Live Matches + Upcoming Matches & Series)
+// DASHBOARD (Live Matches + Upcoming Matches)
 app.get('/dashboard', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
@@ -495,8 +458,7 @@ app.get('/dashboard', async (req, res) => {
         liveMatches = rawLive
             .filter(m => m && (m._id || m.id || m.matchId))
             .map(normalizeLiveMatchCard)
-            .filter(Boolean)
-            .sort((a, b) => getPopularityRank(a) - getPopularityRank(b));
+            .filter(Boolean);
 
         const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 120);
 
@@ -525,11 +487,6 @@ app.get('/dashboard', async (req, res) => {
                 const aIn24h = a.startTs && a.startTs <= within24hLimit ? 0 : 1;
                 const bIn24h = b.startTs && b.startTs <= within24hLimit ? 0 : 1;
                 if (aIn24h !== bIn24h) return aIn24h - bIn24h;
-
-                const aPop = getPopularityRank(a);
-                const bPop = getPopularityRank(b);
-                if (aPop !== bPop) return aPop - bPop;
-
                 return (a.startTs || Number.MAX_SAFE_INTEGER) - (b.startTs || Number.MAX_SAFE_INTEGER);
             });
 
