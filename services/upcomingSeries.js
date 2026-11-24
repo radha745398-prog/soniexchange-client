@@ -27,6 +27,13 @@ function parseTimestamp(value) {
     return Number.isFinite(ts) ? ts : null;
 }
 
+function getTodayYMD(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 function extractSeriesArray(json) {
     if (Array.isArray(json)) return json;
     if (Array.isArray(json?.data)) return json.data;
@@ -48,9 +55,23 @@ function extractSeriesArray(json) {
     return [];
 }
 
-async function fetchUpcomingSeriesRaw() {
-    const json = await sbGet('/api/live-score/series/upcoming', CACHE_TTL.SERIES_MS);
-    return extractSeriesArray(json);
+async function fetchUpcomingSeriesRaw(startDate = getTodayYMD()) {
+    const cleanDate = String(startDate || getTodayYMD()).trim();
+    const ttl = CACHE_TTL?.SERIES_MS || 60000;
+
+    try {
+        const json = await sbGet(
+            `/api/live-score/series/upcoming?startDate=${encodeURIComponent(cleanDate)}`,
+            ttl
+        );
+        const list = extractSeriesArray(json);
+        if (list.length > 0) return list;
+    } catch (err) {
+        console.warn('[SB UPCOMING startDate retry]:', err.message);
+    }
+
+    const fallbackJson = await sbGet('/api/live-score/series/upcoming', ttl);
+    return extractSeriesArray(fallbackJson);
 }
 
 function mapUpcomingSeriesItems(seriesList) {
@@ -63,9 +84,10 @@ function mapUpcomingSeriesItems(seriesList) {
             const startTs = parseTimestamp(s.startDate || s.start_date || s.startTime);
             const endTs = parseTimestamp(s.endDate || s.end_date || s.endTime);
             const seriesName = safestr(s.name || s.seriesName || s.title, 'Upcoming Series');
+            const rawId = String(s._id || s.id || '').trim();
 
             return {
-                id: esc(s._id || s.id || ''),
+                id: rawId,
                 title: esc(seriesName),
                 tournament: s.isPopular ? 'Popular Series' : 'Upcoming Series',
                 dateTime: esc(
@@ -80,6 +102,7 @@ function mapUpcomingSeriesItems(seriesList) {
 }
 
 module.exports = {
+    getTodayYMD,
     fetchUpcomingSeriesRaw,
     mapUpcomingSeriesItems
 };
