@@ -27,6 +27,13 @@ function parseTimestamp(value) {
     return Number.isFinite(ts) ? ts : null;
 }
 
+function getTodayYMD(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 function isValidSeriesRecord(obj) {
     if (!obj || typeof obj !== 'object') return false;
     if (obj.error) return false;
@@ -37,14 +44,20 @@ function isValidSeriesRecord(obj) {
 
 function flattenSeriesGroups(rawData) {
     if (!rawData || typeof rawData !== 'object') return [];
-    if (rawData.error) return [];
+    if (rawData.error) {
+        console.warn('[SB GET SERIES API ERROR]', JSON.stringify(rawData.error));
+        return [];
+    }
 
-    const groups = Array.isArray(rawData.data)
+    const baseArray = Array.isArray(rawData.data)
         ? rawData.data
-        : (Array.isArray(rawData) ? rawData : []);
+        : (Array.isArray(rawData.series)
+            ? rawData.series
+            : (Array.isArray(rawData) ? rawData : []));
 
     const items = [];
-    groups.forEach((entry) => {
+
+    baseArray.forEach((entry) => {
         if (!entry || typeof entry !== 'object' || entry.error) return;
         const groupMonth = safestr(entry.month, '');
 
@@ -53,18 +66,18 @@ function flattenSeriesGroups(rawData) {
                 if (isValidSeriesRecord(s)) {
                     items.push({
                         ...s,
-                        _id: s._id ?? s.id ?? s.seriesId,
-                        name: s.name ?? s.seriesName ?? s.title,
-                        _groupMonth: s.month || groupMonth
+                        _id: String(s._id ?? s.id ?? s.seriesId).trim(),
+                        name: safestr(s.name ?? s.seriesName ?? s.title),
+                        _groupMonth: safestr(s.month || groupMonth, '')
                     });
                 }
             });
         } else if (isValidSeriesRecord(entry)) {
             items.push({
                 ...entry,
-                _id: entry._id ?? entry.id ?? entry.seriesId,
-                name: entry.name ?? entry.seriesName ?? entry.title,
-                _groupMonth: entry.month || groupMonth
+                _id: String(entry._id ?? entry.id ?? entry.seriesId).trim(),
+                name: safestr(entry.name ?? entry.seriesName ?? entry.title),
+                _groupMonth: safestr(entry.month || groupMonth, '')
             });
         }
     });
@@ -73,8 +86,29 @@ function flattenSeriesGroups(rawData) {
 }
 
 async function fetchSeriesListRaw() {
-    const json = await sbGet('/api/live-score/series/upcoming', CACHE_TTL.SERIES_MS);
-    return flattenSeriesGroups(json);
+    const ttl = CACHE_TTL?.SERIES_MS || 60000;
+
+    // 1. Pehle /api/live-score/series try karega
+    try {
+        const json = await sbGet('/api/live-score/series', ttl);
+        const list = flattenSeriesGroups(json);
+        if (list.length > 0) return list;
+    } catch (err) {
+        console.warn('[SB GET SERIES /series retry]:', err.message);
+    }
+
+    // 2. Agar wahan se list nahi aayi toh startDate ke saath upcoming series try karega
+    try {
+        const today = getTodayYMD();
+        const upcomingJson = await sbGet(
+            `/api/live-score/series/upcoming?startDate=${encodeURIComponent(today)}`,
+            ttl
+        );
+        return flattenSeriesGroups(upcomingJson);
+    } catch (err) {
+        console.warn('[SB GET SERIES upcoming fallback]:', err.message);
+        return [];
+    }
 }
 
 async function fetchUpcomingSeriesRaw() {
@@ -91,10 +125,10 @@ function mapUpcomingSeriesItems(seriesList) {
             const tag = s.isPopular ? 'Popular Series' : 'Series';
             const monthLabel = safestr(s._groupMonth, '');
             const cleanId = String(s._id ?? s.id ?? s.seriesId ?? '').trim();
-            const cleanTitle = String(s.name ?? s.seriesName ?? s.title ?? '').trim();
+            const cleanTitle = safestr(s.name ?? s.seriesName ?? s.title, '').trim();
 
             return {
-                id: esc(cleanId),
+                id: cleanId,
                 title: esc(cleanTitle),
                 tournament: esc(monthLabel ? `${tag} • ${monthLabel}` : tag),
                 dateTime: esc(
@@ -114,6 +148,7 @@ function mapUpcomingSeriesItems(seriesList) {
 }
 
 module.exports = {
+    getTodayYMD,
     fetchSeriesListRaw,
     fetchUpcomingSeriesRaw,
     mapUpcomingSeriesItems
