@@ -50,24 +50,37 @@ function renderDashboardPage(user, liveMatches = [], upcomingMatches = []) {
         `;
     }
 
-    // Optional Upcoming Matches / Series Section
+    // Upcoming Matches / Series Section with Live Countdown
     if (Array.isArray(upcomingMatches) && upcomingMatches.length > 0) {
         upcomingMatchesHTML = `
             <div class="w-full space-y-3 mt-6">
-                <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-2">Upcoming (${upcomingMatches.length})</h2>
+                <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-2">Upcoming Matches (${upcomingMatches.length})</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    ${upcomingMatches.map(u => `
-                        <div class="bg-custom-navy p-4 rounded border border-[#2b394a]">
+                    ${upcomingMatches.map(u => {
+                        const isMatchCard = Boolean(u.teamA && u.teamB && u.id);
+                        const titleText = u.title || `${u.teamA || ''} vs ${u.teamB || ''}`;
+                        const countdownBadge = u.countdownTimestamp
+                            ? `<span class="text-emerald-300 font-mono font-bold text-[11px] px-2 py-0.5 bg-emerald-950/70 rounded border border-emerald-700/60" data-countdown="${Number(u.countdownTimestamp)}">--:--:--</span>`
+                            : `<span class="text-amber-300 text-[10px] px-2 py-0.5 bg-amber-950/60 rounded border border-amber-700/60">UPCOMING</span>`;
+
+                        const cardInner = `
                             <div class="text-[10px] text-gray-400 mb-1">${u.tournament || 'Upcoming'}</div>
-                            <div class="flex justify-between items-center font-bold text-sm mb-1">
-                                <span>${u.title || `${u.teamA || ''} vs ${u.teamB || ''}`}</span>
-                                <span class="text-amber-300 text-[10px] px-2 py-0.5 bg-amber-950/60 rounded border border-amber-700/60">UPCOMING</span>
+                            <div class="flex justify-between items-center font-bold text-sm mb-1.5 gap-2">
+                                <span>${titleText}</span>
+                                ${countdownBadge}
                             </div>
-                            <div class="text-[11px] text-gray-300">
-                                ${u.dateTime || ''}
+                            ${u.venue ? `<div class="text-[10px] text-gray-400 mb-1"><i class="fa-solid fa-location-dot mr-1 text-amber-400/80"></i>${u.venue}</div>` : ''}
+                            <div class="text-[11px] text-gray-300 flex justify-between items-center">
+                                <span>${u.dateTime || ''}</span>
+                                ${isMatchCard ? `<span class="text-amber-400 underline">View &rarr;</span>` : ''}
                             </div>
-                        </div>
-                    `).join('')}
+                        `;
+
+                        if (isMatchCard) {
+                            return `<a href="/match/${encodeURIComponent(u.id)}?user=${encodeURIComponent(username)}" class="block bg-custom-navy p-4 rounded border border-[#2b394a] hover:border-amber-400 transition">${cardInner}</a>`;
+                        }
+                        return `<div class="bg-custom-navy p-4 rounded border border-[#2b394a]">${cardInner}</div>`;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -190,6 +203,40 @@ function renderDashboardPage(user, liveMatches = [], upcomingMatches = []) {
         <footer class="bg-[#0b1118] border-t border-[#2b394a] p-3 text-center text-gray-500 text-[10px]">
             &copy; 2026 SONIEXCHANGE. All Rights Reserved.
         </footer>
+
+        <script>
+        (function () {
+            function formatRemaining(ms) {
+                if (!Number.isFinite(ms) || ms <= 0) return 'Starting Soon';
+                const totalSec = Math.floor(ms / 1000);
+                const days = Math.floor(totalSec / 86400);
+                const hours = Math.floor((totalSec % 86400) / 3600);
+                const mins = Math.floor((totalSec % 3600) / 60);
+                const secs = totalSec % 60;
+
+                const pad = (n) => String(n).padStart(2, '0');
+                if (days > 0) {
+                    return days + 'd ' + pad(hours) + ':' + pad(mins) + ':' + pad(secs);
+                }
+                return pad(hours) + ':' + pad(mins) + ':' + pad(secs);
+            }
+
+            function tickCountdowns() {
+                const now = Date.now();
+                document.querySelectorAll('[data-countdown]').forEach((el) => {
+                    const target = Number(el.getAttribute('data-countdown'));
+                    if (!target) {
+                        el.textContent = '';
+                        return;
+                    }
+                    el.textContent = formatRemaining(target - now);
+                });
+            }
+
+            tickCountdowns();
+            setInterval(tickCountdowns, 1000);
+        })();
+        </script>
     </body>
     </html>
     `;
