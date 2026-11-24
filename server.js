@@ -25,10 +25,10 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const UPCOMING_WINDOW_MS = 24 * 60 * 60 * 1000; // Kam se kam 24 ghante pehle dikhne waale matches
+const UPCOMING_WINDOW_MS = 24 * 60 * 60 * 1000;
 const PAST_GRACE_MS = 15 * 60 * 1000;
 
-function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 30) {
+function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 60) {
     const now = Date.now();
     const candidates = [
         ...(Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries : []),
@@ -256,7 +256,7 @@ async function loadMatchData(matchId) {
                 fetchUpcomingSeriesRaw(),
                 fetchSeriesListRaw()
             ]);
-            const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 30);
+            const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 60);
 
             const matchesArrays = await Promise.all(
                 seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
@@ -460,7 +460,7 @@ app.get('/dashboard', async (req, res) => {
             .map(normalizeLiveMatchCard)
             .filter(Boolean);
 
-        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 30);
+        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 60);
 
         const seriesMatchesArrays = await Promise.all(
             seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
@@ -490,7 +490,6 @@ app.get('/dashboard', async (req, res) => {
                 return (a.startTs || Number.MAX_SAFE_INTEGER) - (b.startTs || Number.MAX_SAFE_INTEGER);
             });
 
-        // 24 ghante ke andar shuru hone waale matches pehle dikhayenge; agar koi na ho toh aage waale matches fallback mein aayenge
         const next24hMatches = allUpcomingSorted.filter(
             m => m.startTs && m.startTs <= within24hLimit
         );
