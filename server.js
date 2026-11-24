@@ -236,37 +236,39 @@ async function loadMatchData(matchId) {
 
             if (foundUpcoming) {
                 const upNorm = normalizeUpcomingMatchCard(foundUpcoming);
-                return {
-                    id: esc(cleanId),
-                    eventId: esc(foundUpcoming.eventId || ''),
-                    tournament: esc([foundUpcoming.seriesName, foundUpcoming.name].filter(Boolean).join(' • ')),
-                    teamA: esc(foundUpcoming.teams?.t1?.name || ''),
-                    teamB: esc(foundUpcoming.teams?.t2?.name || ''),
-                    shortA: esc(foundUpcoming.teams?.t1?.short_name || ''),
-                    shortB: esc(foundUpcoming.teams?.t2?.short_name || ''),
-                    logoA: esc(foundUpcoming.teams?.t1?.logo || ''),
-                    logoB: esc(foundUpcoming.teams?.t2?.logo || ''),
-                    flagA: '',
-                    flagB: '',
-                    scoreA: '-',
-                    oversA: '',
-                    scoreB: '-',
-                    oversB: '',
-                    oversList: [],
-                    liveEvent: null,
-                    latestCommentary: '',
-                    matchNote: '',
-                    resultText: '',
-                    status: 'UPCOMING',
-                    isLive: false,
-                    matchStateText: 'UPCOMING',
-                    dateTime: esc(upNorm?.dateTime || ''),
-                    venue: esc(foundUpcoming.ground || ''),
-                    countdownTimestamp: upNorm?.countdownTimestamp || null,
-                    breakTimerMode: null,
-                    breakEndTimestamp: null,
-                    breakStartTimestamp: null
-                };
+                if (upNorm) {
+                    return {
+                        id: esc(cleanId),
+                        eventId: esc(upNorm.eventId || ''),
+                        tournament: upNorm.tournament,
+                        teamA: upNorm.teamA,
+                        teamB: upNorm.teamB,
+                        shortA: upNorm.shortA,
+                        shortB: upNorm.shortB,
+                        logoA: upNorm.logoA,
+                        logoB: upNorm.logoB,
+                        flagA: '',
+                        flagB: '',
+                        scoreA: '-',
+                        oversA: '',
+                        scoreB: '-',
+                        oversB: '',
+                        oversList: [],
+                        liveEvent: null,
+                        latestCommentary: '',
+                        matchNote: '',
+                        resultText: '',
+                        status: 'UPCOMING',
+                        isLive: false,
+                        matchStateText: 'UPCOMING',
+                        dateTime: upNorm.dateTime,
+                        venue: upNorm.venue,
+                        countdownTimestamp: upNorm.countdownTimestamp || null,
+                        breakTimerMode: null,
+                        breakEndTimestamp: null,
+                        breakStartTimestamp: null
+                    };
+                }
             }
         } catch (e) {
             console.error('Upcoming match lookup error:', e.message);
@@ -469,10 +471,20 @@ app.get('/dashboard', async (req, res) => {
         ));
 
         const now = Date.now();
+        const liveIds = new Set(liveMatches.map(m => String(m.id)));
+        const seenUpcomingIds = new Set();
+
         const normalizedMatches = flatSeriesMatches
             .filter(m => m && (m._id || m.id || m.matchId))
             .map(normalizeUpcomingMatchCard)
-            .filter(m => m && m.status === 'UPCOMING' && (!m.startTs || m.startTs >= now - 15 * 60 * 1000))
+            .filter(m => {
+                if (!m || !m.id) return false;
+                if (liveIds.has(m.id) || seenUpcomingIds.has(m.id)) return false;
+                if (m.status !== 'UPCOMING') return false;
+                if (m.startTs && m.startTs < now - 15 * 60 * 1000) return false;
+                seenUpcomingIds.add(m.id);
+                return true;
+            })
             .sort((a, b) => (a.startTs || Number.MAX_SAFE_INTEGER) - (b.startTs || Number.MAX_SAFE_INTEGER));
 
         const mappedUpcoming = mapUpcomingSeriesItems(rawUpcomingSeries);
