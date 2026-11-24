@@ -15,6 +15,40 @@ function isTbcTeam(name) {
     return !upper || upper === 'TBC' || upper === 'TBA';
 }
 
+function resolveUpcomingStatus(m, extraText) {
+    if (m?.isLive === true) return 'LIVE';
+
+    const raw = String(m?.status || '').trim().toUpperCase();
+    const combined = `${raw} ${String(extraText || '').toUpperCase()}`;
+
+    if (
+        raw === 'FINISHED' ||
+        raw === 'COMPLETED' ||
+        raw === 'ENDED' ||
+        raw === 'ABANDONED' ||
+        raw === 'CANCELLED' ||
+        combined.includes('WON BY') ||
+        combined.includes('MATCH ENDED') ||
+        combined.includes('NO RESULT')
+    ) {
+        return 'FINISHED';
+    }
+
+    if (
+        raw === 'NOT_STARTED' ||
+        raw === 'NOT STARTED' ||
+        raw === 'UPCOMING' ||
+        raw === 'SCHEDULED' ||
+        raw === 'FIXTURE' ||
+        !raw
+    ) {
+        return 'UPCOMING';
+    }
+
+    const mapped = getSportBexStatus(m?.status, m?.isLive, extraText);
+    return mapped || 'UPCOMING';
+}
+
 // Get All Matches for a Specific Series
 async function fetchSeriesMatchesRaw(seriesId) {
     const cleanId = encodeURIComponent(String(seriesId || '').trim());
@@ -42,12 +76,7 @@ function normalizeUpcomingMatchCard(m) {
     const shortB = safestr(t2.short_name || t2.shortName, teamB.slice(0, 4).toUpperCase());
 
     const extraText = `${m.sessionStatus || ''} ${m.result?.message || ''}`;
-    const rawStatusUpper = String(m.status || '').trim().toUpperCase();
-    let status = getSportBexStatus(m.status, m.isLive, extraText);
-    if (rawStatusUpper === 'NOT_STARTED' && !m.isLive) {
-        status = 'UPCOMING';
-    }
-
+    const status = resolveUpcomingStatus(m, extraText);
     const startTs = parseTimestamp(m.startDate || m.timestamp);
 
     return {
