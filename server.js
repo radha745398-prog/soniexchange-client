@@ -25,6 +25,21 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 15) {
+    const candidates = [
+        ...(Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries : []),
+        ...(Array.isArray(rawSeries) ? rawSeries : [])
+    ];
+
+    return Array.from(
+        new Set(
+            candidates
+                .map((s) => String(s?._id || s?.id || '').trim())
+                .filter(Boolean)
+        )
+    ).slice(0, limit);
+}
+
 function parseDurationMsFromText(text) {
     const str = String(text || '');
     const mmss = str.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
@@ -219,13 +234,7 @@ async function loadMatchData(matchId) {
                 fetchUpcomingSeriesRaw(),
                 fetchSeriesListRaw()
             ]);
-            const seriesSource = Array.isArray(rawUpcomingSeries) && rawUpcomingSeries.length > 0
-                ? rawUpcomingSeries
-                : (Array.isArray(rawSeries) ? rawSeries : []);
-            const seriesIds = seriesSource
-                .map(s => String(s?._id || s?.id || '').trim())
-                .filter(Boolean)
-                .slice(0, 8);
+            const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 15);
 
             const matchesArrays = await Promise.all(
                 seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
@@ -444,14 +453,7 @@ app.get('/dashboard', async (req, res) => {
             .map(normalizeLiveMatchCard)
             .filter(Boolean);
 
-        const seriesSource = Array.isArray(rawUpcomingSeries) && rawUpcomingSeries.length > 0
-            ? rawUpcomingSeries
-            : (Array.isArray(rawSeries) ? rawSeries : []);
-
-        const seriesIds = seriesSource
-            .map(s => String(s?._id || s?.id || '').trim())
-            .filter(Boolean)
-            .slice(0, 8);
+        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 15);
 
         const seriesMatchesArrays = await Promise.all(
             seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
