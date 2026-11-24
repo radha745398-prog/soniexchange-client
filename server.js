@@ -25,19 +25,41 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 15) {
+const UPCOMING_WINDOW_MS = 24 * 60 * 60 * 1000; // Kam se kam 24 ghante pehle dikhne waale matches
+const PAST_GRACE_MS = 15 * 60 * 1000;
+
+function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 30) {
+    const now = Date.now();
     const candidates = [
         ...(Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries : []),
         ...(Array.isArray(rawSeries) ? rawSeries : [])
     ];
 
-    return Array.from(
-        new Set(
-            candidates
-                .map((s) => String(s?._id || s?.id || '').trim())
-                .filter(Boolean)
-        )
-    ).slice(0, limit);
+    const sortedCandidates = candidates
+        .filter((s) => s && typeof s === 'object' && !s.error)
+        .map((s) => {
+            const id = String(s?._id ?? s?.id ?? s?.seriesId ?? '').trim();
+            const startTs = parseTimestamp(s?.startDate || s?.start_date || s?.startTime);
+            const endTs = parseTimestamp(s?.endDate || s?.end_date || s?.endTime);
+
+            let bucket = 2;
+            if (startTs && endTs && startTs <= now && now <= endTs) {
+                bucket = 0;
+            } else if (startTs && Math.abs(startTs - now) <= 3 * UPCOMING_WINDOW_MS) {
+                bucket = 0;
+            } else if (startTs) {
+                bucket = 1;
+            }
+
+            return { id, startTs: startTs || Number.MAX_SAFE_INTEGER, bucket };
+        })
+        .filter((item) => Boolean(item.id))
+        .sort((a, b) => {
+            if (a.bucket !== b.bucket) return a.bucket - b.bucket;
+            return a.startTs - b.startTs;
+        });
+
+    return Array.from(new Set(sortedCandidates.map((x) => x.id))).slice(0, limit);
 }
 
 function parseDurationMsFromText(text) {
@@ -234,7 +256,7 @@ async function loadMatchData(matchId) {
                 fetchUpcomingSeriesRaw(),
                 fetchSeriesListRaw()
             ]);
-            const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 15);
+            const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 30);
 
             const matchesArrays = await Promise.all(
                 seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
@@ -353,21 +375,6 @@ async function loadMatchData(matchId) {
         ? extractBreakTimerInfo(rawLiveMatch, scoreObj, rawNote)
         : { breakTimerMode: null, breakEndTimestamp: null, breakStartTimestamp: null };
 
-    console.log('[SB DEBUG MATCH]', JSON.stringify({
-        matchId: cleanId,
-        rawT1Score: lT1.score || null,
-        rawT2Score: lT2.score || null,
-        cTeam1Stats: cTeam1?.inningsStats || null,
-        cTeam2Stats: cTeam2?.inningsStats || null,
-        scoreA,
-        oversA,
-        scoreB,
-        oversB,
-        latestComm,
-        oversCount: oversList.length,
-        lastTwoOvers: oversList.slice(-2)
-    }));
-
     const matchStateText = status === 'FINISHED'
         ? (rawResult || rawNote || 'FINISHED')
         : (status === 'BREAK'
@@ -453,51 +460,53 @@ app.get('/dashboard', async (req, res) => {
             .map(normalizeLiveMatchCard)
             .filter(Boolean);
 
-        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 15);
+        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 30);
 
         const seriesMatchesArrays = await Promise.all(
             seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
         );
 
         const flatSeriesMatches = seriesMatchesArrays.flat();
-        console.log('[SB SERIES SAMPLE]', JSON.stringify(
-            flatSeriesMatches.slice(0, 5).map(m => ({
-                id: m?._id || m?.id,
-                name: m?.name,
-                teams: `${m?.teams?.t1?.name || ''} vs ${m?.teams?.t2?.name || ''}`,
-                rawStatus: m?.status,
-                isLive: m?.isLive,
-                startDate: m?.startDate,
-                timestamp: m?.timestamp
-            }))
-        ));
-
         const now = Date.now();
+        const within24hLimit = now + UPCOMING_WINDOW_MS;
         const liveIds = new Set(liveMatches.map(m => String(m.id)));
         const seenUpcomingIds = new Set();
 
-        const normalizedMatches = flatSeriesMatches
+        const allUpcomingSorted = flatSeriesMatches
             .filter(m => m && (m._id || m.id || m.matchId))
             .map(normalizeUpcomingMatchCard)
             .filter(m => {
                 if (!m || !m.id) return false;
                 if (liveIds.has(m.id) || seenUpcomingIds.has(m.id)) return false;
                 if (m.status !== 'UPCOMING') return false;
-                if (m.startTs && m.startTs < now - 15 * 60 * 1000) return false;
+                if (m.startTs && m.startTs < now - PAST_GRACE_MS) return false;
                 seenUpcomingIds.add(m.id);
                 return true;
             })
-            .sort((a, b) => (a.startTs || Number.MAX_SAFE_INTEGER) - (b.startTs || Number.MAX_SAFE_INTEGER));
+            .sort((a, b) => {
+                const aIn24h = a.startTs && a.startTs <= within24hLimit ? 0 : 1;
+                const bIn24h = b.startTs && b.startTs <= within24hLimit ? 0 : 1;
+                if (aIn24h !== bIn24h) return aIn24h - bIn24h;
+                return (a.startTs || Number.MAX_SAFE_INTEGER) - (b.startTs || Number.MAX_SAFE_INTEGER);
+            });
+
+        // 24 ghante ke andar shuru hone waale matches pehle dikhayenge; agar koi na ho toh aage waale matches fallback mein aayenge
+        const next24hMatches = allUpcomingSorted.filter(
+            m => m.startTs && m.startTs <= within24hLimit
+        );
 
         const mappedUpcoming = mapUpcomingSeriesItems(rawUpcomingSeries);
-        upcomingItems = normalizedMatches.length > 0
-            ? normalizedMatches
-            : (mappedUpcoming.length > 0 ? mappedUpcoming : mapUpcomingSeriesItems(rawSeries));
+        upcomingItems = next24hMatches.length > 0
+            ? next24hMatches
+            : (allUpcomingSorted.length > 0
+                ? allUpcomingSorted
+                : (mappedUpcoming.length > 0 ? mappedUpcoming : mapUpcomingSeriesItems(rawSeries)));
 
         console.log('[SB UPCOMING]', JSON.stringify({
             rawUpcomingCount: Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries.length : 0,
             rawSeriesCount: Array.isArray(rawSeries) ? rawSeries.length : 0,
-            upcomingMatchesCount: normalizedMatches.length,
+            next24hCount: next24hMatches.length,
+            totalUpcomingMatchesCount: allUpcomingSorted.length,
             upcomingItemsCount: upcomingItems.length
         }));
     } catch (err) {
