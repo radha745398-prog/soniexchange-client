@@ -35,6 +35,14 @@ function getTodayYMD(date = new Date()) {
 }
 
 function extractSeriesArray(json) {
+    if (!json || typeof json !== 'object') return Array.isArray(json) ? json : [];
+
+    // Agar SportBex validation error aaya hai (jaise { error: '"t" is not allowed' })
+    if (json.error) {
+        console.warn('[SB UPCOMING API ERROR]', JSON.stringify(json.error));
+        return [];
+    }
+
     if (Array.isArray(json)) return json;
     if (Array.isArray(json?.data)) return json.data;
     if (Array.isArray(json?.series)) return json.series;
@@ -44,14 +52,13 @@ function extractSeriesArray(json) {
     if (Array.isArray(json?.data?.series)) return json.data.series;
     if (Array.isArray(json?.data?.items)) return json.data.items;
 
-    if (json && typeof json === 'object') {
-        console.log('[SB UPCOMING SHAPE]', JSON.stringify({
-            keys: Object.keys(json),
-            dataType: typeof json.data,
-            dataKeys: json.data && typeof json.data === 'object' ? Object.keys(json.data) : null,
-            sample: json
-        }).slice(0, 1200));
-    }
+    console.log('[SB UPCOMING SHAPE]', JSON.stringify({
+        keys: Object.keys(json),
+        dataType: typeof json.data,
+        dataKeys: json.data && typeof json.data === 'object' ? Object.keys(json.data) : null,
+        sample: json
+    }).slice(0, 1200));
+
     return [];
 }
 
@@ -70,8 +77,13 @@ async function fetchUpcomingSeriesRaw(startDate = getTodayYMD()) {
         console.warn('[SB UPCOMING startDate retry]:', err.message);
     }
 
-    const fallbackJson = await sbGet('/api/live-score/series/upcoming', ttl);
-    return extractSeriesArray(fallbackJson);
+    try {
+        const fallbackJson = await sbGet('/api/live-score/series/upcoming', ttl);
+        return extractSeriesArray(fallbackJson);
+    } catch (err) {
+        console.warn('[SB UPCOMING fallback error]:', err.message);
+        return [];
+    }
 }
 
 function mapUpcomingSeriesItems(seriesList) {
@@ -79,7 +91,7 @@ function mapUpcomingSeriesItems(seriesList) {
     console.log('[SB UPCOMING SAMPLE]', JSON.stringify(list[0] || null));
 
     return list
-        .filter((s) => s && typeof s === 'object')
+        .filter((s) => s && typeof s === 'object' && !s.error)
         .map((s) => {
             const startTs = parseTimestamp(s.startDate || s.start_date || s.startTime);
             const endTs = parseTimestamp(s.endDate || s.end_date || s.endTime);
