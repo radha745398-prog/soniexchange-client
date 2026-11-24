@@ -7,16 +7,34 @@ const {
 
 const apiCache = new Map();
 
+function shouldSkipTimestampQuery(endpoint) {
+  const ep = String(endpoint || '');
+  return ep.includes('/api/live-score/series');
+}
+
 async function sbGet(endpoint, ttlMs = CACHE_TTL.LIVE_MS) {
   try {
+    const cleanTtl = typeof ttlMs === 'number' && Number.isFinite(ttlMs)
+      ? ttlMs
+      : CACHE_TTL.LIVE_MS;
+
     const now = Date.now();
     const cached = apiCache.get(endpoint);
-    if (ttlMs > 0 && cached && (now - cached.timestamp) < ttlMs) {
+    if (cleanTtl > 0 && cached && (now - cached.timestamp) < cleanTtl) {
       return cached.data;
     }
 
-    const sep = endpoint.includes('?') ? '&' : '?';
-    const url = `${SPORTBEX_BASE_URL}${endpoint}${sep}_ts=${now}`;
+    const baseUrl = String(SPORTBEX_BASE_URL || '').replace(/\/+$/, '');
+    const cleanEndpoint = String(endpoint || '').startsWith('/')
+      ? String(endpoint || '')
+      : `/${String(endpoint || '')}`;
+
+    let url = `${baseUrl}${cleanEndpoint}`;
+    if (!shouldSkipTimestampQuery(cleanEndpoint)) {
+      const sep = cleanEndpoint.includes('?') ? '&' : '?';
+      url = `${url}${sep}_ts=${now}`;
+    }
+
     const resp = await fetch(url, {
       method: 'GET',
       headers: {
@@ -30,7 +48,7 @@ async function sbGet(endpoint, ttlMs = CACHE_TTL.LIVE_MS) {
     const text = await resp.text();
     if (!resp.ok) {
       console.error(
-        `[SPORTBEX API ERROR] status=${resp.status} endpoint=${endpoint} body=${text.slice(0, 300)}`
+        `[SPORTBEX API ERROR] status=${resp.status} endpoint=${cleanEndpoint} body=${text.slice(0, 300)}`
       );
       return cached ? cached.data : null;
     }
@@ -41,10 +59,10 @@ async function sbGet(endpoint, ttlMs = CACHE_TTL.LIVE_MS) {
       : (Array.isArray(json) ? json.length : 1);
 
     console.log(
-      `[SPORTBEX API OK] status=${resp.status} endpoint=${endpoint} count=${count}`
+      `[SPORTBEX API OK] status=${resp.status} endpoint=${cleanEndpoint} count=${count}`
     );
 
-    if (ttlMs > 0) {
+    if (cleanTtl > 0) {
       apiCache.set(endpoint, { data: json, timestamp: now });
     }
     return json;
@@ -61,4 +79,3 @@ module.exports = {
   sbGet,
   CACHE_TTL
 };
-
