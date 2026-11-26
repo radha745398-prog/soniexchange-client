@@ -116,7 +116,7 @@ function enrichMatchCard(card, rawSource = null) {
     };
 }
 
-function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 120) {
+function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 250) {
     const now = Date.now();
     const candidates = [
         ...(Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries : []),
@@ -133,7 +133,7 @@ function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 120) {
             let bucket = 2;
             if (startTs && endTs && startTs <= now && now <= endTs) {
                 bucket = 0;
-            } else if (startTs && Math.abs(startTs - now) <= 3 * UPCOMING_WINDOW_MS) {
+            } else if (startTs && Math.abs(startTs - now) <= 5 * UPCOMING_WINDOW_MS) {
                 bucket = 0;
             } else if (startTs) {
                 bucket = 1;
@@ -344,7 +344,7 @@ async function loadMatchData(matchId) {
                 fetchUpcomingSeriesRaw(),
                 fetchSeriesListRaw()
             ]);
-            const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 120);
+            const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 250);
 
             const matchesArrays = await Promise.all(
                 seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
@@ -583,7 +583,7 @@ app.get('/dashboard', async (req, res) => {
             })
             .filter(Boolean);
 
-        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 120);
+        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 250);
 
         const seriesMatchesArrays = await Promise.all(
             seriesIds.map(sid => fetchSeriesMatchesRaw(sid).catch(() => []))
@@ -661,7 +661,7 @@ app.get('/find-match', async (req, res) => {
             fetchUpcomingSeriesRaw()
         ]);
 
-        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 200);
+        const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 250);
         const matchesArrays = await Promise.all(
             seriesIds.map((sid) => fetchSeriesMatchesRaw(sid).catch(() => []))
         );
