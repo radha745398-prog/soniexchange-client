@@ -28,6 +28,94 @@ app.use(express.json());
 const UPCOMING_WINDOW_MS = 24 * 60 * 60 * 1000;
 const PAST_GRACE_MS = 15 * 60 * 1000;
 
+function detectMatchFormat(source) {
+    const text = String(source || '').toUpperCase();
+    if (/\bTEST\b/.test(text) || /\b5\s*DAY\b/.test(text) || /\bDAY\s*[1-5]\b/.test(text)) {
+        return 'TEST';
+    }
+    if (
+        /\bT20\b/.test(text) ||
+        /\bT20I\b/.test(text) ||
+        /\b20\s*OVER/.test(text) ||
+        /\bBIG BASH\b/.test(text) ||
+        /\bBBL\b/.test(text) ||
+        /\bWBBL\b/.test(text) ||
+        /\bIPL\b/.test(text) ||
+        /\bPSL\b/.test(text) ||
+        /\bSA20\b/.test(text) ||
+        /\bILT20\b/.test(text) ||
+        /\bCPL\b/.test(text)
+    ) {
+        return 'T20';
+    }
+    if (
+        /\bODI\b/.test(text) ||
+        /\bONE\s*DAY\b/.test(text) ||
+        /\b50\s*OVER/.test(text) ||
+        /\bLIST\s*A\b/.test(text)
+    ) {
+        return 'ODI';
+    }
+    return 'MATCH';
+}
+
+function formatDateTimeIST(ts) {
+    const num = Number(ts);
+    if (!Number.isFinite(num) || num <= 0) return '';
+    try {
+        return new Date(num).toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    } catch (_) {
+        return new Date(num).toLocaleString('en-IN');
+    }
+}
+
+function enrichMatchCard(card, rawSource = null) {
+    if (!card || typeof card !== 'object') return card;
+
+    const rawStart = parseTimestamp(
+        card.countdownTimestamp ||
+        card.startTs ||
+        rawSource?.startDate ||
+        rawSource?.start_date ||
+        rawSource?.startTime ||
+        rawSource?.timestamp
+    );
+
+    const statusUpper = String(card.status || '').toUpperCase();
+    const isUpcoming = statusUpper === 'UPCOMING';
+    const validTs = rawStart && Number.isFinite(rawStart) && rawStart > 0 ? rawStart : null;
+    const istTimeStr = validTs ? formatDateTimeIST(validTs) : '';
+
+    const formatBadge = detectMatchFormat([
+        rawSource?.format,
+        rawSource?.matchType,
+        rawSource?.match_type,
+        rawSource?.type,
+        card.tournament,
+        rawSource?.seriesName,
+        rawSource?.name,
+        card.title,
+        card.teamA,
+        card.teamB
+    ].filter(Boolean).join(' '));
+
+    return {
+        ...card,
+        startTs: validTs,
+        countdownTimestamp: isUpcoming && validTs ? validTs : null,
+        dateTime: istTimeStr || card.dateTime || '',
+        formatBadge
+    };
+}
+
 function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 120) {
     const now = Date.now();
     const candidates = [
@@ -268,10 +356,27 @@ async function loadMatchData(matchId) {
             if (foundUpcoming) {
                 const upNorm = normalizeUpcomingMatchCard(foundUpcoming);
                 if (upNorm) {
+                    const startTs = parseTimestamp(
+                        foundUpcoming?.startDate || foundUpcoming?.start_date || foundUpcoming?.startTime || upNorm.countdownTimestamp
+                    );
+                    const hasStarted = startTs && startTs <= Date.now();
+                    const resolvedStatus = hasStarted ? 'LIVE' : 'UPCOMING';
+                    const formatBadge = detectMatchFormat([
+                        foundUpcoming?.format,
+                        foundUpcoming?.matchType,
+                        foundUpcoming?.type,
+                        upNorm.tournament,
+                        foundUpcoming?.seriesName,
+                        foundUpcoming?.name,
+                        upNorm.teamA,
+                        upNorm.teamB
+                    ].filter(Boolean).join(' '));
+
                     return {
                         id: esc(cleanId),
                         eventId: esc(upNorm.eventId || ''),
                         tournament: upNorm.tournament,
+                        formatBadge: esc(formatBadge),
                         teamA: upNorm.teamA,
                         teamB: upNorm.teamB,
                         shortA: upNorm.shortA,
@@ -289,12 +394,12 @@ async function loadMatchData(matchId) {
                         latestCommentary: '',
                         matchNote: '',
                         resultText: '',
-                        status: 'UPCOMING',
-                        isLive: false,
-                        matchStateText: 'UPCOMING',
-                        dateTime: upNorm.dateTime,
+                        status: resolvedStatus,
+                        isLive: resolvedStatus === 'LIVE',
+                        matchStateText: resolvedStatus,
+                        dateTime: esc(formatDateTimeIST(startTs) || upNorm.dateTime || ''),
                         venue: upNorm.venue,
-                        countdownTimestamp: upNorm.countdownTimestamp || null,
+                        countdownTimestamp: resolvedStatus === 'UPCOMING' ? startTs : null,
                         breakTimerMode: null,
                         breakEndTimestamp: null,
                         breakStartTimestamp: null
@@ -362,13 +467,17 @@ async function loadMatchData(matchId) {
     );
     const rawResult = safestr(rawLiveMatch?.result?.message || '', '');
 
-    const status = getSportBexStatus(
+    let status = getSportBexStatus(
         scoreObj.status || rawLiveMatch?.status,
         rawLiveMatch?.isLive ?? (scoreObj.status === 'LIVE'),
         `${rawNote} ${rawResult}`
     );
 
-    const startTs = parseTimestamp(rawLiveMatch?.startDate || rawLiveMatch?.timestamp);
+    const startTs = parseTimestamp(rawLiveMatch?.startDate || rawLiveMatch?.start_date || rawLiveMatch?.timestamp);
+    if (status === 'UPCOMING' && startTs && startTs <= Date.now()) {
+        status = 'LIVE';
+    }
+
     const oversList = extractCommentaryOversList(commentary);
     const latestComm = extractLatestCommentaryInfo(commentary);
     const breakInfo = status === 'BREAK'
@@ -381,10 +490,21 @@ async function loadMatchData(matchId) {
             ? (rawNote || 'BREAK')
             : (status === 'LIVE' ? 'LIVE' : status));
 
+    const formatBadge = detectMatchFormat([
+        rawLiveMatch?.format,
+        rawLiveMatch?.matchType,
+        scoreObj?.matchType,
+        rawLiveMatch?.seriesName,
+        rawLiveMatch?.name,
+        teamAName,
+        teamBName
+    ].filter(Boolean).join(' '));
+
     return {
         id: esc(cleanId),
         eventId: esc(rawLiveMatch?.eventId || ''),
         tournament: esc([rawLiveMatch?.seriesName, rawLiveMatch?.name].filter(Boolean).join(' • ')),
+        formatBadge: esc(formatBadge),
         teamA: esc(teamAName),
         teamB: esc(teamBName),
         shortA: esc(shortA),
@@ -410,7 +530,7 @@ async function loadMatchData(matchId) {
         status,
         isLive: status === 'LIVE',
         matchStateText: esc(matchStateText),
-        dateTime: esc(rawNote || (startTs ? new Date(startTs).toLocaleString('en-IN') : '')),
+        dateTime: esc(formatDateTimeIST(startTs) || rawNote || ''),
         venue: esc(rawLiveMatch?.ground || ''),
         countdownTimestamp: status === 'UPCOMING' ? startTs : null,
         breakTimerMode: breakInfo.breakTimerMode,
@@ -455,9 +575,12 @@ app.get('/dashboard', async (req, res) => {
             fetchUpcomingSeriesRaw()
         ]);
 
-        liveMatches = rawLive
+        liveMatches = (Array.isArray(rawLive) ? rawLive : [])
             .filter(m => m && (m._id || m.id || m.matchId))
-            .map(normalizeLiveMatchCard)
+            .map(m => {
+                const norm = normalizeLiveMatchCard(m);
+                return norm ? enrichMatchCard(norm, m) : null;
+            })
             .filter(Boolean);
 
         const seriesIds = collectSeriesIds(rawUpcomingSeries, rawSeries, 120);
@@ -474,36 +597,49 @@ app.get('/dashboard', async (req, res) => {
 
         const allUpcomingSorted = flatSeriesMatches
             .filter(m => m && (m._id || m.id || m.matchId))
-            .map(normalizeUpcomingMatchCard)
+            .map(m => {
+                const norm = normalizeUpcomingMatchCard(m);
+                return norm ? enrichMatchCard(norm, m) : null;
+            })
             .filter(m => {
                 if (!m || !m.id) return false;
                 if (liveIds.has(m.id) || seenUpcomingIds.has(m.id)) return false;
                 if (m.status !== 'UPCOMING') return false;
-                if (m.startTs && m.startTs < now - PAST_GRACE_MS) return false;
+                const ts = Number(m.startTs || m.countdownTimestamp || 0);
+                if (ts && ts <= now - PAST_GRACE_MS) return false;
                 seenUpcomingIds.add(m.id);
                 return true;
             })
             .sort((a, b) => {
-                const aIn24h = a.startTs && a.startTs <= within24hLimit ? 0 : 1;
-                const bIn24h = b.startTs && b.startTs <= within24hLimit ? 0 : 1;
+                const tsA = Number(a.startTs || a.countdownTimestamp || Number.MAX_SAFE_INTEGER);
+                const tsB = Number(b.startTs || b.countdownTimestamp || Number.MAX_SAFE_INTEGER);
+
+                const aIn24h = tsA <= within24hLimit ? 0 : 1;
+                const bIn24h = tsB <= within24hLimit ? 0 : 1;
                 if (aIn24h !== bIn24h) return aIn24h - bIn24h;
-                return (a.startTs || Number.MAX_SAFE_INTEGER) - (b.startTs || Number.MAX_SAFE_INTEGER);
+
+                return tsA - tsB;
             });
 
-        const next24hMatches = allUpcomingSorted.filter(
-            m => m.startTs && m.startTs <= within24hLimit
+        const next24hMatches = allUpcomingSorted.filter(m => {
+            const ts = Number(m.startTs || m.countdownTimestamp || 0);
+            return ts > now - PAST_GRACE_MS && ts <= within24hLimit;
+        });
+
+        const mappedUpcoming = mapUpcomingSeriesItems(rawUpcomingSeries).map(item =>
+            enrichMatchCard(item, null)
         );
 
-        const mappedUpcoming = mapUpcomingSeriesItems(rawUpcomingSeries);
         upcomingItems = next24hMatches.length > 0
             ? next24hMatches
             : (allUpcomingSorted.length > 0
                 ? allUpcomingSorted
-                : (mappedUpcoming.length > 0 ? mappedUpcoming : mapUpcomingSeriesItems(rawSeries)));
+                : (mappedUpcoming.length > 0 ? mappedUpcoming : mapUpcomingSeriesItems(rawSeries).map(item => enrichMatchCard(item, null))));
 
         console.log('[SB UPCOMING]', JSON.stringify({
             rawUpcomingCount: Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries.length : 0,
             rawSeriesCount: Array.isArray(rawSeries) ? rawSeries.length : 0,
+            liveCount: liveMatches.length,
             next24hCount: next24hMatches.length,
             totalUpcomingMatchesCount: allUpcomingSorted.length,
             upcomingItemsCount: upcomingItems.length
@@ -591,6 +727,7 @@ app.get('/match/:id', async (req, res) => {
     let matchData = {
         id: esc(matchId),
         tournament: '',
+        formatBadge: 'MATCH',
         teamA: '',
         teamB: '',
         shortA: '',
