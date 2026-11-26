@@ -24,7 +24,10 @@ function renderDashboardPage(user, liveMatches = [], upcomingMatches = []) {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     ${liveMatches.map(m => `
                         <a href="/match/${encodeURIComponent(m.id)}?user=${encodeURIComponent(username)}" class="block bg-custom-navy p-4 rounded border border-[#2b394a] hover:border-[#00c0FF] transition">
-                            <div class="text-[10px] text-gray-400 mb-1">${m.tournament || ''}</div>
+                            <div class="flex justify-between items-center gap-2 text-[10px] text-gray-400 mb-1">
+                                <span class="truncate">${m.tournament || ''}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-700/60 font-bold shrink-0">${m.formatBadge || 'MATCH'}</span>
+                            </div>
                             <div class="flex justify-between items-center font-bold text-sm mb-2">
                                 <span>${m.teamA} vs ${m.teamB}</span>
                                 <span class="text-red-400 text-[10px] animate-pulse px-2 py-0.5 bg-red-950 rounded border border-red-800">LIVE</span>
@@ -64,7 +67,10 @@ function renderDashboardPage(user, liveMatches = [], upcomingMatches = []) {
                             : `<span class="text-amber-300 text-[10px] px-2 py-0.5 bg-amber-950/60 rounded border border-amber-700/60">UPCOMING</span>`;
 
                         const cardInner = `
-                            <div class="text-[10px] text-gray-400 mb-1">${u.tournament || 'Upcoming'}</div>
+                            <div class="flex justify-between items-center gap-2 text-[10px] text-gray-400 mb-1">
+                                <span class="truncate">${u.tournament || 'Upcoming'}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-700/60 font-bold shrink-0">${u.formatBadge || 'MATCH'}</span>
+                            </div>
                             <div class="flex justify-between items-center font-bold text-sm mb-1.5 gap-2">
                                 <span>${titleText}</span>
                                 ${countdownBadge}
