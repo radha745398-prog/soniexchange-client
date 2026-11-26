@@ -85,6 +85,7 @@ function renderMatchHeader(user, matchData) {
     const matchId = d.id || '';
     const teamA = decodeHtmlEntities(d.teamA || 'Team A');
     const teamB = decodeHtmlEntities(d.teamB || 'Team B');
+    const formatBadge = decodeHtmlEntities(d.formatBadge || 'MATCH');
     const shortA = decodeHtmlEntities(d.shortA || String(teamA).slice(0, 4).toUpperCase());
     const shortB = decodeHtmlEntities(d.shortB || String(teamB).slice(0, 4).toUpperCase());
     const venue = decodeHtmlEntities(d.venue || 'Stadium');
@@ -235,9 +236,12 @@ function renderMatchHeader(user, matchData) {
 
         <div class="bg-[#0b141d] px-3 py-1.5 flex justify-between items-center text-xs font-semibold text-gray-300 border-b border-gray-800">
 
-            <div class="flex items-center space-x-1.5">
+            <div class="flex items-center space-x-2">
                 <span class="text-white font-bold tracking-wide">
                     ${teamA.toUpperCase()} V ${teamB.toUpperCase()}
+                </span>
+                <span class="px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-700/60 text-[10px] font-bold">
+                    ${formatBadge}
                 </span>
             </div>
 
@@ -693,14 +697,19 @@ function renderMatchHeader(user, matchData) {
                 );
             }
 
+            function getISTDateKey(ts) {
+                try {
+                    return new Date(Number(ts)).toLocaleDateString('en-CA', {
+                        timeZone: 'Asia/Kolkata'
+                    });
+                } catch (_) {
+                    const d = new Date(Number(ts));
+                    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+                }
+            }
+
             function isMatchDayAfterMidnight(matchTs, nowTs) {
-                const mDate = new Date(Number(matchTs));
-                const nDate = new Date(Number(nowTs));
-                return (
-                    mDate.getFullYear() === nDate.getFullYear() &&
-                    mDate.getMonth() === nDate.getMonth() &&
-                    mDate.getDate() === nDate.getDate()
-                );
+                return getISTDateKey(matchTs) === getISTDateKey(nowTs);
             }
 
             function updateCountdown() {
@@ -711,14 +720,14 @@ function renderMatchHeader(user, matchData) {
                 }
 
                 const now = Date.now();
-                if (!isMatchDayAfterMidnight(targetTimestamp, now)) {
-                    setBadgeState('UPCOMING', badgeColor.blue, false);
-                    return;
-                }
-
                 const distance = Number(targetTimestamp) - now;
                 if (distance <= 0) {
                     setBadgeState('MATCH STARTING SOON', badgeColor.amber, true);
+                    return;
+                }
+
+                if (!isMatchDayAfterMidnight(targetTimestamp, now) && distance > 24 * 3600 * 1000) {
+                    setBadgeState('UPCOMING', badgeColor.blue, false);
                     return;
                 }
 
