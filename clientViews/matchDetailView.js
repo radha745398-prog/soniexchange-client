@@ -20,6 +20,7 @@ function renderMatchDetailPage(user, matchData) {
     const status = matchData ? String(matchData.status || '') : '';
     const countdownTs = matchData && matchData.countdownTimestamp ? Number(matchData.countdownTimestamp) : 0;
     const tournamentText = matchData ? String(matchData.tournament || '') : '';
+    const formatBadgeText = matchData ? String(matchData.formatBadge || 'MATCH') : 'MATCH';
     const venueText = matchData ? String(matchData.venue || '') : '';
     const dateTimeText = matchData ? String(matchData.dateTime || '') : '';
 
@@ -32,6 +33,7 @@ function renderMatchDetailPage(user, matchData) {
                     <div class="inline-flex items-center space-x-2 text-[11px] font-bold uppercase tracking-wider text-amber-400">
                         <i class="fa-solid fa-hourglass-half"></i>
                         <span>Match Starts Soon • Upcoming</span>
+                        <span class="px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-700/60 text-[10px]">${formatBadgeText}</span>
                     </div>
                     <h2 class="text-base sm:text-lg font-black text-white mt-1">
                         ${teamA} vs ${teamB}
