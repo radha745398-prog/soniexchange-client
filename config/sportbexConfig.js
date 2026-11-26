@@ -1,5 +1,5 @@
 const SPORTBEX_API_KEY =
-  process.env.SPORTBEX_API_KEY || '1CUNYL4AC2aagyJy8eSr250V4OzoxD6i4kMQBBX4';
+  process.env.SPORTBEX_API_KEY || 'VweraocImoSnBFD3hIPylss6EnBjZYNjFe5v8qad';
 
 const SPORTBEX_BASE_URL =
   process.env.SPORTBEX_BASE_URL || 'https://trial-api.sportbex.com';
