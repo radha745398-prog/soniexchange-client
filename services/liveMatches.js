@@ -17,14 +17,88 @@ const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => ({
 }[c]));
 
 function parseTimestamp(value) {
-    if (!value) return null;
-    let ts;
+    if (value === null || value === undefined || value === '') return null;
+
     if (typeof value === 'number') {
-        ts = value < 1000000000000 ? value * 1000 : value;
-    } else {
-        ts = new Date(value).getTime();
+        if (!Number.isFinite(value) || value <= 0) return null;
+        return value < 1000000000000 ? Math.round(value * 1000) : Math.round(value);
     }
+
+    const raw = String(value).trim();
+    if (!raw) return null;
+
+    if (/^\d+(\.\d+)?$/.test(raw)) {
+        const num = Number(raw);
+        if (!Number.isFinite(num) || num <= 0) return null;
+        return num < 1000000000000 ? Math.round(num * 1000) : Math.round(num);
+    }
+
+    const hasExplicitTz = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+    let normalizedStr = raw;
+
+    if (!hasExplicitTz) {
+        if (/^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}(?::\d{2})?$/.test(raw)) {
+            const [dPart, tPart] = raw.split(/\s+/);
+            const [hh, mm, ss = '00'] = tPart.split(':');
+            normalizedStr = `${dPart}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}+05:30`;
+        } else if (/^\d{4}-\d{2}-\d{2}T\d{1,2}:\d{2}(?::\d{2})?$/.test(raw)) {
+            normalizedStr = `${raw}+05:30`;
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+            normalizedStr = `${raw}T00:00:00+05:30`;
+        }
+    }
+
+    const ts = new Date(normalizedStr).getTime();
     return Number.isFinite(ts) ? ts : null;
+}
+
+function formatDateTimeIST(ts) {
+    const num = Number(ts);
+    if (!Number.isFinite(num) || num <= 0) return '';
+    try {
+        return new Date(num).toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    } catch (_) {
+        return new Date(num).toLocaleString('en-IN');
+    }
+}
+
+function detectMatchFormat(source) {
+    const text = String(source || '').toUpperCase();
+    if (/\bTEST\b/.test(text) || /\b5\s*DAY\b/.test(text) || /\bDAY\s*[1-5]\b/.test(text)) {
+        return 'TEST';
+    }
+    if (
+        /\bT20\b/.test(text) ||
+        /\bT20I\b/.test(text) ||
+        /\b20\s*OVER/.test(text) ||
+        /\bBIG BASH\b/.test(text) ||
+        /\bBBL\b/.test(text) ||
+        /\bWBBL\b/.test(text) ||
+        /\bIPL\b/.test(text) ||
+        /\bPSL\b/.test(text) ||
+        /\bSA20\b/.test(text) ||
+        /\bILT20\b/.test(text) ||
+        /\bCPL\b/.test(text)
+    ) {
+        return 'T20';
+    }
+    if (
+        /\bODI\b/.test(text) ||
+        /\bONE\s*DAY\b/.test(text) ||
+        /\b50\s*OVER/.test(text) ||
+        /\bLIST\s*A\b/.test(text)
+    ) {
+        return 'ODI';
+    }
+    return 'MATCH';
 }
 
 // Parses strings like "118/2 (44.1) & 368/10 (121.0)" -> score="118/2 & 368/10", overs="44.1"
@@ -104,17 +178,28 @@ function normalizeLiveMatchCard(m) {
 
     const extraText = `${m.sessionStatus || ''} ${m.result?.message || ''}`;
     const status = getSportBexStatus(m.status, m.isLive, extraText);
-    const startTs = parseTimestamp(m.startDate || m.timestamp);
+    const startTs = parseTimestamp(m.startDate || m.start_date || m.startTime || m.timestamp);
 
     const scoreSummary = [
         p1.score !== '-' ? `${shortA}: ${p1.score}${p1.overs ? ` (${p1.overs})` : ''}` : '',
         p2.score !== '-' ? `${shortB}: ${p2.score}${p2.overs ? ` (${p2.overs})` : ''}` : ''
     ].filter(Boolean).join('  |  ');
 
+    const formatBadge = detectMatchFormat([
+        m.format,
+        m.matchType,
+        m.match_type,
+        m.seriesName,
+        m.name,
+        teamA,
+        teamB
+    ].filter(Boolean).join(' '));
+
     return {
         id: esc(id),
         eventId: esc(m.eventId || ''),
         tournament: esc([m.seriesName, m.name].filter(Boolean).join(' • ')),
+        formatBadge: esc(formatBadge),
         teamA: esc(teamA),
         teamB: esc(teamB),
         shortA: esc(shortA),
@@ -128,8 +213,9 @@ function normalizeLiveMatchCard(m) {
         scoreSummary: esc(scoreSummary),
         status,
         isLive: status === 'LIVE',
-        dateTime: esc(m.sessionStatus || m.status || (startTs ? new Date(startTs).toLocaleString('en-IN') : '')),
+        dateTime: esc(m.sessionStatus || m.status || (startTs ? formatDateTimeIST(startTs) : '')),
         venue: esc(m.ground || ''),
+        startTs,
         countdownTimestamp: status === 'UPCOMING' ? startTs : null
     };
 }
@@ -138,9 +224,10 @@ module.exports = {
     safestr,
     esc,
     parseTimestamp,
+    formatDateTimeIST,
+    detectMatchFormat,
     parseScoreAndOvers,
     getSportBexStatus,
     fetchLiveMatchesRaw,
     normalizeLiveMatchCard
 };
-
