@@ -1,5 +1,5 @@
 const { sbGet, CACHE_TTL } = require('./sportbexClient');
-const { safestr, esc, parseTimestamp, getSportBexStatus } = require('./liveMatches');
+const { safestr, esc, parseTimestamp, formatDateTimeIST, detectMatchFormat, getSportBexStatus } = require('./liveMatches');
 
 function extractMatchesArray(json) {
     if (Array.isArray(json)) return json;
@@ -76,14 +76,30 @@ function normalizeUpcomingMatchCard(m) {
     const shortB = safestr(t2.short_name || t2.shortName, teamB.slice(0, 4).toUpperCase());
 
     const extraText = `${m.sessionStatus || ''} ${m.result?.message || ''}`;
-    const status = resolveUpcomingStatus(m, extraText);
-    const startTs = parseTimestamp(m.startDate || m.timestamp);
+    let status = resolveUpcomingStatus(m, extraText);
+    const startTs = parseTimestamp(m.startDate || m.start_date || m.startTime || m.date || m.timestamp);
+
+    if (status === 'UPCOMING' && startTs && startTs <= Date.now()) {
+        status = 'LIVE';
+    }
+
+    const formatBadge = detectMatchFormat([
+        m.format,
+        m.matchType,
+        m.match_type,
+        m.type,
+        m.seriesName,
+        m.name,
+        teamA,
+        teamB
+    ].filter(Boolean).join(' '));
 
     return {
         id,
         eventId: String(m.eventId || '').trim(),
         seriesId: String(m.seriesId || '').trim(),
         tournament: esc([m.seriesName, m.name].filter(Boolean).join(' • ')),
+        formatBadge: esc(formatBadge),
         teamA: esc(teamA),
         teamB: esc(teamB),
         shortA: esc(shortA),
@@ -97,7 +113,7 @@ function normalizeUpcomingMatchCard(m) {
         scoreSummary: '',
         status,
         isLive: status === 'LIVE',
-        dateTime: esc(startTs ? new Date(startTs).toLocaleString('en-IN') : (m.status || 'Schedule TBA')),
+        dateTime: esc(startTs ? formatDateTimeIST(startTs) : (m.status || 'Schedule TBA')),
         venue: esc(m.ground || ''),
         startTs,
         countdownTimestamp: status === 'UPCOMING' ? startTs : null
