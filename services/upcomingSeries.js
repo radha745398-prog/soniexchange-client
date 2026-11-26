@@ -1,33 +1,24 @@
 const { sbGet, CACHE_TTL } = require('./sportbexClient');
-
-const safestr = (val, fallback = '') => {
-    if (val === null || val === undefined) return fallback;
-    if (typeof val === 'object') {
-        return val.name || val.short_name || val.shortName || val.text || val.score || fallback;
-    }
-    return String(val);
-};
-
-const esc = (s) => String(safestr(s)).replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-}[c]));
-
-function parseTimestamp(value) {
-    if (!value) return null;
-    let ts;
-    if (typeof value === 'number') {
-        ts = value < 1000000000000 ? value * 1000 : value;
-    } else {
-        ts = new Date(value).getTime();
-    }
-    return Number.isFinite(ts) ? ts : null;
-}
+const { safestr, esc, parseTimestamp, formatDateTimeIST, detectMatchFormat } = require('./liveMatches');
 
 function getTodayYMD(date = new Date()) {
+    try {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).formatToParts(date);
+
+        const map = {};
+        parts.forEach(p => {
+            if (p.type !== 'literal') map[p.type] = p.value;
+        });
+        if (map.year && map.month && map.day) {
+            return `${map.year}-${map.month}-${map.day}`;
+        }
+    } catch (_) {}
+
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
@@ -37,7 +28,6 @@ function getTodayYMD(date = new Date()) {
 function extractSeriesArray(json) {
     if (!json || typeof json !== 'object') return Array.isArray(json) ? json : [];
 
-    // Agar SportBex validation error aaya hai (jaise { error: '"t" is not allowed' })
     if (json.error) {
         console.warn('[SB UPCOMING API ERROR]', JSON.stringify(json.error));
         return [];
@@ -96,15 +86,17 @@ function mapUpcomingSeriesItems(seriesList) {
             const startTs = parseTimestamp(s.startDate || s.start_date || s.startTime);
             const endTs = parseTimestamp(s.endDate || s.end_date || s.endTime);
             const seriesName = safestr(s.name || s.seriesName || s.title, 'Upcoming Series');
-            const rawId = String(s._id || s.id || '').trim();
+            const rawId = String(s._id || s.id || s.seriesId || '').trim();
+            const formatBadge = detectMatchFormat(`${seriesName} ${s.format || ''} ${s.matchType || ''}`);
 
             return {
                 id: rawId,
                 title: esc(seriesName),
                 tournament: s.isPopular ? 'Popular Series' : 'Upcoming Series',
+                formatBadge: esc(formatBadge),
                 dateTime: esc(
                     startTs
-                        ? `Starts: ${new Date(startTs).toLocaleDateString('en-IN')}`
+                        ? `Starts: ${formatDateTimeIST(startTs)}`
                         : 'Schedule TBA'
                 ),
                 startTs,
