@@ -25,7 +25,8 @@ const { renderMatchDetailPage } = require('./clientViews/matchDetailView');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const UPCOMING_WINDOW_MS = 24 * 60 * 60 * 1000;
+const UPCOMING_24H_MS = 24 * 60 * 60 * 1000;
+const UPCOMING_30D_MS = 30 * 24 * 60 * 60 * 1000;
 const PAST_GRACE_MS = 15 * 60 * 1000;
 
 function detectMatchFormat(source) {
@@ -77,7 +78,7 @@ function formatDateTimeIST(ts) {
     }
 }
 
-function enrichMatchCard(card, rawSource = null) {
+function enrichMatchCard(card, rawSource = null, now = Date.now()) {
     if (!card || typeof card !== 'object') return card;
 
     const rawStart = parseTimestamp(
@@ -89,10 +90,17 @@ function enrichMatchCard(card, rawSource = null) {
         rawSource?.timestamp
     );
 
-    const statusUpper = String(card.status || '').toUpperCase();
-    const isUpcoming = statusUpper === 'UPCOMING';
     const validTs = rawStart && Number.isFinite(rawStart) && rawStart > 0 ? rawStart : null;
     const istTimeStr = validTs ? formatDateTimeIST(validTs) : '';
+
+    let statusUpper = String(card.status || '').toUpperCase();
+    if (statusUpper === 'UPCOMING' && validTs && validTs <= now) {
+        statusUpper = 'LIVE';
+    }
+
+    const isUpcoming = statusUpper === 'UPCOMING';
+    const diffFromNow = validTs ? validTs - now : null;
+    const within24h = Boolean(isUpcoming && validTs && diffFromNow !== null && diffFromNow <= UPCOMING_24H_MS);
 
     const formatBadge = detectMatchFormat([
         rawSource?.format,
@@ -109,8 +117,11 @@ function enrichMatchCard(card, rawSource = null) {
 
     return {
         ...card,
+        status: statusUpper || card.status,
+        isLive: statusUpper === 'LIVE' || card.isLive === true,
         startTs: validTs,
-        countdownTimestamp: isUpcoming && validTs ? validTs : null,
+        showCountdown: within24h,
+        countdownTimestamp: within24h ? validTs : null,
         dateTime: istTimeStr || card.dateTime || '',
         formatBadge
     };
@@ -133,7 +144,7 @@ function collectSeriesIds(rawUpcomingSeries, rawSeries, limit = 250) {
             let bucket = 2;
             if (startTs && endTs && startTs <= now && now <= endTs) {
                 bucket = 0;
-            } else if (startTs && Math.abs(startTs - now) <= 5 * UPCOMING_WINDOW_MS) {
+            } else if (startTs && startTs >= now - UPCOMING_24H_MS && startTs <= now + UPCOMING_30D_MS) {
                 bucket = 0;
             } else if (startTs) {
                 bucket = 1;
@@ -361,7 +372,7 @@ async function loadMatchData(matchId) {
                     );
                     const hasStarted = startTs && startTs <= Date.now();
                     const resolvedStatus = hasStarted ? 'LIVE' : 'UPCOMING';
-                    const formatBadge = detectMatchFormat([
+                    const formatBadge = upNorm.formatBadge || detectMatchFormat([
                         foundUpcoming?.format,
                         foundUpcoming?.matchType,
                         foundUpcoming?.type,
@@ -553,7 +564,7 @@ app.get('/switch-to-client', (req, res) => {
     );
 });
 
-// DASHBOARD (Live Matches + Upcoming Matches)
+// DASHBOARD (Live Matches + Upcoming Matches within 30 days, 24h countdown active)
 app.get('/dashboard', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
@@ -575,11 +586,15 @@ app.get('/dashboard', async (req, res) => {
             fetchUpcomingSeriesRaw()
         ]);
 
-        liveMatches = (Array.isArray(rawLive) ? rawLive : [])
+        const now = Date.now();
+        const within24hLimit = now + UPCOMING_24H_MS;
+        const within30dLimit = now + UPCOMING_30D_MS;
+
+        const liveFromApi = (Array.isArray(rawLive) ? rawLive : [])
             .filter(m => m && (m._id || m.id || m.matchId))
             .map(m => {
                 const norm = normalizeLiveMatchCard(m);
-                return norm ? enrichMatchCard(norm, m) : null;
+                return norm ? enrichMatchCard(norm, m, now) : null;
             })
             .filter(Boolean);
 
@@ -590,29 +605,59 @@ app.get('/dashboard', async (req, res) => {
         );
 
         const flatSeriesMatches = seriesMatchesArrays.flat();
-        const now = Date.now();
-        const within24hLimit = now + UPCOMING_WINDOW_MS;
-        const liveIds = new Set(liveMatches.map(m => String(m.id)));
-        const seenUpcomingIds = new Set();
 
-        const allUpcomingSorted = flatSeriesMatches
+        // Matches that have started today / already reached start time go into LIVE list
+        const startedFromSeries = flatSeriesMatches
             .filter(m => m && (m._id || m.id || m.matchId))
             .map(m => {
                 const norm = normalizeUpcomingMatchCard(m);
-                return norm ? enrichMatchCard(norm, m) : null;
+                if (!norm) return null;
+                const ts = parseTimestamp(
+                    m?.startDate || m?.start_date || m?.startTime || m?.date || norm.startTs || norm.countdownTimestamp
+                );
+                if (norm.status === 'LIVE' || (ts && ts <= now && ts >= now - 12 * 60 * 60 * 1000)) {
+                    return enrichMatchCard({
+                        ...norm,
+                        status: 'LIVE',
+                        isLive: true,
+                        dateTime: norm.dateTime || 'LIVE'
+                    }, m, now);
+                }
+                return null;
+            })
+            .filter(Boolean);
+
+        const seenLiveIds = new Set();
+        liveMatches = [...liveFromApi, ...startedFromSeries].filter(m => {
+            if (!m || !m.id || seenLiveIds.has(m.id)) return false;
+            seenLiveIds.add(m.id);
+            return true;
+        });
+
+        const seenUpcomingIds = new Set();
+
+        const upcomingWithin30dSorted = flatSeriesMatches
+            .filter(m => m && (m._id || m.id || m.matchId))
+            .map(m => {
+                const norm = normalizeUpcomingMatchCard(m);
+                return norm ? enrichMatchCard(norm, m, now) : null;
             })
             .filter(m => {
                 if (!m || !m.id) return false;
-                if (liveIds.has(m.id) || seenUpcomingIds.has(m.id)) return false;
+                if (seenLiveIds.has(m.id) || seenUpcomingIds.has(m.id)) return false;
                 if (m.status !== 'UPCOMING') return false;
-                const ts = Number(m.startTs || m.countdownTimestamp || 0);
-                if (ts && ts <= now - PAST_GRACE_MS) return false;
+
+                const ts = Number(m.startTs || 0);
+                if (!ts) return false;
+                if (ts <= now - PAST_GRACE_MS) return false;
+                if (ts > within30dLimit) return false;
+
                 seenUpcomingIds.add(m.id);
                 return true;
             })
             .sort((a, b) => {
-                const tsA = Number(a.startTs || a.countdownTimestamp || Number.MAX_SAFE_INTEGER);
-                const tsB = Number(b.startTs || b.countdownTimestamp || Number.MAX_SAFE_INTEGER);
+                const tsA = Number(a.startTs || Number.MAX_SAFE_INTEGER);
+                const tsB = Number(b.startTs || Number.MAX_SAFE_INTEGER);
 
                 const aIn24h = tsA <= within24hLimit ? 0 : 1;
                 const bIn24h = tsB <= within24hLimit ? 0 : 1;
@@ -621,28 +666,15 @@ app.get('/dashboard', async (req, res) => {
                 return tsA - tsB;
             });
 
-        const next24hMatches = allUpcomingSorted.filter(m => {
-            const ts = Number(m.startTs || m.countdownTimestamp || 0);
-            return ts > now - PAST_GRACE_MS && ts <= within24hLimit;
-        });
-
-        const mappedUpcoming = mapUpcomingSeriesItems(rawUpcomingSeries).map(item =>
-            enrichMatchCard(item, null)
-        );
-
-        upcomingItems = next24hMatches.length > 0
-            ? next24hMatches
-            : (allUpcomingSorted.length > 0
-                ? allUpcomingSorted
-                : (mappedUpcoming.length > 0 ? mappedUpcoming : mapUpcomingSeriesItems(rawSeries).map(item => enrichMatchCard(item, null))));
+        const next24hCount = upcomingWithin30dSorted.filter(m => m.showCountdown).length;
+        upcomingItems = upcomingWithin30dSorted;
 
         console.log('[SB UPCOMING]', JSON.stringify({
             rawUpcomingCount: Array.isArray(rawUpcomingSeries) ? rawUpcomingSeries.length : 0,
             rawSeriesCount: Array.isArray(rawSeries) ? rawSeries.length : 0,
             liveCount: liveMatches.length,
-            next24hCount: next24hMatches.length,
-            totalUpcomingMatchesCount: allUpcomingSorted.length,
-            upcomingItemsCount: upcomingItems.length
+            next24hCount,
+            upcoming30dCount: upcomingItems.length
         }));
     } catch (err) {
         console.error('Dashboard Error:', err.message);
