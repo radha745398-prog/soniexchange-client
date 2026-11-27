@@ -9,10 +9,82 @@ const { renderFancyMarkets } = require('./clientViews/components/fancyMarkets');
 const { renderSecondInnings } = require('./clientViews/components/secondInnings');
 const { renderFooter } = require('./clientViews/components/footer');
 
+function extractMarketPayloads(matchData) {
+    const safeMatch = matchData && typeof matchData === 'object' ? matchData : {};
+
+    const v3List = Array.isArray(safeMatch.allOdds)
+        ? safeMatch.allOdds
+        : Array.isArray(safeMatch.oddsV3)
+            ? safeMatch.oddsV3
+            : Array.isArray(safeMatch.markets)
+                ? safeMatch.markets
+                : Array.isArray(safeMatch.data)
+                    ? safeMatch.data
+                    : null;
+
+    const matchOddsPayload = safeMatch.matchOddsData || safeMatch.oddsData || safeMatch.marketBook || (
+        v3List
+            ? {
+                data: v3List,
+                teamA: safeMatch.teamA,
+                teamB: safeMatch.teamB,
+                runnersMap: safeMatch.runnersMap,
+                catalogueRunners: safeMatch.catalogueRunners,
+                min: safeMatch.min,
+                max: safeMatch.max
+            }
+            : safeMatch
+    );
+
+    const bookmakerPayload = safeMatch.bookmakerData || (
+        Array.isArray(safeMatch.bookmaker)
+            ? {
+                bookmaker: safeMatch.bookmaker,
+                status: safeMatch.bookmakerStatus || safeMatch.status,
+                min: safeMatch.bookmakerMin || safeMatch.min,
+                max: safeMatch.bookmakerMax || safeMatch.max,
+                teamA: safeMatch.teamA
+            }
+            : v3List
+                ? { data: v3List, teamA: safeMatch.teamA, status: safeMatch.status }
+                : safeMatch
+    );
+
+    const fancySourceArray = Array.isArray(safeMatch.fancy)
+        ? safeMatch.fancy
+        : Array.isArray(safeMatch.fancyMarkets)
+            ? safeMatch.fancyMarkets
+            : Array.isArray(safeMatch.fancyData)
+                ? safeMatch.fancyData
+                : null;
+
+    const normalPayload = safeMatch.normalData || (
+        v3List
+            ? { data: v3List, fancy: fancySourceArray || [] }
+            : fancySourceArray
+                ? { fancy: fancySourceArray }
+                : safeMatch
+    );
+
+    const fancyPayload = safeMatch.fancyMarketsData || (
+        v3List || fancySourceArray
+            ? { data: v3List || [], fancy: fancySourceArray || [] }
+            : safeMatch
+    );
+
+    return {
+        matchOddsPayload,
+        bookmakerPayload,
+        normalPayload,
+        fancyPayload
+    };
+}
+
 function renderMatchDetailPage(user, matchData) {
-    const username = user.username || 'Client';
-    const balance = Number(user.points || 0);
-    const exposure = Number(user.exposure || 0);
+    const safeUser = user && typeof user === 'object' ? user : {};
+    const username = safeUser.username || 'Client';
+    const balance = Number(safeUser.points || 0);
+    const exposure = Number(safeUser.exposure || 0);
 
     const teamA = matchData ? matchData.teamA : 'Pakistan';
     const teamB = matchData ? matchData.teamB : 'Sri Lanka';
@@ -23,6 +95,13 @@ function renderMatchDetailPage(user, matchData) {
     const formatBadgeText = matchData ? String(matchData.formatBadge || 'MATCH') : 'MATCH';
     const venueText = matchData ? String(matchData.venue || '') : '';
     const dateTimeText = matchData ? String(matchData.dateTime || '') : '';
+
+    const {
+        matchOddsPayload,
+        bookmakerPayload,
+        normalPayload,
+        fancyPayload
+    } = extractMarketPayloads(matchData);
 
     const isUpcomingCountdown = status === 'UPCOMING' && countdownTs > 0;
     const upcomingBannerHTML = isUpcomingCountdown ? `
@@ -168,7 +247,7 @@ function renderMatchDetailPage(user, matchData) {
     <body class="min-h-screen flex flex-col text-xs sm:text-sm relative">
 
         <!-- 1. MATCH HEADER & LIVE SCOREBOARD -->
-        ${renderMatchHeader(user, matchData)}
+        ${renderMatchHeader(safeUser, matchData)}
 
         <!-- MAIN CONTENT MARKETS -->
         <main class="flex-1 p-2 sm:p-3 space-y-3 max-w-7xl mx-auto w-full">
@@ -194,22 +273,34 @@ function renderMatchDetailPage(user, matchData) {
             </section>
 
             <!-- 2. MATCH ODDS -->
-            ${renderMatchOdds(matchData)}
+            <section id="section-match-odds">
+                ${renderMatchOdds(matchOddsPayload)}
+            </section>
 
             <!-- 3. BOOKMAKER -->
-            ${renderBookmaker(matchData)}
+            <section id="section-bookmaker">
+                ${renderBookmaker(bookmakerPayload)}
+            </section>
 
             <!-- 4. NORMAL MARKETS -->
-            ${renderNormalMarkets()}
+            <section id="section-normal-markets">
+                ${renderNormalMarkets(normalPayload)}
+            </section>
 
             <!-- 5. OVER BY OVER -->
-            ${renderOverByOver()}
+            <section id="section-over-by-over">
+                ${renderOverByOver(matchData)}
+            </section>
 
             <!-- 6. FANCY1, ODD-EVEN & METER -->
-            ${renderFancyMarkets()}
+            <section id="section-fancy-markets">
+                ${renderFancyMarkets(fancyPayload)}
+            </section>
 
             <!-- 7. 2ND INN OVERS -->
-            ${renderSecondInnings()}
+            <section id="section-second-innings">
+                ${renderSecondInnings(matchData)}
+            </section>
 
         </main>
 
