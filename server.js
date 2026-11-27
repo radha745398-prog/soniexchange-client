@@ -1,4 +1,4 @@
-// server.js - SportBex Live Matches, Upcoming Series & Ball-by-Ball Commentary
+// server.js - SportBex Live Matches, Upcoming Series, Ball-by-Ball Commentary & Markets
 
 const express = require('express');
 const path = require('path');
@@ -244,6 +244,64 @@ async function fetchCommentaryRaw(matchId) {
     return null;
 }
 
+// Fetch Live Markets (All Odds V3 / Fancy / Bookmaker) safely by eventId or matchId
+async function fetchMatchMarketsRaw(eventId, matchId) {
+    const targetIds = Array.from(new Set(
+        [eventId, matchId]
+            .map((v) => String(v || '').trim())
+            .filter(Boolean)
+    ));
+
+    for (const id of targetIds) {
+        const encId = encodeURIComponent(id);
+        const candidatePaths = [
+            `/api/odds/all-odds/${encId}`,
+            `/api/odds/v3/${encId}`,
+            `/api/markets/odds/${encId}`,
+            `/api/match/${encId}/odds`
+        ];
+
+        for (const reqPath of candidatePaths) {
+            try {
+                const res = await sbGet(reqPath, CACHE_TTL.LIVE_MS);
+                if (!res || res.error) continue;
+
+                const payload = res?.data && typeof res.data === 'object' ? res.data : res;
+                const list = Array.isArray(payload)
+                    ? payload
+                    : Array.isArray(payload?.data)
+                        ? payload.data
+                        : null;
+                const fancyArr = Array.isArray(payload?.fancy) ? payload.fancy : null;
+                const bookmakerArr = Array.isArray(payload?.bookmaker) ? payload.bookmaker : null;
+
+                if (
+                    (list && list.length > 0) ||
+                    (fancyArr && fancyArr.length > 0) ||
+                    (bookmakerArr && bookmakerArr.length > 0) ||
+                    (payload && typeof payload === 'object' && Object.keys(payload).length > 0)
+                ) {
+                    return {
+                        allOdds: list || [],
+                        oddsData: payload,
+                        bookmaker: bookmakerArr || [],
+                        fancy: fancyArr || []
+                    };
+                }
+            } catch (_) {
+                // Ignore unsupported endpoint path on trial API
+            }
+        }
+    }
+
+    return {
+        allOdds: [],
+        oddsData: null,
+        bookmaker: [],
+        fancy: []
+    };
+}
+
 function normalizeBallSymbol(rawVal) {
     const s = String(rawVal ?? '').trim().toUpperCase();
     if (!s || s === '0' || s === 'DOT' || s === '.') return 'DOT';
@@ -383,6 +441,8 @@ async function loadMatchData(matchId) {
                         upNorm.teamB
                     ].filter(Boolean).join(' '));
 
+                    const marketBundle = await fetchMatchMarketsRaw(upNorm.eventId, cleanId);
+
                     return {
                         id: esc(cleanId),
                         eventId: esc(upNorm.eventId || ''),
@@ -413,7 +473,11 @@ async function loadMatchData(matchId) {
                         countdownTimestamp: resolvedStatus === 'UPCOMING' ? startTs : null,
                         breakTimerMode: null,
                         breakEndTimestamp: null,
-                        breakStartTimestamp: null
+                        breakStartTimestamp: null,
+                        allOdds: marketBundle.allOdds,
+                        oddsData: marketBundle.oddsData,
+                        bookmaker: marketBundle.bookmaker,
+                        fancy: marketBundle.fancy
                     };
                 }
             }
@@ -511,6 +575,8 @@ async function loadMatchData(matchId) {
         teamBName
     ].filter(Boolean).join(' '));
 
+    const marketBundle = await fetchMatchMarketsRaw(rawLiveMatch?.eventId, cleanId);
+
     return {
         id: esc(cleanId),
         eventId: esc(rawLiveMatch?.eventId || ''),
@@ -546,7 +612,11 @@ async function loadMatchData(matchId) {
         countdownTimestamp: status === 'UPCOMING' ? startTs : null,
         breakTimerMode: breakInfo.breakTimerMode,
         breakEndTimestamp: breakInfo.breakEndTimestamp,
-        breakStartTimestamp: breakInfo.breakStartTimestamp
+        breakStartTimestamp: breakInfo.breakStartTimestamp,
+        allOdds: marketBundle.allOdds,
+        oddsData: marketBundle.oddsData,
+        bookmaker: marketBundle.bookmaker,
+        fancy: marketBundle.fancy
     };
 }
 
@@ -606,7 +676,6 @@ app.get('/dashboard', async (req, res) => {
 
         const flatSeriesMatches = seriesMatchesArrays.flat();
 
-        // Matches that have started today / already reached start time go into LIVE list
         const startedFromSeries = flatSeriesMatches
             .filter(m => m && (m._id || m.id || m.matchId))
             .map(m => {
@@ -732,7 +801,13 @@ app.get('/api/match/:id', async (req, res) => {
         }
         return res.json({
             success: true,
-            match
+            match,
+            markets: {
+                allOdds: match.allOdds || [],
+                oddsData: match.oddsData || null,
+                bookmaker: match.bookmaker || [],
+                fancy: match.fancy || []
+            }
         });
     } catch (err) {
         console.error('Live Match API Error:', err.message);
@@ -785,7 +860,11 @@ app.get('/match/:id', async (req, res) => {
         countdownTimestamp: null,
         breakTimerMode: null,
         breakEndTimestamp: null,
-        breakStartTimestamp: null
+        breakStartTimestamp: null,
+        allOdds: [],
+        oddsData: null,
+        bookmaker: [],
+        fancy: []
     };
 
     try {
