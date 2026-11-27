@@ -59,9 +59,10 @@ function renderDashboardPage(user, liveMatches = [], upcomingMatches = []) {
                     ${upcomingMatches.map(u => {
                         const isMatchCard = Boolean(u.teamA && u.teamB && u.id);
                         const titleText = u.title || `${u.teamA || ''} vs ${u.teamB || ''}`;
-                        const countdownBadge = u.countdownTimestamp
+                        const shouldShowTimer = Boolean(u.showCountdown && u.countdownTimestamp);
+                        const statusOrTimerBadge = shouldShowTimer
                             ? `<span class="text-emerald-300 font-mono font-bold text-[11px] px-2 py-0.5 bg-emerald-950/70 rounded border border-emerald-700/60" data-countdown="${Number(u.countdownTimestamp)}">--:--:--</span>`
-                            : `<span class="text-amber-300 text-[10px] px-2 py-0.5 bg-amber-950/60 rounded border border-amber-700/60">UPCOMING</span>`;
+                            : `<span class="text-amber-300 text-[10px] font-bold px-2 py-0.5 bg-amber-950/60 rounded border border-amber-700/60">UPCOMING</span>`;
 
                         const cardInner = `
                             <div class="flex justify-between items-center gap-2 text-[10px] text-gray-400 mb-1">
@@ -70,7 +71,7 @@ function renderDashboardPage(user, liveMatches = [], upcomingMatches = []) {
                             </div>
                             <div class="flex justify-between items-center font-bold text-sm mb-1.5 gap-2">
                                 <span>${titleText}</span>
-                                ${countdownBadge}
+                                ${statusOrTimerBadge}
                             </div>
                             ${u.venue ? `<div class="text-[10px] text-gray-400 mb-1"><i class="fa-solid fa-location-dot mr-1 text-amber-400/80"></i>${u.venue}</div>` : ''}
                             <div class="text-[11px] text-gray-300 flex justify-between items-center">
